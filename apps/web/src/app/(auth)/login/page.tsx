@@ -66,7 +66,7 @@ export default function LoginPage() {
                   type="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
                   className="rounded-xl bg-accent/30 border-border/50 focus:border-primary/40 focus:ring-primary/20 transition-smooth"
                 />
@@ -79,7 +79,7 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     required
                     className="rounded-xl bg-accent/30 border-border/50 focus:border-primary/40 focus:ring-primary/20 transition-smooth pr-10"
                   />

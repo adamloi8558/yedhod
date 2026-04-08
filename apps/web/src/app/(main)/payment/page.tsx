@@ -182,7 +182,7 @@ export default function PaymentPage() {
               <Input
                 id="bankNumber"
                 value={bankNumber}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setBankNumber(e.target.value.replace(/\D/g, ""))
                 }
                 placeholder="กรอกเลขบัญชี"

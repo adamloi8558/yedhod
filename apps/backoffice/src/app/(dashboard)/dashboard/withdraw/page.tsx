@@ -91,7 +91,7 @@ export default function WithdrawPage() {
                   type="number"
                   step="0.01"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
                   placeholder="0.00"
                   required
                   className="bg-input/50 pr-12 tabular-nums transition-colors focus:bg-input"
@@ -104,7 +104,7 @@ export default function WithdrawPage() {
               <Label className="text-xs font-medium text-muted-foreground">เลขบัญชีธนาคาร</Label>
               <Input
                 value={bankNumber}
-                onChange={(e) => setBankNumber(e.target.value.replace(/\D/g, ""))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBankNumber(e.target.value.replace(/\D/g, ""))}
                 placeholder="กรอกเลขบัญชี"
                 required
                 className="bg-input/50 tabular-nums tracking-wider transition-colors focus:bg-input"

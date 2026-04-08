@@ -82,19 +82,19 @@ export default function ConfigPage() {
             <Input
               placeholder="Key"
               value={newKey}
-              onChange={(e) => setNewKey(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewKey(e.target.value)}
               className="w-full bg-input/50 font-mono text-sm transition-colors focus:bg-input sm:w-40"
             />
             <Input
               placeholder="Value (JSON)"
               value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewValue(e.target.value)}
               className="flex-1 bg-input/50 font-mono text-sm transition-colors focus:bg-input"
             />
             <Input
               placeholder="คำอธิบาย"
               value={newDesc}
-              onChange={(e) => setNewDesc(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewDesc(e.target.value)}
               className="w-full bg-input/50 transition-colors focus:bg-input sm:w-48"
             />
             <Button onClick={addNew} className="gap-1.5 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20">

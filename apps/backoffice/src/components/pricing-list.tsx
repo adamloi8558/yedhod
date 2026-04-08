@@ -210,7 +210,7 @@ export function PricingList({
                 <Label className="text-xs font-medium text-muted-foreground">ชื่อ</Label>
                 <Input
                   value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
                   className="bg-input/50 transition-colors focus:bg-input"
                 />
               </div>
@@ -218,7 +218,7 @@ export function PricingList({
                 <Label className="text-xs font-medium text-muted-foreground">Slug</Label>
                 <Input
                   value={form.slug}
-                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, slug: e.target.value })}
                   className="bg-input/50 font-mono text-sm transition-colors focus:bg-input"
                 />
               </div>
@@ -228,7 +228,7 @@ export function PricingList({
                 <Label className="text-xs font-medium text-muted-foreground">ราคา (บาท)</Label>
                 <Input
                   value={form.priceThb}
-                  onChange={(e) => setForm({ ...form, priceThb: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, priceThb: e.target.value })}
                   className="bg-input/50 tabular-nums transition-colors focus:bg-input"
                 />
               </div>
@@ -237,7 +237,7 @@ export function PricingList({
                 <Input
                   type="number"
                   value={form.durationDays}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setForm({ ...form, durationDays: parseInt(e.target.value) || 0 })
                   }
                   className="bg-input/50 tabular-nums transition-colors focus:bg-input"
@@ -248,7 +248,7 @@ export function PricingList({
                 <Input
                   type="number"
                   value={form.maxDevices}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setForm({ ...form, maxDevices: parseInt(e.target.value) || 1 })
                   }
                   className="bg-input/50 tabular-nums transition-colors focus:bg-input"
@@ -259,7 +259,7 @@ export function PricingList({
               <input
                 type="checkbox"
                 checked={form.isActive}
-                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isActive: e.target.checked })}
                 id="planActive"
                 className="h-4 w-4 rounded border-border accent-primary"
               />

@@ -183,7 +183,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               <Label className="text-xs font-medium text-muted-foreground">ชื่อ</Label>
               <Input
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
                 className="bg-input/50 transition-colors focus:bg-input"
               />
             </div>
@@ -191,7 +191,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               <Label className="text-xs font-medium text-muted-foreground">Slug</Label>
               <Input
                 value={form.slug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, slug: e.target.value })}
                 className="bg-input/50 font-mono text-sm transition-colors focus:bg-input"
               />
             </div>
@@ -199,7 +199,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               <Label className="text-xs font-medium text-muted-foreground">คำอธิบาย</Label>
               <Input
                 value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, description: e.target.value })}
                 className="bg-input/50 transition-colors focus:bg-input"
               />
             </div>
@@ -236,7 +236,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               <Input
                 type="number"
                 value={form.sortOrder}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })
                 }
                 className="w-24 bg-input/50 tabular-nums transition-colors focus:bg-input"
@@ -246,7 +246,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               <input
                 type="checkbox"
                 checked={form.isActive}
-                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isActive: e.target.checked })}
                 id="isActive"
                 className="h-4 w-4 rounded border-border accent-primary"
               />

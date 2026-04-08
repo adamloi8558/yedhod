@@ -225,7 +225,7 @@ export function ClipList({
               <Label className="text-xs font-medium text-muted-foreground">ชื่อคลิป</Label>
               <Input
                 value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, title: e.target.value })}
                 className="bg-input/50 transition-colors focus:bg-input"
               />
             </div>
@@ -269,7 +269,7 @@ export function ClipList({
               <div className="flex gap-2">
                 <Input
                   value={form.r2Key}
-                  onChange={(e) => setForm({ ...form, r2Key: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, r2Key: e.target.value })}
                   placeholder="R2 key"
                   className="flex-1 bg-input/50 font-mono text-xs transition-colors focus:bg-input"
                 />
@@ -298,7 +298,7 @@ export function ClipList({
                 <Input
                   type="number"
                   value={form.duration}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setForm({ ...form, duration: parseFloat(e.target.value) || 0 })
                   }
                   className="bg-input/50 tabular-nums transition-colors focus:bg-input"
@@ -309,7 +309,7 @@ export function ClipList({
                 <Input
                   type="number"
                   value={form.sortOrder}
-                  onChange={(e) =>
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })
                   }
                   className="bg-input/50 tabular-nums transition-colors focus:bg-input"
@@ -320,7 +320,7 @@ export function ClipList({
               <input
                 type="checkbox"
                 checked={form.isActive}
-                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isActive: e.target.checked })}
                 id="clipActive"
                 className="h-4 w-4 rounded border-border accent-primary"
               />

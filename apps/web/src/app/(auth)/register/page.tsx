@@ -69,7 +69,7 @@ export default function RegisterPage() {
                   type="email"
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
                   className="rounded-xl bg-accent/30 border-border/50 focus:border-primary/40 focus:ring-primary/20 transition-smooth"
                 />
@@ -82,7 +82,7 @@ export default function RegisterPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="อย่างน้อย 8 ตัวอักษร"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     required
                     minLength={8}
                     className="rounded-xl bg-accent/30 border-border/50 focus:border-primary/40 focus:ring-primary/20 transition-smooth pr-10"

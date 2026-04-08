@@ -62,7 +62,7 @@ export default function AdminLoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   required
                   className="h-10 bg-input/50 transition-colors focus:bg-input"
                   placeholder="admin@kodhom.com"
@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                     required
                     className="h-10 bg-input/50 transition-colors focus:bg-input pr-10"
                     placeholder="••••••••"

@@ -73,7 +73,7 @@ export function Header({ session }: HeaderProps) {
             placeholder="ค้นหาคลิป..."
             className="pl-9 bg-accent/50 border-border/50 focus:bg-accent focus:border-primary/40 focus:ring-primary/20 transition-smooth rounded-xl"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
           />
         </form>
 
