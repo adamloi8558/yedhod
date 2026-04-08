@@ -50,7 +50,6 @@ export default async function ClipPage({
 
       <div className="mt-5 space-y-3 animate-slide-up">
         <div className="flex items-start gap-3">
-          <h1 className="text-xl font-bold leading-tight">{clip.title}</h1>
           {isVip && (
             <Badge variant="vip" className="gap-1 flex-shrink-0 mt-0.5 animate-pulse-glow">
               <Crown className="h-3 w-3" />

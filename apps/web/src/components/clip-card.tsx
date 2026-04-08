@@ -32,7 +32,7 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess }: ClipCardProps) {
         {thumbnailUrl ? (
           <img
             src={thumbnailUrl}
-            alt={clip.title}
+            alt=""
             className="h-full w-full object-cover transition-smooth group-hover:scale-105"
           />
         ) : (
@@ -56,11 +56,11 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess }: ClipCardProps) {
             {formatDuration(clip.duration)}
           </span>
         )}
-        {/* Restricted overlay */}
-        {!hasAccess && (
+        {/* Restricted overlay - only blur VIP clips for non-VIP users */}
+        {!hasAccess && isVip && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[2px]">
             <Lock className="mb-1 h-5 w-5 text-white/80" />
-            <span className="text-[10px] font-medium text-white/70">จำกัดการเข้าถึง</span>
+            <span className="text-[10px] font-medium text-white/70">VIP</span>
           </div>
         )}
       </div>
@@ -69,9 +69,6 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess }: ClipCardProps) {
       <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="line-clamp-2 text-sm font-medium leading-snug group-hover:text-primary transition-smooth">
-              {clip.title}
-            </h3>
             {isVip && (
               <Badge variant="vip" className="flex-shrink-0 gap-1 animate-pulse-glow">
                 <Crown className="h-3 w-3" />
@@ -79,11 +76,6 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess }: ClipCardProps) {
               </Badge>
             )}
           </div>
-          {clip.description && (
-            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-              {clip.description}
-            </p>
-          )}
         </div>
         <time className="text-[11px] text-muted-foreground/70">
           {formatThaiDate(new Date(clip.createdAt))}
