@@ -127,7 +127,7 @@ export default function ConfigPage() {
                       : JSON.stringify(config.value)
                   }
                   className="flex-1 bg-input/50 font-mono text-sm transition-colors focus:bg-input"
-                  onBlur={(e) => updateConfig(config, e.target.value)}
+                  onBlur={(e: React.FocusEvent<HTMLInputElement>) => updateConfig(config, e.target.value)}
                 />
               </CardContent>
             </Card>
