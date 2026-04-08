@@ -28,6 +28,7 @@ export const auth = betterAuth({
         type: "string",
         defaultValue: "member",
         input: false,
+        returned: true,
       },
     },
   },
