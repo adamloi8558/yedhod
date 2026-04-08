@@ -54,6 +54,23 @@ export async function deleteObject(key: string) {
   return client.send(command);
 }
 
+export async function uploadBuffer(
+  key: string,
+  body: Buffer,
+  contentType: string,
+  contentLength?: number
+) {
+  const client = getR2Client();
+  const command = new PutObjectCommand({
+    Bucket: bucket(),
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+    ...(contentLength ? { ContentLength: contentLength } : {}),
+  });
+  return client.send(command);
+}
+
 export function getPublicUrl(key: string) {
   return `${process.env.R2_PUBLIC_URL}/${key}`;
 }

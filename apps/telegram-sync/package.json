@@ -1,0 +1,24 @@
+{
+  "name": "@kodhom/telegram-sync",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "auth": "tsx src/scripts/auth.ts"
+  },
+  "dependencies": {
+    "telegram": "^2.26.0",
+    "input": "^1.0.1",
+    "@kodhom/db": "workspace:*",
+    "@kodhom/r2": "workspace:*",
+    "drizzle-orm": "^0.39.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}

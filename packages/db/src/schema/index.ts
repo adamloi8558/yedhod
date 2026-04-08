@@ -7,4 +7,5 @@ export * from "./subscriptions";
 export * from "./payments";
 export * from "./system-config";
 export * from "./withdrawals";
+export * from "./telegram-sync";
 export * from "./relations";
