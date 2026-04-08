@@ -54,7 +54,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/apps/backoffice/public ./public
+COPY --from=builder /app/apps/backoffice/public ./apps/backoffice/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backoffice/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/backoffice/.next/static ./apps/backoffice/.next/static
 
