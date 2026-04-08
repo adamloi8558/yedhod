@@ -5,7 +5,7 @@ import { HeaderWrapper } from "@/components/header-wrapper";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "โคตรหอม.com",
+  title: "เย็ดโหด.com",
   description: "ดูคลิปวิดีโอคุณภาพ",
   icons: {
     icon: [

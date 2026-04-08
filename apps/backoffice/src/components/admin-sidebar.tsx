@@ -47,7 +47,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
   const sidebarContent = (
     <aside className="flex h-full w-[260px] flex-shrink-0 flex-col border-r border-border/60 bg-card">
       <div className="flex h-14 items-center justify-between gap-2.5 border-b border-border/60 px-5">
-        <img src="/logo.png" alt="โคตรหอม.com" className="h-8 w-auto" />
+        <img src="/logo.png" alt="เย็ดโหด.com" className="h-8 w-auto" />
         <button onClick={close} className="lg:hidden rounded-md p-1.5 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-colors">
           <X className="h-5 w-5" />
         </button>

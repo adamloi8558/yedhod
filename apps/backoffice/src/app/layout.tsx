@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "โคตรหอม Backoffice",
-  description: "ระบบจัดการหลังบ้าน โคตรหอม.com",
+  title: "เย็ดโหด Backoffice",
+  description: "ระบบจัดการหลังบ้าน เย็ดโหด.com",
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",

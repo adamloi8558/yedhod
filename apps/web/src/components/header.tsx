@@ -64,7 +64,7 @@ export function Header({ session }: HeaderProps) {
         )}
 
         <Link href="/" className="flex-shrink-0">
-          <img src="/logo.png" alt="โคตรหอม.com" className="h-8 w-auto sm:h-9" />
+          <img src="/logo.png" alt="เย็ดโหด.com" className="h-8 w-auto sm:h-9" />
         </Link>
 
         <form onSubmit={handleSearch} className="relative ml-2 hidden flex-1 max-w-md md:block">

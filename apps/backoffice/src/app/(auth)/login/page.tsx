@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-6">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="mb-6 text-center">
-          <img src="/logo.png" alt="โคตรหอม.com" className="mx-auto h-14 w-auto" />
+          <img src="/logo.png" alt="เย็ดโหด.com" className="mx-auto h-14 w-auto" />
           <p className="mt-2 text-xs text-muted-foreground">Backoffice</p>
         </div>
 
