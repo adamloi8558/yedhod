@@ -1,0 +1,35 @@
+{
+  "name": "@kodhom/backoffice",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@kodhom/db": "workspace:*",
+    "@kodhom/auth": "workspace:*",
+    "@kodhom/r2": "workspace:*",
+    "@kodhom/ui": "workspace:*",
+    "@kodhom/validators": "workspace:*",
+    "@kodhom/config": "workspace:*",
+    "better-auth": "^1.2.0",
+    "drizzle-orm": "^0.39.0",
+    "zod": "^3.24.0",
+    "lucide-react": "^0.460.0",
+    "next-themes": "^0.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "tailwindcss": "^4.0.0"
+  }
+}

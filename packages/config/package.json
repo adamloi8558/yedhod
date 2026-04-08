@@ -1,0 +1,15 @@
+{
+  "name": "@kodhom/config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./eslint": "./eslint.mjs",
+    "./typescript/base": "./typescript/base.json",
+    "./typescript/nextjs": "./typescript/nextjs.json"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.7.0"
+  }
+}
