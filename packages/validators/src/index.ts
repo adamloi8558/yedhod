@@ -17,8 +17,7 @@ export const categorySchema = z.object({
   name: z.string().min(1, "กรุณากรอกชื่อหมวดหมู่"),
   slug: z
     .string()
-    .min(1)
-    .regex(/^[a-z0-9-]+$/, "slug ต้องเป็นตัวอักษรภาษาอังกฤษพิมพ์เล็ก ตัวเลข และ -"),
+    .min(1),
   description: z.string().optional(),
   coverImage: z.string().optional(),
   sortOrder: z.number().int().default(0),
