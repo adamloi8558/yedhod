@@ -98,7 +98,7 @@ export default async function SearchPage({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {clipsWithAccess.map(({ clip, thumbnailUrl, hasAccess }) => (
+          {clipsWithAccess.map(({ clip, thumbnailUrl, hasAccess }: typeof clipsWithAccess[number]) => (
             <ClipCard
               key={clip.id}
               clip={clip}

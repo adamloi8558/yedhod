@@ -16,9 +16,9 @@ export default async function PricingPage() {
     .where(eq(pricingPlans.isActive, true))
     .orderBy(asc(pricingPlans.sortOrder));
 
-  const plansByCategory = allCategories.map((cat) => ({
+  const plansByCategory = allCategories.map((cat: typeof allCategories[number]) => ({
     category: cat,
-    plans: allPlans.filter((p) => p.categoryId === cat.id),
+    plans: allPlans.filter((p: typeof allPlans[number]) => p.categoryId === cat.id),
   }));
 
   return (
@@ -30,7 +30,7 @@ export default async function PricingPage() {
         </p>
       </div>
 
-      {plansByCategory.map(({ category, plans }) => (
+      {plansByCategory.map(({ category, plans }: typeof plansByCategory[number]) => (
         <div key={category.id} className="mb-12">
           <div className="flex items-center gap-3 mb-6">
             <h2 className="text-xl font-semibold">{category.name}</h2>
@@ -40,7 +40,7 @@ export default async function PricingPage() {
             <p className="text-sm text-muted-foreground py-4 text-center">ยังไม่มีแพ็กเกจ</p>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan, index) => (
+              {plans.map((plan: typeof allPlans[number], index: number) => (
                 <PricingCard
                   key={plan.id}
                   plan={plan}

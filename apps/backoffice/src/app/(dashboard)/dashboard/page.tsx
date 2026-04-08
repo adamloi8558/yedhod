@@ -27,7 +27,7 @@ export default async function DashboardPage() {
         <p className="mt-1 text-sm text-muted-foreground">ศูนย์ควบคุมระบบ</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, i) => {
+        {stats.map((stat: typeof stats[number], i: number) => {
           const Icon = stat.icon;
           return (
             <Card key={stat.label} className="stat-card border-border/50 bg-card/80" style={{ animationDelay: `${i * 80}ms` }}>

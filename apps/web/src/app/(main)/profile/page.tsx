@@ -71,7 +71,7 @@ export default async function ProfilePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {userSubs.map((sub) => (
+              {userSubs.map((sub: typeof userSubs[number]) => (
                 <div
                   key={sub.id}
                   className={`flex items-center justify-between rounded-xl border p-4 transition-smooth hover:bg-accent/30 ${sub.status === "active" ? "border-primary/20" : "border-border/50"}`}

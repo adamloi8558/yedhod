@@ -81,7 +81,7 @@ export default async function PaymentsPage() {
               </tr>
             </thead>
             <tbody>
-              {allPayments.map((p) => (
+              {allPayments.map((p: typeof allPayments[number]) => (
                 <tr key={p.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
                   <td className="px-4 py-3">
                     <div>
