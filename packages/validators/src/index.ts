@@ -18,8 +18,8 @@ export const categorySchema = z.object({
   slug: z
     .string()
     .min(1),
-  description: z.string().optional(),
-  coverImage: z.string().optional(),
+  description: z.string().nullable().optional(),
+  coverImage: z.string().nullable().optional(),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
