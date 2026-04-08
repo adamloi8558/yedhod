@@ -20,14 +20,9 @@ export function getMediaInfo(message: Api.Message): {
 } | null {
   if (!message.media) return null;
 
+  // Skip photos — only support video
   if (message.media instanceof Api.MessageMediaPhoto) {
-    return {
-      mediaType: "photo",
-      mimeType: "image/jpeg",
-      fileSize: null,
-      duration: null,
-      fileName: null,
-    };
+    return null;
   }
 
   if (message.media instanceof Api.MessageMediaDocument) {
@@ -36,9 +31,8 @@ export function getMediaInfo(message: Api.Message): {
 
     const mimeType = doc.mimeType;
     const isVideo = mimeType.startsWith("video/");
-    const isPhoto = mimeType.startsWith("image/");
 
-    if (!isVideo && !isPhoto) return null;
+    if (!isVideo) return null;
 
     let duration: number | null = null;
     let fileName: string | null = null;
