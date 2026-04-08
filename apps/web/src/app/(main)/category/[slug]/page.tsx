@@ -48,7 +48,7 @@ export default async function CategoryPage({
   }
 
   const clipsWithAccess = await Promise.all(
-    categoryClips.map(async (clip) => {
+    categoryClips.map(async (clip: typeof categoryClips[number]) => {
       let thumbnailUrl: string | undefined;
       if (clip.thumbnailR2Key) {
         try {

@@ -33,7 +33,7 @@ export default async function HomePage() {
   }
 
   const clipsWithAccess = await Promise.all(
-    allClips.map(async (clip) => {
+    allClips.map(async (clip: typeof allClips[number]) => {
       let thumbnailUrl: string | undefined;
       if (clip.thumbnailR2Key) {
         try {

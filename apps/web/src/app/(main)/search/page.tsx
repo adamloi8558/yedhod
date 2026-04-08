@@ -65,7 +65,7 @@ export default async function SearchPage({
   }
 
   const clipsWithAccess = await Promise.all(
-    results.map(async (clip) => {
+    results.map(async (clip: typeof results[number]) => {
       let thumbnailUrl: string | undefined;
       if (clip.thumbnailR2Key) {
         try {
