@@ -4,7 +4,7 @@ import { eq, and, ilike, desc, or } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipCard } from "@/components/clip-card";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
-import { getActiveSubscriptionCategories, hasClipAccess } from "@/lib/access-control";
+import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 
 export default async function SearchPage({
   searchParams,
@@ -37,7 +37,7 @@ export default async function SearchPage({
       description: clips.description,
       thumbnailR2Key: clips.thumbnailR2Key,
       duration: clips.duration,
-      accessLevel: clips.accessLevel,
+      accessLevel: categories.accessLevel,
       categoryId: clips.categoryId,
       createdAt: clips.createdAt,
     })
@@ -46,6 +46,7 @@ export default async function SearchPage({
     .where(
       and(
         eq(clips.isActive, true),
+        eq(categories.isActive, true),
         or(
           ilike(clips.title, pattern),
           ilike(clips.description, pattern),
@@ -57,11 +58,11 @@ export default async function SearchPage({
     .limit(30);
 
   const session = await getSession();
-  let subscribedCategories = new Set<string>();
+  let hasSub = false;
   let userRole = "member";
   if (session?.user) {
     userRole = (session.user as Record<string, unknown>).role as string ?? "member";
-    subscribedCategories = await getActiveSubscriptionCategories(session.user.id);
+    hasSub = await hasActiveSubscription(session.user.id);
   }
 
   const clipsWithAccess = await Promise.all(
@@ -74,9 +75,8 @@ export default async function SearchPage({
           // ignore
         }
       }
-      const hasSub = subscribedCategories.has(clip.categoryId);
       const access = session?.user
-        ? hasClipAccess(userRole, clip.accessLevel, hasSub)
+        ? hasCategoryAccess(userRole, clip.accessLevel, hasSub)
         : false;
       return { clip, thumbnailUrl, hasAccess: access };
     })

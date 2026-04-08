@@ -17,9 +17,9 @@ export const payments = pgTable("payments", {
   pricingPlanId: text("pricing_plan_id")
     .notNull()
     .references(() => pricingPlans.id),
-  categoryId: text("category_id")
-    .notNull()
-    .references(() => categories.id, { onDelete: "cascade" }),
+  categoryId: text("category_id").references(() => categories.id, {
+    onDelete: "set null",
+  }),
   anypayRef: text("anypay_ref"),
   amount: numeric("amount", { precision: 10, scale: 2 }).notNull(),
   status: paymentStatusEnum("status").notNull().default("pending"),

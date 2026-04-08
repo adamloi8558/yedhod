@@ -20,6 +20,7 @@ export const categorySchema = z.object({
     .min(1),
   description: z.string().nullable().optional(),
   coverImage: z.string().nullable().optional(),
+  accessLevel: z.enum(["member", "vip"]).default("member"),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
@@ -39,14 +40,10 @@ export const clipSchema = z.object({
   sortOrder: z.number().int().default(0),
 });
 
-// Pricing Plans
+// Pricing Plans (global — no categoryId)
 export const pricingPlanSchema = z.object({
-  categoryId: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
   name: z.string().min(1, "กรุณากรอกชื่อแพ็กเกจ"),
-  slug: z
-    .string()
-    .min(1)
-    .regex(/^[a-z0-9-]+$/),
+  slug: z.string().min(1),
   durationDays: z.number().int().positive(),
   priceThb: z.string().regex(/^\d+(\.\d{1,2})?$/, "ราคาไม่ถูกต้อง"),
   maxDevices: z.number().int().positive().default(1),
@@ -54,10 +51,9 @@ export const pricingPlanSchema = z.object({
   sortOrder: z.number().int().default(0),
 });
 
-// Payment
+// Payment (global — no categoryId)
 export const createPaymentSchema = z.object({
   pricingPlanId: z.string().min(1),
-  categoryId: z.string().min(1),
   bankNumber: z.string().regex(/^\d+$/, "เลขบัญชีต้องเป็นตัวเลขเท่านั้น"),
   bankCode: z.string().min(1, "กรุณาเลือกธนาคาร"),
 });

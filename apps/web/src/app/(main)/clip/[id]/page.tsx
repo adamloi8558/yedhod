@@ -7,7 +7,7 @@ import { Badge } from "@kodhom/ui/components/badge";
 import { Crown } from "lucide-react";
 import { formatDuration, formatThaiDate } from "@kodhom/ui/lib/utils";
 import { notFound } from "next/navigation";
-import { getActiveSubscription, hasClipAccess } from "@/lib/access-control";
+import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 
 export default async function ClipPage({
   params,
@@ -32,15 +32,15 @@ export default async function ClipPage({
 
   const session = await getSession();
   let hasAccess = false;
-  const isVip = clip.accessLevel === "vip";
+  const isVip = category?.accessLevel === "vip";
 
   if (session?.user) {
     const userRole = (session.user as Record<string, unknown>).role as string ?? "member";
     if (userRole === "admin") {
       hasAccess = true;
     } else {
-      const sub = await getActiveSubscription(session.user.id, clip.categoryId);
-      hasAccess = hasClipAccess(userRole, clip.accessLevel, !!sub);
+      const hasSub = await hasActiveSubscription(session.user.id);
+      hasAccess = hasCategoryAccess(userRole, category?.accessLevel ?? "member", hasSub);
     }
   }
 

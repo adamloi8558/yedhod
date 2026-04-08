@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@kodhom/auth";
 import { db } from "@kodhom/db";
-import { clips } from "@kodhom/db/schema";
+import { clips, categories } from "@kodhom/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { headers } from "next/headers";
-import { getActiveSubscription, hasClipAccess, checkDeviceLimit } from "@/lib/access-control";
+import { hasActiveSubscription, hasCategoryAccess, checkDeviceLimit } from "@/lib/access-control";
 
 export async function GET(
   _req: NextRequest,
@@ -44,18 +44,18 @@ export async function GET(
       );
     }
 
-    // Check subscription (with expiry)
-    const sub = await getActiveSubscription(session.user.id, clip.categoryId);
-    if (!sub) {
+    // Get category access level
+    const [category] = await db
+      .select({ accessLevel: categories.accessLevel })
+      .from(categories)
+      .where(eq(categories.id, clip.categoryId))
+      .limit(1);
+
+    const hasSub = await hasActiveSubscription(session.user.id);
+
+    if (!hasCategoryAccess(userRole, category?.accessLevel ?? "member", hasSub)) {
       return NextResponse.json(
         { error: "คุณไม่มีสิทธิ์เข้าถึงคลิปนี้" },
-        { status: 403 }
-      );
-    }
-
-    if (!hasClipAccess(userRole, clip.accessLevel, true)) {
-      return NextResponse.json(
-        { error: "คลิปนี้สำหรับสมาชิก VIP เท่านั้น" },
         { status: 403 }
       );
     }

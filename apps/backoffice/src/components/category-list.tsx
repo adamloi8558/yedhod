@@ -13,6 +13,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@kodhom/ui/components/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@kodhom/ui/components/select";
 import { Pencil, Trash2, Upload } from "lucide-react";
 
 interface Category {
@@ -21,6 +28,7 @@ interface Category {
   slug: string;
   description: string | null;
   coverImage: string | null;
+  accessLevel: "member" | "vip";
   sortOrder: number;
   isActive: boolean;
 }
@@ -33,6 +41,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
     name: "",
     slug: "",
     description: "",
+    accessLevel: "member" as "member" | "vip",
     sortOrder: 0,
     isActive: true,
   });
@@ -70,7 +79,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
 
   function openCreate() {
     setEditItem(null);
-    setForm({ name: "", slug: "", description: "", sortOrder: 0, isActive: true });
+    setForm({ name: "", slug: "", description: "", accessLevel: "member" as const, sortOrder: 0, isActive: true });
     setCoverImage(null);
     setShowDialog(true);
   }
@@ -81,6 +90,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
       name: cat.name,
       slug: cat.slug,
       description: cat.description ?? "",
+      accessLevel: cat.accessLevel,
       sortOrder: cat.sortOrder,
       isActive: cat.isActive,
     });
@@ -138,6 +148,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ชื่อ</th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">Slug</th>
+                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">ระดับ</th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">ลำดับ</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">สถานะ</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">จัดการ</th>
@@ -148,6 +159,11 @@ export function CategoryList({ categories }: { categories: Category[] }) {
                 <tr key={cat.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
                   <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
                   <td className="hidden px-4 py-3 font-mono text-xs text-muted-foreground md:table-cell">{cat.slug}</td>
+                  <td className="hidden px-4 py-3 sm:table-cell">
+                    <Badge variant="secondary" className={cat.accessLevel === "vip" ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/20" : "bg-blue-500/15 text-blue-400 hover:bg-blue-500/20"}>
+                      {cat.accessLevel === "vip" ? "VIP" : "Member"}
+                    </Badge>
+                  </td>
                   <td className="hidden px-4 py-3 tabular-nums text-muted-foreground sm:table-cell">{cat.sortOrder}</td>
                   <td className="px-4 py-3">
                     <Badge variant={cat.isActive ? "default" : "secondary"} className={cat.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
@@ -230,6 +246,21 @@ export function CategoryList({ categories }: { categories: Category[] }) {
                   onChange={handleCoverUpload}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">ระดับการเข้าถึง</Label>
+              <Select
+                value={form.accessLevel}
+                onValueChange={(v) => setForm({ ...form, accessLevel: v as "member" | "vip" })}
+              >
+                <SelectTrigger className="bg-input/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="vip">VIP</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">ลำดับ</Label>

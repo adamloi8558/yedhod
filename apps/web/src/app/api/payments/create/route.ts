@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { pricingPlanId, categoryId, bankNumber, bankCode } = parsed.data;
+  const { pricingPlanId, bankNumber, bankCode } = parsed.data;
 
   // Fetch pricing plan
   const [plan] = await db
@@ -71,7 +71,6 @@ export async function POST(req: NextRequest) {
     id: paymentId,
     userId: session.user.id,
     pricingPlanId,
-    categoryId,
     anypayRef: anypayData.ref,
     amount: plan.priceThb,
     status: "pending",

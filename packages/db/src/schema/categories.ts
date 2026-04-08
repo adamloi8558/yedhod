@@ -5,6 +5,7 @@ import {
   boolean,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { accessLevelEnum } from "./enums";
 
 export const categories = pgTable("categories", {
   id: text("id").primaryKey(),
@@ -12,6 +13,7 @@ export const categories = pgTable("categories", {
   slug: text("slug").notNull().unique(),
   description: text("description"),
   coverImage: text("cover_image"),
+  accessLevel: accessLevelEnum("access_level").notNull().default("member"),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

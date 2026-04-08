@@ -14,9 +14,9 @@ export const subscriptions = pgTable("subscriptions", {
   userId: text("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  categoryId: text("category_id")
-    .notNull()
-    .references(() => categories.id, { onDelete: "cascade" }),
+  categoryId: text("category_id").references(() => categories.id, {
+    onDelete: "set null",
+  }),
   pricingPlanId: text("pricing_plan_id")
     .notNull()
     .references(() => pricingPlans.id),

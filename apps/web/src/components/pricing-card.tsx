@@ -13,7 +13,6 @@ interface PricingCardProps {
     priceThb: string;
     maxDevices: number;
   };
-  categoryId: string;
   featured?: boolean;
 }
 
@@ -25,7 +24,7 @@ function formatDuration(days: number): string {
   return `${days} วัน`;
 }
 
-export function PricingCard({ plan, categoryId, featured }: PricingCardProps) {
+export function PricingCard({ plan, featured }: PricingCardProps) {
   const router = useRouter();
 
   return (
@@ -60,7 +59,7 @@ export function PricingCard({ plan, categoryId, featured }: PricingCardProps) {
           variant={featured ? "default" : "outline"}
           onClick={() =>
             router.push(
-              `/payment?planId=${plan.id}&categoryId=${categoryId}`
+              `/payment?planId=${plan.id}`
             )
           }
         >

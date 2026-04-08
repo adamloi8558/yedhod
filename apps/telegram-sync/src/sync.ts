@@ -16,8 +16,7 @@ async function processMessage(
   message: Api.Message,
   topicId: number,
   categoryId: string,
-  groupId: string,
-  accessLevel: "member" | "vip"
+  groupId: string
 ): Promise<void> {
   const mediaInfo = getMediaInfo(message);
 
@@ -55,7 +54,7 @@ async function processMessage(
   const caption = message.message?.trim() || "";
   const title = caption || mediaInfo.fileName || "";
 
-  // Create clip record
+  // Create clip record (access level is now on category, not clip)
   const clipId = await createClipRecord({
     title,
     categoryId,
@@ -64,7 +63,6 @@ async function processMessage(
     mimeType: result.mimeType,
     fileSize: result.fileSize,
     duration: result.duration,
-    accessLevel,
   });
 
   await recordSyncedMessage({
@@ -87,8 +85,7 @@ async function syncTopic(
   group: Api.TypeEntityLike,
   topicId: number,
   categoryId: string,
-  groupId: string,
-  accessLevel: "member" | "vip"
+  groupId: string
 ): Promise<number> {
   const lastSyncedId = await getLastSyncedMessageId(groupId, topicId);
   let synced = 0;
@@ -122,7 +119,7 @@ async function syncTopic(
       if (alreadySynced) continue;
 
       try {
-        await processMessage(client, message, topicId, categoryId, groupId, accessLevel);
+        await processMessage(client, message, topicId, categoryId, groupId);
         synced++;
       } catch (err) {
         console.error(
@@ -168,8 +165,8 @@ export async function backfill(
   for (const [topicId, topicTitle] of topics) {
     const accessLevel = getAccessLevelForTopic(topicId, accessLevels);
     console.log(`[sync] Processing topic: "${topicTitle}" (${topicId}) [${accessLevel}]`);
-    const categoryId = await getOrCreateCategory(topicId, topicTitle);
-    const count = await syncTopic(client, group, topicId, categoryId, groupId, accessLevel);
+    const categoryId = await getOrCreateCategory(topicId, topicTitle, accessLevel);
+    const count = await syncTopic(client, group, topicId, categoryId, groupId);
     totalSynced += count;
     console.log(`[sync] Topic "${topicTitle}": synced ${count} messages`);
   }
@@ -200,15 +197,13 @@ export async function startRealtimeListener(
     if (alreadySynced) return;
 
     try {
-      // Get or create category for this topic
       const topics = await getForumTopics(client, group);
       const topicTitle = topics.get(topicId) || `Topic ${topicId}`;
-      const categoryId = await getOrCreateCategory(topicId, topicTitle);
-
       const accessLevels = await getTopicAccessLevels();
       const accessLevel = getAccessLevelForTopic(topicId, accessLevels);
+      const categoryId = await getOrCreateCategory(topicId, topicTitle, accessLevel);
 
-      await processMessage(client, message, topicId, categoryId, groupId, accessLevel);
+      await processMessage(client, message, topicId, categoryId, groupId);
     } catch (err) {
       console.error(
         `[realtime] Error processing message ${message.id}:`,

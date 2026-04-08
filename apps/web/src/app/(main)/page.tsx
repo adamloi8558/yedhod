@@ -1,10 +1,10 @@
 import { db } from "@kodhom/db";
-import { clips } from "@kodhom/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { clips, categories } from "@kodhom/db/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipCard } from "@/components/clip-card";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
-import { getActiveSubscriptionCategories, hasClipAccess } from "@/lib/access-control";
+import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 
 export default async function HomePage() {
   const session = await getSession();
@@ -16,20 +16,21 @@ export default async function HomePage() {
       description: clips.description,
       thumbnailR2Key: clips.thumbnailR2Key,
       duration: clips.duration,
-      accessLevel: clips.accessLevel,
+      accessLevel: categories.accessLevel,
       categoryId: clips.categoryId,
       createdAt: clips.createdAt,
     })
     .from(clips)
-    .where(eq(clips.isActive, true))
+    .innerJoin(categories, eq(clips.categoryId, categories.id))
+    .where(and(eq(clips.isActive, true), eq(categories.isActive, true)))
     .orderBy(desc(clips.createdAt))
     .limit(50);
 
-  let subscribedCategories = new Set<string>();
+  let hasSub = false;
   let userRole = "member";
   if (session?.user) {
     userRole = (session.user as Record<string, unknown>).role as string ?? "member";
-    subscribedCategories = await getActiveSubscriptionCategories(session.user.id);
+    hasSub = await hasActiveSubscription(session.user.id);
   }
 
   const clipsWithAccess = await Promise.all(
@@ -43,9 +44,8 @@ export default async function HomePage() {
         }
       }
 
-      const hasSub = subscribedCategories.has(clip.categoryId);
       const access = session?.user
-        ? hasClipAccess(userRole, clip.accessLevel, hasSub)
+        ? hasCategoryAccess(userRole, clip.accessLevel, hasSub)
         : false;
 
       return { clip, thumbnailUrl, hasAccess: access };

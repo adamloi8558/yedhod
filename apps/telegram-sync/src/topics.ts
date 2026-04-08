@@ -35,7 +35,8 @@ export async function getForumTopics(
 
 export async function getOrCreateCategory(
   topicId: number,
-  topicTitle: string
+  topicTitle: string,
+  accessLevel: "member" | "vip" = "vip"
 ): Promise<string> {
   // Check cache first
   const cached = topicCategoryMap.get(topicId);
@@ -53,17 +54,18 @@ export async function getOrCreateCategory(
     return existing.id;
   }
 
-  // Create new category
+  // Create new category with access level
   const id = nanoid();
   await db.insert(categories).values({
     id,
     name: topicTitle,
     slug,
+    accessLevel,
     isActive: true,
     sortOrder: 0,
   });
 
-  console.log(`[topics] Created category "${topicTitle}" (${slug})`);
+  console.log(`[topics] Created category "${topicTitle}" (${slug}) [${accessLevel}]`);
   topicCategoryMap.set(topicId, id);
   return id;
 }

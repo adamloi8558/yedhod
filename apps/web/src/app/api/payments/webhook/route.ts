@@ -56,7 +56,6 @@ export async function POST(req: NextRequest) {
       await db.insert(subscriptions).values({
         id: nanoid(),
         userId: payment.userId,
-        categoryId: payment.categoryId,
         pricingPlanId: payment.pricingPlanId,
         status: "active",
         startDate,

@@ -13,19 +13,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@kodhom/ui/components/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@kodhom/ui/components/select";
 import { Pencil, Trash2 } from "lucide-react";
 import { formatCurrency } from "@kodhom/ui/lib/utils";
 
 interface Plan {
   id: string;
-  categoryId: string;
   name: string;
   slug: string;
   durationDays: number;
@@ -35,23 +27,15 @@ interface Plan {
   sortOrder: number;
 }
 
-interface Category {
-  id: string;
-  name: string;
-}
-
 export function PricingList({
   plans,
-  categories,
 }: {
   plans: Plan[];
-  categories: Category[];
 }) {
   const router = useRouter();
   const [showDialog, setShowDialog] = useState(false);
   const [editItem, setEditItem] = useState<Plan | null>(null);
   const [form, setForm] = useState({
-    categoryId: "",
     name: "",
     slug: "",
     durationDays: 30,
@@ -65,7 +49,6 @@ export function PricingList({
   function openCreate() {
     setEditItem(null);
     setForm({
-      categoryId: categories[0]?.id ?? "",
       name: "",
       slug: "",
       durationDays: 30,
@@ -80,7 +63,6 @@ export function PricingList({
   function openEdit(plan: Plan) {
     setEditItem(plan);
     setForm({
-      categoryId: plan.categoryId,
       name: plan.name,
       slug: plan.slug,
       durationDays: plan.durationDays,
@@ -125,8 +107,6 @@ export function PricingList({
     router.refresh();
   }
 
-  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
-
   return (
     <>
       <div className="mb-4">
@@ -141,7 +121,6 @@ export function PricingList({
             <thead>
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ชื่อ</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">หมวดหมู่</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ราคา</th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">ระยะเวลา</th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">อุปกรณ์</th>
@@ -153,9 +132,6 @@ export function PricingList({
               {plans.map((plan) => (
                 <tr key={plan.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
                   <td className="px-4 py-3 font-medium text-foreground">{plan.name}</td>
-                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                    {categoryMap.get(plan.categoryId) ?? "-"}
-                  </td>
                   <td className="px-4 py-3 font-semibold tabular-nums text-foreground">{formatCurrency(plan.priceThb)}</td>
                   <td className="hidden px-4 py-3 tabular-nums text-muted-foreground sm:table-cell">{plan.durationDays} วัน</td>
                   <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">{plan.maxDevices}</td>
@@ -187,24 +163,6 @@ export function PricingList({
             <DialogTitle className="text-lg font-semibold">{editItem ? "แก้ไขแพ็กเกจ" : "เพิ่มแพ็กเกจ"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label className="text-xs font-medium text-muted-foreground">หมวดหมู่</Label>
-              <Select
-                value={form.categoryId}
-                onValueChange={(v) => setForm({ ...form, categoryId: v })}
-              >
-                <SelectTrigger className="bg-input/50">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label className="text-xs font-medium text-muted-foreground">ชื่อ</Label>

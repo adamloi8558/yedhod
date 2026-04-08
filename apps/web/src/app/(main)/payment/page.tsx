@@ -29,7 +29,6 @@ export default function PaymentPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const planId = searchParams.get("planId");
-  const categoryId = searchParams.get("categoryId");
 
   const [bankNumber, setBankNumber] = useState("");
   const [bankCode, setBankCode] = useState("");
@@ -65,7 +64,7 @@ export default function PaymentPage() {
     return () => clearInterval(interval);
   }, [qrData?.ref]);
 
-  if (!planId || !categoryId) {
+  if (!planId) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center animate-fade-in">
         <div className="text-center">
@@ -87,7 +86,7 @@ export default function PaymentPage() {
       const res = await fetch("/api/payments/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pricingPlanId: planId, categoryId, bankNumber, bankCode }),
+        body: JSON.stringify({ pricingPlanId: planId, bankNumber, bankCode }),
       });
 
       const data = await res.json();
