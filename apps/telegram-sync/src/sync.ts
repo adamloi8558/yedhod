@@ -8,6 +8,7 @@ import {
   getLastSyncedMessageId,
 } from "./db-operations.js";
 import { getForumTopics, getOrCreateCategory } from "./topics.js";
+import { getTopicAccessLevels, getAccessLevelForTopic } from "./config.js";
 import { delay } from "./utils.js";
 
 async function processMessage(
@@ -15,7 +16,8 @@ async function processMessage(
   message: Api.Message,
   topicId: number,
   categoryId: string,
-  groupId: string
+  groupId: string,
+  accessLevel: "member" | "vip"
 ): Promise<void> {
   const mediaInfo = getMediaInfo(message);
 
@@ -62,6 +64,7 @@ async function processMessage(
     mimeType: result.mimeType,
     fileSize: result.fileSize,
     duration: result.duration,
+    accessLevel,
   });
 
   await recordSyncedMessage({
@@ -84,7 +87,8 @@ async function syncTopic(
   group: Api.TypeEntityLike,
   topicId: number,
   categoryId: string,
-  groupId: string
+  groupId: string,
+  accessLevel: "member" | "vip"
 ): Promise<number> {
   const lastSyncedId = await getLastSyncedMessageId(groupId, topicId);
   let synced = 0;
@@ -118,7 +122,7 @@ async function syncTopic(
       if (alreadySynced) continue;
 
       try {
-        await processMessage(client, message, topicId, categoryId, groupId);
+        await processMessage(client, message, topicId, categoryId, groupId, accessLevel);
         synced++;
       } catch (err) {
         console.error(
@@ -156,14 +160,16 @@ export async function backfill(
   console.log("[sync] Starting backfill...");
 
   const topics = await getForumTopics(client, group);
+  const accessLevels = await getTopicAccessLevels();
   console.log(`[sync] Found ${topics.size} topics`);
 
   let totalSynced = 0;
 
   for (const [topicId, topicTitle] of topics) {
-    console.log(`[sync] Processing topic: "${topicTitle}" (${topicId})`);
+    const accessLevel = getAccessLevelForTopic(topicId, accessLevels);
+    console.log(`[sync] Processing topic: "${topicTitle}" (${topicId}) [${accessLevel}]`);
     const categoryId = await getOrCreateCategory(topicId, topicTitle);
-    const count = await syncTopic(client, group, topicId, categoryId, groupId);
+    const count = await syncTopic(client, group, topicId, categoryId, groupId, accessLevel);
     totalSynced += count;
     console.log(`[sync] Topic "${topicTitle}": synced ${count} messages`);
   }
@@ -195,12 +201,14 @@ export async function startRealtimeListener(
 
     try {
       // Get or create category for this topic
-      // We need the topic title — use a fallback if not cached
       const topics = await getForumTopics(client, group);
       const topicTitle = topics.get(topicId) || `Topic ${topicId}`;
       const categoryId = await getOrCreateCategory(topicId, topicTitle);
 
-      await processMessage(client, message, topicId, categoryId, groupId);
+      const accessLevels = await getTopicAccessLevels();
+      const accessLevel = getAccessLevelForTopic(topicId, accessLevels);
+
+      await processMessage(client, message, topicId, categoryId, groupId, accessLevel);
     } catch (err) {
       console.error(
         `[realtime] Error processing message ${message.id}:`,

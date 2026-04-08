@@ -32,3 +32,22 @@ export async function getTelegramGroupId(): Promise<string> {
 
   return String(config.value);
 }
+
+export async function getTopicAccessLevels(): Promise<Record<string, "member" | "vip">> {
+  const config = await db.query.systemConfig.findFirst({
+    where: eq(systemConfig.key, "telegram_topic_access_levels"),
+  });
+
+  if (!config?.value || typeof config.value !== "object") {
+    return {};
+  }
+
+  return config.value as Record<string, "member" | "vip">;
+}
+
+export function getAccessLevelForTopic(
+  topicId: number,
+  accessLevels: Record<string, "member" | "vip">
+): "member" | "vip" {
+  return accessLevels[String(topicId)] || "vip";
+}

@@ -10,6 +10,7 @@ export async function createClipRecord(params: {
   mimeType: string;
   fileSize: number | null;
   duration: number | null;
+  accessLevel: "member" | "vip";
 }): Promise<string> {
   const id = nanoid();
   await db.insert(clips).values({
@@ -21,7 +22,7 @@ export async function createClipRecord(params: {
     mimeType: params.mimeType,
     fileSize: params.fileSize,
     duration: params.duration,
-    accessLevel: "member",
+    accessLevel: params.accessLevel,
     isActive: true,
     sortOrder: 0,
   });
