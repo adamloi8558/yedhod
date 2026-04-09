@@ -19,7 +19,7 @@ export function getEnvConfig() {
   return { apiId, apiHash, session };
 }
 
-export async function getTelegramGroupId(): Promise<string> {
+export async function getTelegramGroupIds(): Promise<string[]> {
   const config = await db.query.systemConfig.findFirst({
     where: eq(systemConfig.key, "telegram_group_id"),
   });
@@ -30,7 +30,12 @@ export async function getTelegramGroupId(): Promise<string> {
     );
   }
 
-  return String(config.value);
+  // Support both single string and array
+  if (Array.isArray(config.value)) {
+    return config.value.map(String);
+  }
+
+  return [String(config.value)];
 }
 
 export async function getTopicAccessLevels(): Promise<Record<string, "member" | "vip">> {
