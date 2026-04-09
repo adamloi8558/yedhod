@@ -163,7 +163,7 @@ async function backfillForum(
   for (const [topicId, topicTitle] of topics) {
     const accessLevel = getAccessLevelForTopic(topicId, accessLevels);
     console.log(`[sync] Processing topic: "${topicTitle}" (${topicId}) [${accessLevel}]`);
-    const categoryId = await getOrCreateCategory(topicId, topicTitle, accessLevel);
+    const categoryId = await getOrCreateCategory(topicId, topicTitle, groupId, accessLevel);
     const count = await syncTopic(client, group, topicId, categoryId, groupId);
     totalSynced += count;
     console.log(`[sync] Topic "${topicTitle}": synced ${count} messages`);
@@ -179,7 +179,7 @@ async function backfillNormalGroup(
 ): Promise<number> {
   const groupTitle = await getGroupTitle(client, group);
   // Use topicId = 0 for normal groups (no topics)
-  const categoryId = await getOrCreateCategory(0, groupTitle, "vip");
+  const categoryId = await getOrCreateCategory(0, groupTitle, groupId, "vip");
   console.log(`[sync] Syncing normal group as category: "${groupTitle}"`);
   return await syncTopic(client, group, 0, categoryId, groupId);
 }
@@ -236,7 +236,7 @@ export async function startRealtimeListener(
       const topicTitle = topics.get(topicId) || `Topic ${topicId}`;
       const accessLevels = await getTopicAccessLevels();
       const accessLevel = getAccessLevelForTopic(topicId, accessLevels);
-      categoryId = await getOrCreateCategory(topicId, topicTitle, accessLevel);
+      categoryId = await getOrCreateCategory(topicId, topicTitle, groupId, accessLevel);
     } else {
       // Normal group: use topicId = 0
       topicId = 0;
@@ -245,7 +245,7 @@ export async function startRealtimeListener(
       if (alreadySynced) return;
 
       const groupTitle = await getGroupTitle(client, group);
-      categoryId = await getOrCreateCategory(0, groupTitle, "vip");
+      categoryId = await getOrCreateCategory(0, groupTitle, groupId, "vip");
     }
 
     try {

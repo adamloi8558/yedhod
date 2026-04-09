@@ -1,10 +1,14 @@
 import { TelegramClient, Api } from "telegram";
-import { db, categories } from "@kodhom/db";
-import { eq } from "drizzle-orm";
+import { db, categories, telegramSyncMessages } from "@kodhom/db";
+import { eq, and } from "drizzle-orm";
 import { nanoid, slugify } from "./utils.js";
 
-// In-memory cache: topicId -> categoryId
-const topicCategoryMap = new Map<number, string>();
+// In-memory cache: "groupId:topicId" -> categoryId
+const topicCategoryMap = new Map<string, string>();
+
+function cacheKey(groupId: string, topicId: number): string {
+  return `${groupId}:${topicId}`;
+}
 
 export async function isForumGroup(
   client: TelegramClient,
@@ -67,25 +71,46 @@ export async function getForumTopics(
 export async function getOrCreateCategory(
   topicId: number,
   topicTitle: string,
+  groupId: string,
   accessLevel: "member" | "vip" = "vip"
 ): Promise<string> {
   // Check cache first
-  const cached = topicCategoryMap.get(topicId);
+  const key = cacheKey(groupId, topicId);
+  const cached = topicCategoryMap.get(key);
   if (cached) return cached;
 
-  const slug = slugify(topicTitle) || `topic-${topicId}`;
+  // Check if we already synced a message for this group+topic — use that categoryId
+  const existingSync = await db.query.telegramSyncMessages.findFirst({
+    where: and(
+      eq(telegramSyncMessages.telegramGroupId, groupId),
+      eq(telegramSyncMessages.telegramTopicId, topicId)
+    ),
+    columns: { categoryId: true },
+  });
 
-  // Check if category exists by slug
-  const existing = await db.query.categories.findFirst({
+  if (existingSync?.categoryId) {
+    // Verify category still exists
+    const cat = await db.query.categories.findFirst({
+      where: eq(categories.id, existingSync.categoryId),
+    });
+    if (cat) {
+      topicCategoryMap.set(key, cat.id);
+      return cat.id;
+    }
+  }
+
+  // Fallback: check by slug (for first-time setup)
+  const slug = slugify(topicTitle) || `topic-${topicId}`;
+  const existingBySlug = await db.query.categories.findFirst({
     where: eq(categories.slug, slug),
   });
 
-  if (existing) {
-    topicCategoryMap.set(topicId, existing.id);
-    return existing.id;
+  if (existingBySlug) {
+    topicCategoryMap.set(key, existingBySlug.id);
+    return existingBySlug.id;
   }
 
-  // Create new category with access level
+  // Create new category
   const id = nanoid();
   await db.insert(categories).values({
     id,
@@ -97,6 +122,6 @@ export async function getOrCreateCategory(
   });
 
   console.log(`[topics] Created category "${topicTitle}" (${slug}) [${accessLevel}]`);
-  topicCategoryMap.set(topicId, id);
+  topicCategoryMap.set(key, id);
   return id;
 }
