@@ -53,12 +53,10 @@ export async function postClip(
     const buffer = Buffer.from(await response.arrayBuffer());
 
     // Send video to Telegram group
-    const caption = clip.title || clip.categoryName;
     const msg = await bot.api.sendVideo(
       targetGroupId,
       new InputFile(buffer, `${clip.id}.mp4`),
       {
-        caption: caption || undefined,
         duration: clip.duration ? Math.round(clip.duration) : undefined,
       }
     );
