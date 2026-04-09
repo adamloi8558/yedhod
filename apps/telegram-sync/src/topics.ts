@@ -6,6 +6,37 @@ import { nanoid, slugify } from "./utils.js";
 // In-memory cache: topicId -> categoryId
 const topicCategoryMap = new Map<number, string>();
 
+export async function isForumGroup(
+  client: TelegramClient,
+  group: Api.TypeEntityLike
+): Promise<boolean> {
+  try {
+    const result = await client.invoke(
+      new Api.channels.GetForumTopics({
+        channel: group,
+        limit: 1,
+        offsetDate: 0,
+        offsetId: 0,
+        offsetTopic: 0,
+      })
+    );
+    return result instanceof Api.messages.ForumTopics;
+  } catch {
+    return false;
+  }
+}
+
+export async function getGroupTitle(
+  client: TelegramClient,
+  group: Api.TypeEntityLike
+): Promise<string> {
+  const entity = await client.getEntity(group);
+  if (entity instanceof Api.Channel || entity instanceof Api.Chat) {
+    return entity.title ?? "Unknown Group";
+  }
+  return "Unknown Group";
+}
+
 export async function getForumTopics(
   client: TelegramClient,
   group: Api.TypeEntityLike
