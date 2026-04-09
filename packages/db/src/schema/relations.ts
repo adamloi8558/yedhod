@@ -7,6 +7,7 @@ import { subscriptions } from "./subscriptions";
 import { payments } from "./payments";
 import { withdrawals } from "./withdrawals";
 import { telegramSyncMessages } from "./telegram-sync";
+import { telegramPostedClips } from "./telegram-posted";
 
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
@@ -100,5 +101,12 @@ export const telegramSyncMessagesRelations = relations(telegramSyncMessages, ({ 
   category: one(categories, {
     fields: [telegramSyncMessages.categoryId],
     references: [categories.id],
+  }),
+}));
+
+export const telegramPostedClipsRelations = relations(telegramPostedClips, ({ one }) => ({
+  clip: one(clips, {
+    fields: [telegramPostedClips.clipId],
+    references: [clips.id],
   }),
 }));
