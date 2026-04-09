@@ -52,6 +52,20 @@ export async function postClip(
     }
     const buffer = Buffer.from(await response.arrayBuffer());
 
+    // Telegram Bot API limit: 50MB
+    const MAX_SIZE = 50 * 1024 * 1024;
+    if (buffer.length > MAX_SIZE) {
+      console.log(`[poster] Skipping clip ${clip.id}: ${(buffer.length / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
+      await db.insert(telegramPostedClips).values({
+        id: nanoid(),
+        clipId: clip.id,
+        targetGroupId,
+        status: "skipped",
+        errorMessage: `File too large: ${(buffer.length / 1024 / 1024).toFixed(1)}MB`,
+      });
+      return;
+    }
+
     // Send video to Telegram group
     const msg = await bot.api.sendVideo(
       targetGroupId,
