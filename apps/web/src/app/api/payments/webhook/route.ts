@@ -15,9 +15,12 @@ function verifySignature(id: string, signature: string): boolean {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  console.log("[webhook] Received:", JSON.stringify(body));
+
   const { id, ref, status, signature } = body;
 
   if (!verifySignature(id, signature)) {
+    console.log("[webhook] Signature verification failed for id:", id);
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
