@@ -6,6 +6,7 @@ import { Button } from "@kodhom/ui/components/button";
 import { Input } from "@kodhom/ui/components/input";
 import { Label } from "@kodhom/ui/components/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@kodhom/ui/components/card";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
@@ -17,7 +18,7 @@ export default function PaymentPage() {
   const [error, setError] = useState("");
   const [qrData, setQrData] = useState<{
     ref: string;
-    qrImage: string;
+    qrText: string;
     amount: string;
   } | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<string>("pending");
@@ -76,7 +77,7 @@ export default function PaymentPage() {
         return;
       }
 
-      setQrData({ ref: data.ref, qrImage: data.qrImage, amount: data.amount });
+      setQrData({ ref: data.ref, qrText: data.qrText, amount: data.amount });
     } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
@@ -115,14 +116,9 @@ export default function PaymentPage() {
             <CardTitle className="text-lg">สแกน QR Code เพื่อชำระเงิน</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5 pb-8">
-            {qrData.qrImage && (
+            {qrData.qrText && (
               <div className="rounded-2xl bg-white p-4 shadow-lg shadow-black/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={qrData.qrImage.startsWith("data:") ? qrData.qrImage : `data:image/png;base64,${qrData.qrImage}`}
-                  alt="QR Code"
-                  className="h-56 w-56 rounded-lg"
-                />
+                <QRCodeSVG value={qrData.qrText} size={224} />
               </div>
             )}
             <p className="text-2xl font-bold gradient-text">
