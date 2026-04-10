@@ -5,10 +5,10 @@ import { eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import { nanoid } from "@/lib/nanoid";
 
-function verifySignature(id: string, signature: string): boolean {
+function verifySignature(ref: string, signature: string): boolean {
   const apiKey = process.env.ANYPAY_API_KEY!;
   const expected = createHash("sha256")
-    .update(`${id}:${apiKey}`)
+    .update(`${ref}:${apiKey}`)
     .digest("hex");
   return expected === signature;
 }
@@ -17,10 +17,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   console.log("[webhook] Received:", JSON.stringify(body));
 
-  const { id, ref, status, signature } = body;
+  const { ref, status, signature, paid_at } = body;
 
-  if (!verifySignature(id, signature)) {
-    console.log("[webhook] Signature verification failed for id:", id);
+  if (!verifySignature(ref, signature)) {
+    console.log("[webhook] Signature verification failed for ref:", ref);
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -32,14 +32,15 @@ export async function POST(req: NextRequest) {
     .limit(1);
 
   if (!payment) {
+    console.log("[webhook] Payment not found for ref:", ref);
     return NextResponse.json({ error: "Payment not found" }, { status: 404 });
   }
 
-  if (status === "completed") {
+  if (status === "paid") {
     // Update payment
     await db
       .update(payments)
-      .set({ status: "completed", paidAt: new Date() })
+      .set({ status: "completed", paidAt: paid_at ? new Date(paid_at) : new Date() })
       .where(eq(payments.id, payment.id));
 
     // Get pricing plan for duration
@@ -66,6 +67,8 @@ export async function POST(req: NextRequest) {
         amountPaid: payment.amount,
         paymentRef: ref,
       });
+
+      console.log(`[webhook] Subscription created for user ${payment.userId}`);
     }
   } else if (status === "expired" || status === "failed") {
     await db
