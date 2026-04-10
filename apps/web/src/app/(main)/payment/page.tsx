@@ -119,7 +119,7 @@ export default function PaymentPage() {
               <div className="rounded-2xl bg-white p-4 shadow-lg shadow-black/10">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={qrData.qrImage}
+                  src={qrData.qrImage.startsWith("data:") ? qrData.qrImage : `data:image/png;base64,${qrData.qrImage}`}
                   alt="QR Code"
                   className="h-56 w-56 rounded-lg"
                 />
