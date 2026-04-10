@@ -51,7 +51,6 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       amount: parseFloat(plan.priceThb),
       bankNumber,
-      bankCode,
       webhookUrl,
     }),
   });
@@ -64,6 +63,7 @@ export async function POST(req: NextRequest) {
   }
 
   const anypayData = await anypayRes.json();
+  const result = anypayData.result;
 
   // Save payment record
   const paymentId = nanoid();
@@ -71,20 +71,20 @@ export async function POST(req: NextRequest) {
     id: paymentId,
     userId: session.user.id,
     pricingPlanId,
-    anypayRef: anypayData.ref,
+    anypayRef: result.ref,
     amount: plan.priceThb,
     status: "pending",
-    qrText: anypayData.qrText,
-    qrImage: anypayData.qrImage,
-    expiresAt: anypayData.expiresAt ? new Date(anypayData.expiresAt) : null,
+    qrText: result.qrText,
+    qrImage: result.qrImage,
+    expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
   });
 
   return NextResponse.json({
     paymentId,
-    ref: anypayData.ref,
-    qrText: anypayData.qrText,
-    qrImage: anypayData.qrImage,
-    expiresAt: anypayData.expiresAt,
+    ref: result.ref,
+    qrText: result.qrText,
+    qrImage: result.qrImage,
+    expiresAt: result.expiresAt,
     amount: plan.priceThb,
   });
 }

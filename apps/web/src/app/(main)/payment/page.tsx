@@ -6,24 +6,6 @@ import { Button } from "@kodhom/ui/components/button";
 import { Input } from "@kodhom/ui/components/input";
 import { Label } from "@kodhom/ui/components/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@kodhom/ui/components/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@kodhom/ui/components/select";
-
-const DEFAULT_BANKS = [
-  { code: "002", name: "ธนาคารกรุงเทพ (BBL)" },
-  { code: "004", name: "ธนาคารกสิกรไทย (KBANK)" },
-  { code: "006", name: "ธนาคารกรุงไทย (KTB)" },
-  { code: "011", name: "ธนาคารทหารไทยธนชาต (TTB)" },
-  { code: "014", name: "ธนาคารไทยพาณิชย์ (SCB)" },
-  { code: "025", name: "ธนาคารกรุงศรีอยุธยา (BAY)" },
-  { code: "030", name: "ธนาคารออมสิน (GSB)" },
-  { code: "034", name: "ธนาคารเพื่อการเกษตร (BAAC)" },
-];
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
@@ -31,7 +13,6 @@ export default function PaymentPage() {
   const planId = searchParams.get("planId");
 
   const [bankNumber, setBankNumber] = useState("");
-  const [bankCode, setBankCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [qrData, setQrData] = useState<{
@@ -86,7 +67,7 @@ export default function PaymentPage() {
       const res = await fetch("/api/payments/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pricingPlanId: planId, bankNumber, bankCode }),
+        body: JSON.stringify({ pricingPlanId: planId, bankNumber }),
       });
 
       const data = await res.json();
@@ -134,9 +115,9 @@ export default function PaymentPage() {
             <CardTitle className="text-lg">สแกน QR Code เพื่อชำระเงิน</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-5 pb-8">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             {qrData.qrImage && (
               <div className="rounded-2xl bg-white p-4 shadow-lg shadow-black/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={qrData.qrImage}
                   alt="QR Code"
@@ -189,25 +170,10 @@ export default function PaymentPage() {
                 className="rounded-xl bg-accent/30 border-border/50 focus:border-primary/40 focus:ring-primary/20 transition-smooth"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">ธนาคาร</Label>
-              <Select value={bankCode} onValueChange={setBankCode}>
-                <SelectTrigger className="rounded-xl bg-accent/30 border-border/50 focus:border-primary/40 focus:ring-primary/20 transition-smooth">
-                  <SelectValue placeholder="เลือกธนาคาร" />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-border/50">
-                  {DEFAULT_BANKS.map((bank) => (
-                    <SelectItem key={bank.code} value={bank.code} className="rounded-lg">
-                      {bank.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <Button
               type="submit"
               className="w-full gradient-primary text-white border-0 rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-smooth"
-              disabled={loading || !bankCode}
+              disabled={loading || !bankNumber}
             >
               {loading ? "กำลังดำเนินการ..." : "ชำระเงิน"}
             </Button>

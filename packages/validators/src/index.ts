@@ -55,7 +55,6 @@ export const pricingPlanSchema = z.object({
 export const createPaymentSchema = z.object({
   pricingPlanId: z.string().min(1),
   bankNumber: z.string().regex(/^\d+$/, "เลขบัญชีต้องเป็นตัวเลขเท่านั้น"),
-  bankCode: z.string().min(1, "กรุณาเลือกธนาคาร"),
 });
 
 // System Config
