@@ -104,6 +104,7 @@ export default async function SearchPage({
               clip={clip}
               thumbnailUrl={thumbnailUrl}
               hasAccess={hasAccess}
+              isLoggedIn={!!session?.user}
             />
           ))}
         </div>

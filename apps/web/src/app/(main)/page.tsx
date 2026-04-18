@@ -76,6 +76,7 @@ export default async function HomePage() {
               clip={clip}
               thumbnailUrl={thumbnailUrl}
               hasAccess={hasAccess}
+              isLoggedIn={!!session?.user}
             />
           ))}
         </div>

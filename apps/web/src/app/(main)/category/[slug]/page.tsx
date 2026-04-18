@@ -98,6 +98,7 @@ export default async function CategoryPage({
               clip={clip}
               thumbnailUrl={thumbnailUrl}
               hasAccess={hasAccess}
+              isLoggedIn={!!session?.user}
             />
           ))}
         </div>

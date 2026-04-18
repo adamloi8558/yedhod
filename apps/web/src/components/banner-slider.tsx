@@ -47,7 +47,7 @@ export function BannerSlider({ banners }: { banners: Banner[] }) {
               <img
                 src={b.imageUrl}
                 alt="banner"
-                className="aspect-video w-full object-cover"
+                className="h-auto w-full"
                 loading="eager"
               />
             </a>

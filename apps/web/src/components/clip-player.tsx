@@ -7,9 +7,10 @@ interface ClipPlayerProps {
   clipId: string;
   hasAccess: boolean;
   isVip: boolean;
+  isLoggedIn: boolean;
 }
 
-export function ClipPlayer({ clipId, hasAccess, isVip }: ClipPlayerProps) {
+export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +42,9 @@ export function ClipPlayer({ clipId, hasAccess, isVip }: ClipPlayerProps) {
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black/90 shadow-2xl shadow-black/20 ring-1 ring-white/5">
-      {!hasAccess && <RestrictedOverlay isVip={isVip} />}
+      {!hasAccess && (
+        <RestrictedOverlay isVip={isVip} isLoggedIn={isLoggedIn} clipId={clipId} />
+      )}
       {loading && hasAccess && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
           <div className="flex flex-col items-center gap-3">

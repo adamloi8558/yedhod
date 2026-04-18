@@ -17,14 +17,21 @@ interface ClipCardProps {
   };
   thumbnailUrl?: string;
   hasAccess: boolean;
+  isLoggedIn: boolean;
 }
 
-export function ClipCard({ clip, thumbnailUrl, hasAccess }: ClipCardProps) {
+export function ClipCard({ clip, thumbnailUrl, hasAccess, isLoggedIn }: ClipCardProps) {
   const isVip = clip.accessLevel === "vip";
+
+  const targetHref = hasAccess
+    ? `/clip/${clip.id}`
+    : !isLoggedIn
+      ? `/login?redirect=${encodeURIComponent(`/clip/${clip.id}`)}`
+      : "/pricing";
 
   return (
     <Link
-      href={hasAccess ? `/clip/${clip.id}` : `/pricing`}
+      href={targetHref}
       className="group relative flex gap-3 rounded-2xl bg-card/60 p-3 transition-smooth hover:bg-card hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.01]"
     >
       {/* Thumbnail */}

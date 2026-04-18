@@ -2,13 +2,18 @@ import { db } from "@kodhom/db";
 import { pricingPlans } from "@kodhom/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { PricingCard } from "@/components/pricing-card";
+import { getSession } from "@/lib/auth-server";
 
 export default async function PricingPage() {
-  const allPlans = await db
-    .select()
-    .from(pricingPlans)
-    .where(eq(pricingPlans.isActive, true))
-    .orderBy(asc(pricingPlans.sortOrder));
+  const [allPlans, session] = await Promise.all([
+    db
+      .select()
+      .from(pricingPlans)
+      .where(eq(pricingPlans.isActive, true))
+      .orderBy(asc(pricingPlans.sortOrder)),
+    getSession(),
+  ]);
+  const isLoggedIn = !!session?.user;
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 animate-fade-in">
@@ -28,6 +33,7 @@ export default async function PricingPage() {
               key={plan.id}
               plan={plan}
               featured={index === Math.floor(allPlans.length / 2) && allPlans.length > 1}
+              isLoggedIn={isLoggedIn}
             />
           ))}
         </div>

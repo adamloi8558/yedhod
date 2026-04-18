@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@kodhom/ui/components/button";
@@ -12,6 +12,8 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -32,7 +34,11 @@ export default function LoginPage() {
       if (result.error) {
         setError(result.error.message ?? "เข้าสู่ระบบไม่สำเร็จ");
       } else {
-        router.push("/");
+        const safeRedirect =
+          redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+            ? redirectTo
+            : "/";
+        router.push(safeRedirect);
         router.refresh();
       }
     } catch {
@@ -100,7 +106,14 @@ export default function LoginPage() {
               </Button>
               <p className="text-sm text-muted-foreground">
                 ยังไม่มีบัญชี?{" "}
-                <Link href="/register" className="text-primary font-medium hover:underline transition-smooth">
+                <Link
+                  href={
+                    redirectTo
+                      ? `/register?redirect=${encodeURIComponent(redirectTo)}`
+                      : "/register"
+                  }
+                  className="text-primary font-medium hover:underline transition-smooth"
+                >
                   สมัครสมาชิก
                 </Link>
               </p>

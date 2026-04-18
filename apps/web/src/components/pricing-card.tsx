@@ -14,6 +14,7 @@ interface PricingCardProps {
     maxDevices: number;
   };
   featured?: boolean;
+  isLoggedIn: boolean;
 }
 
 function formatDuration(days: number): string {
@@ -24,8 +25,16 @@ function formatDuration(days: number): string {
   return `${days} วัน`;
 }
 
-export function PricingCard({ plan, featured }: PricingCardProps) {
+export function PricingCard({ plan, featured, isLoggedIn }: PricingCardProps) {
   const router = useRouter();
+
+  function handleClick() {
+    if (!isLoggedIn) {
+      router.push(`/login?redirect=${encodeURIComponent("/pricing")}`);
+      return;
+    }
+    router.push(`/payment?planId=${plan.id}`);
+  }
 
   return (
     <Card className={`relative overflow-hidden rounded-2xl transition-smooth hover:scale-[1.02] hover:shadow-xl ${featured ? 'ring-2 ring-primary glow-primary border-primary/30' : 'border-border/50 hover:border-primary/30'}`}>
@@ -57,13 +66,9 @@ export function PricingCard({ plan, featured }: PricingCardProps) {
         <Button
           className={`w-full rounded-xl transition-smooth ${featured ? 'gradient-primary text-white border-0 shadow-lg shadow-primary/20 hover:shadow-primary/30' : 'hover:bg-primary hover:text-primary-foreground'}`}
           variant={featured ? "default" : "outline"}
-          onClick={() =>
-            router.push(
-              `/payment?planId=${plan.id}`
-            )
-          }
+          onClick={handleClick}
         >
-          สมัครเลย
+          {isLoggedIn ? "สมัครเลย" : "เข้าสู่ระบบเพื่อสมัคร"}
         </Button>
       </CardContent>
     </Card>

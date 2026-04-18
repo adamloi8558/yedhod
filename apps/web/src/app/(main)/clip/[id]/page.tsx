@@ -46,7 +46,12 @@ export default async function ClipPage({
 
   return (
     <div className="mx-auto max-w-4xl p-4 md:p-6 animate-fade-in">
-      <ClipPlayer clipId={clip.id} hasAccess={hasAccess} isVip={isVip} />
+      <ClipPlayer
+        clipId={clip.id}
+        hasAccess={hasAccess}
+        isVip={isVip}
+        isLoggedIn={!!session?.user}
+      />
 
       <div className="mt-5 space-y-3 animate-slide-up">
         <div className="flex items-start gap-3">
