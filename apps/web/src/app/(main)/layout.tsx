@@ -1,19 +1,24 @@
 import { Sidebar } from "@/components/sidebar";
 import { MobileSidebar } from "@/components/mobile-sidebar";
+import { BannerSlider } from "@/components/banner-slider";
 import { db } from "@kodhom/db";
 import { categories } from "@kodhom/db/schema";
 import { eq, asc } from "drizzle-orm";
+import { getActiveBanners } from "@/lib/banners";
 
 export default async function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const allCategories = await db
-    .select()
-    .from(categories)
-    .where(eq(categories.isActive, true))
-    .orderBy(asc(categories.sortOrder));
+  const [allCategories, banners] = await Promise.all([
+    db
+      .select()
+      .from(categories)
+      .where(eq(categories.isActive, true))
+      .orderBy(asc(categories.sortOrder)),
+    getActiveBanners(),
+  ]);
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -21,7 +26,10 @@ export default async function MainLayout({
         <Sidebar categories={allCategories} />
       </aside>
       <MobileSidebar categories={allCategories} />
-      <main className="flex-1 overflow-y-auto bg-background">{children}</main>
+      <main className="flex-1 overflow-y-auto bg-background">
+        {banners.length > 0 && <BannerSlider banners={banners} />}
+        {children}
+      </main>
     </div>
   );
 }

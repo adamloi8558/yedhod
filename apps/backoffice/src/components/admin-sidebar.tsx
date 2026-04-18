@@ -12,6 +12,7 @@ import {
   LogOut,
   Tag,
   Wallet,
+  Image as ImageIcon,
   X,
 } from "lucide-react";
 import { cn } from "@kodhom/ui/lib/utils";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
   { href: "/dashboard/categories", label: "หมวดหมู่", icon: FolderOpen },
   { href: "/dashboard/clips", label: "คลิป", icon: Film },
+  { href: "/dashboard/banners", label: "Banner", icon: ImageIcon },
   { href: "/dashboard/pricing", label: "แพ็กเกจ", icon: Tag },
   { href: "/dashboard/users", label: "ผู้ใช้", icon: Users },
   { href: "/dashboard/payments", label: "การชำระเงิน", icon: CreditCard },

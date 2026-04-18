@@ -64,6 +64,17 @@ export const systemConfigSchema = z.object({
   description: z.string().optional(),
 });
 
+// Banners
+export const bannerSchema = z.object({
+  id: z.string().min(1),
+  imageR2Key: z.string().min(1, "กรุณาอัปโหลดรูป"),
+  linkUrl: z.string().url("ลิงก์ไม่ถูกต้อง"),
+  sortOrder: z.number().int().default(0),
+  isActive: z.boolean().default(true),
+});
+
+export const bannersListSchema = z.array(bannerSchema);
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type CategoryInput = z.infer<typeof categorySchema>;
@@ -71,3 +82,4 @@ export type ClipInput = z.infer<typeof clipSchema>;
 export type PricingPlanInput = z.infer<typeof pricingPlanSchema>;
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
 export type SystemConfigInput = z.infer<typeof systemConfigSchema>;
+export type Banner = z.infer<typeof bannerSchema>;
