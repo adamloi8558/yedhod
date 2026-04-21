@@ -77,13 +77,18 @@ apps/web/src/app/(main)/page.tsx
 apps/web/src/app/(main)/category/[slug]/page.tsx
 apps/web/src/app/(main)/clip/[id]/page.tsx
 apps/web/src/app/(main)/pricing/page.tsx
+apps/web/src/components/clip-card.tsx
 ```
+
+**`ClipCard` change:** adds a `categoryName` prop and renders a single `{categoryName} • {duration}` line (e.g. "เย็ดแรง • 5:23") above the date. Provides meaningful anchor text for Google + minimal UI impact. Callers already join category in their queries — just pass the name.
 
 ---
 
 ## 4. Key Specifications
 
 ### 4.1 Metadata helpers (`apps/web/src/lib/seo/metadata.ts`)
+
+**IMPORTANT: `clip.title` in DB is the raw filename (e.g. `IMG_2341.mp4`) — UNUSABLE for SEO.** Every user-facing / crawler-facing title and description for a clip is **generated programmatically** from `(category, duration, createdAt, id)`. Admin never writes SEO titles.
 
 ```ts
 export const SITE_URL = 'https://xn--12c3bah4c1b.com';
@@ -93,12 +98,19 @@ export const BRAND_SUFFIX = ' | เย็ดโหด';
 absoluteUrl(path): string         // always Punycode absolute
 canonical(path): { canonical }     // for Metadata.alternates
 pageTitle(subject): string         // `${subject}${BRAND_SUFFIX}`, capped 60
-clipTitle(title, category): string
 categoryTitle(name, page?): string
-clipDescription(clip, category): string   // 150-160 chars, fallback template
-categoryDescription(cat, count): string    // fallback if description null
+clipDisplayTitle(clip, category): string   // UI card + H1 source
+  // → `ดูคลิป${category.name} ความยาว ${formatDuration(clip.duration)} อัปเดต ${formatThaiDateShort(clip.createdAt)}`
+  //    e.g. "ดูคลิปเย็ดแรง ความยาว 5:23 อัปเดต 12 เม.ย. 2569"
+clipPageTitle(clip, category): string
+  // → `${clipDisplayTitle(...)} | เย็ดโหด` (truncated to 60)
+clipDescription(clip, category): string
+  // → `ชม${category.name}ความยาว${duration}นาทีที่${BRAND} คลิปคุณภาพสำหรับผู้ใหญ่อายุ 18+ อัปเดตใหม่ทุกวัน สมัครสมาชิกเพื่อดูคลิป VIP แบบไม่จำกัด` (trimmed to 155)
+categoryDescription(cat, count): string   // fallback if cat.description null
 adultMetaOther(): Record<string,string>   // rating/RTA/ICRA/age-rating
 ```
+
+**Uniqueness:** clip titles differ by `duration + date` combination. In the rare case two clips in the same category share both the same duration and same date, Google tolerates duplicate titles if URLs are distinct + canonical is correct. We accept this edge case over adding visible random IDs to user-facing text.
 
 **Adult compliance tags (global via `metadata.other`):**
 ```
@@ -141,7 +153,7 @@ All render `<script type="application/ld+json">` server-side.
 
 - Root `/opengraph-image.tsx`: branded fallback, dark gradient, "เย็ดโหด" display text, "18+" badge, Kanit-Bold font loaded from `_fonts/Kanit-Bold.ttf`
 - `/category/[slug]/opengraph-image.tsx`: eyebrow "หมวดหมู่", category name, clip count, brand watermark
-- `/clip/[id]/opengraph-image.tsx`: eyebrow = category name, clip title (60-char + 2-line clamp), brand watermark. **Never uses thumbnails** — titles only, guaranteed SFW, won't get throttled by LINE/FB.
+- `/clip/[id]/opengraph-image.tsx`: eyebrow = category name, `clipDisplayTitle(clip, category)` (generated, never the raw filename; 60-char + 2-line clamp), brand watermark. **Never uses thumbnails** — text only, guaranteed SFW, won't get throttled by LINE/FB.
 
 All 1200×630 PNG, `runtime = 'nodejs'`, `revalidate = 86400`.
 
@@ -177,10 +189,10 @@ All 1200×630 PNG, `runtime = 'nodejs'`, `revalidate = 86400`.
 6. `<CollectionPageJsonLd />`
 
 **Clip (`/clip/[id]`)** — revalidate 3600s:
-1. `<Breadcrumb items={[หน้าแรก, category.name→link, clip.title→truncate]} />`
+1. `<Breadcrumb items={[หน้าแรก, category.name→link, clipDisplayTitle→truncate]} />` (NOT `clip.title` — that's a filename)
 2. `<ClipPlayer />` — wrap with `rounded-2xl overflow-hidden ring-1 ring-border/40 shadow-[0_8px_40px_-8px] shadow-black/50`; on mobile `-mx-4 rounded-none`
 3. `<ClipMetaChips>` — VIP badge / category / duration / createdAt / (optional view count)
-4. **`<h1>{clip.title}</h1>`** — the critical fix (currently missing)
+4. **`<h1>{clipDisplayTitle(clip, category)}</h1>`** — generated from category+duration+date (NOT the raw filename)
 5. `<ShareRow>` (copy / X / LINE / Telegram / Facebook) + optional VIP upgrade nudge if not subscribed
 6. H2 "เกี่ยวกับคลิปนี้" + `<ClipDescriptionArticle>` (in `<article class="prose prose-invert">`, fallback template if description null)
 7. `<SectionDivider />`
@@ -204,7 +216,8 @@ All 1200×630 PNG, `runtime = 'nodejs'`, `revalidate = 86400`.
 ## 5. Data model
 
 No schema changes needed. Confirmed:
-- `clips.title notNull`, `clips.description` nullable (fallback template), `clips.updatedAt notNull`
+- `clips.title notNull` — **stores raw filename (e.g. `IMG_2341.mp4`), NEVER surfaced to users or crawlers.** All user-facing titles are computed by `clipDisplayTitle(clip, category)`.
+- `clips.description` nullable (fallback template), `clips.updatedAt notNull`
 - `categories.description` nullable (fallback template), `categories.updatedAt notNull`, `categories.coverImage` nullable (gradient fallback)
 - `clips.thumbnailR2Key` nullable (thumbnail proxy 404s gracefully)
 
