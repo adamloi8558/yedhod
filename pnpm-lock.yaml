@@ -158,6 +158,9 @@ importers:
       '@kodhom/validators':
         specifier: workspace:*
         version: link:../../packages/validators
+      '@next/third-parties':
+        specifier: ^15.1.0
+        version: 15.5.15(next@15.5.14(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
       better-auth:
         specifier: ^1.2.0
         version: 1.5.6(@opentelemetry/api@1.9.0)(drizzle-orm@0.39.3(@opentelemetry/api@1.9.0)(kysely@0.28.14)(postgres@3.4.8))(next@15.5.14(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1325,6 +1328,12 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
+
+  '@next/third-parties@15.5.15':
+    resolution: {integrity: sha512-cJHwCiknzZpz8g5EmDsN6wGrWGpqvOZCQKiGuwsP3Tg4c6UvDPOASeuMk8Bh6ZU1KtUWkvo6+og/7Fk8cMg7Qg==}
+    peerDependencies:
+      next: ^13.0.0 || ^14.0.0 || ^15.0.0
+      react: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
 
   '@noble/ciphers@2.1.1':
     resolution: {integrity: sha512-bysYuiVfhxNJuldNXlFEitTVdNnYUc+XNJZd7Qm2a5j1vZHgY+fazadNFWFaMK/2vye0JVlxV3gHmC0WDfAOQw==}
@@ -3179,6 +3188,9 @@ packages:
   telegram@2.26.22:
     resolution: {integrity: sha512-EIj7Yrjiu0Yosa3FZ/7EyPg9s6UiTi/zDQrFmR/2Mg7pIUU+XjAit1n1u9OU9h2oRnRM5M+67/fxzQluZpaJJg==}
 
+  third-party-capital@1.0.20:
+    resolution: {integrity: sha512-oB7yIimd8SuGptespDAZnNkzIz+NWaJCu2RMsbs4Wmp9zSDUM8Nhi3s2OOcqYuv3mN4hitXc8DVx+LyUmbUDiA==}
+
   through@2.3.8:
     resolution: {integrity: sha512-w89qg7PI8wAdvX60bMDP+bFoD5Dvhm9oLheFp5O4a2QF0cSBGsBX4qZmadPMvVqlLJBBci+WqGGOAPvcDeNSVg==}
 
@@ -4265,6 +4277,12 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@15.5.14':
     optional: true
+
+  '@next/third-parties@15.5.15(next@15.5.14(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      next: 15.5.14(@opentelemetry/api@1.9.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react: 19.2.4
+      third-party-capital: 1.0.20
 
   '@noble/ciphers@2.1.1': {}
 
@@ -6117,6 +6135,8 @@ snapshots:
       utf-8-validate: 5.0.10
     transitivePeerDependencies:
       - supports-color
+
+  third-party-capital@1.0.20: {}
 
   through@2.3.8: {}
 

@@ -15,12 +15,13 @@ interface ClipCardProps {
     accessLevel: "member" | "vip";
     createdAt: Date;
   };
+  categoryName?: string;
   thumbnailUrl?: string;
   hasAccess: boolean;
   isLoggedIn: boolean;
 }
 
-export function ClipCard({ clip, thumbnailUrl, hasAccess, isLoggedIn }: ClipCardProps) {
+export function ClipCard({ clip, categoryName, thumbnailUrl, hasAccess, isLoggedIn }: ClipCardProps) {
   const isVip = clip.accessLevel === "vip";
 
   const targetHref = hasAccess
@@ -29,27 +30,39 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess, isLoggedIn }: ClipCard
       ? `/login?redirect=${encodeURIComponent(`/clip/${clip.id}`)}`
       : "/pricing";
 
+  const durationText = clip.duration ? formatDuration(clip.duration) : null;
+  const metaLine =
+    categoryName && durationText
+      ? `${categoryName} • ${durationText}`
+      : categoryName || durationText || "";
+
+  const ariaLabel =
+    categoryName && durationText
+      ? `ดูคลิป${categoryName} ความยาว ${durationText}`
+      : `ดูคลิป${categoryName ?? ""}`;
+
   return (
     <Link
       href={targetHref}
+      aria-label={ariaLabel}
       className="group relative flex gap-3 rounded-2xl bg-card/60 p-3 transition-smooth hover:bg-card hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.01]"
     >
       {/* Thumbnail */}
       <div className="relative aspect-video w-28 sm:w-32 md:w-40 flex-shrink-0 overflow-hidden rounded-xl bg-muted">
         {thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={thumbnailUrl}
-            alt=""
+            alt={ariaLabel}
             className="h-full w-full object-cover transition-smooth group-hover:scale-105"
+            loading="lazy"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-secondary">
             <span className="text-2xl text-muted-foreground">▶</span>
           </div>
         )}
-        {/* Gradient overlay for readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-smooth" />
-        {/* Play icon on hover */}
         {hasAccess && (
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-smooth">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/90 text-white shadow-lg shadow-primary/30 scale-75 group-hover:scale-100 transition-smooth">
@@ -57,13 +70,11 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess, isLoggedIn }: ClipCard
             </div>
           </div>
         )}
-        {/* Duration badge */}
-        {clip.duration && (
+        {durationText && (
           <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/70 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white">
-            {formatDuration(clip.duration)}
+            {durationText}
           </span>
         )}
-        {/* Restricted overlay - only blur VIP clips for non-VIP users */}
         {!hasAccess && isVip && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-[2px]">
             <Lock className="mb-1 h-5 w-5 text-white/80" />
@@ -74,7 +85,7 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess, isLoggedIn }: ClipCard
 
       {/* Info */}
       <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
-        <div>
+        <div className="space-y-1">
           <div className="flex items-center gap-2">
             {isVip && (
               <Badge variant="vip" className="flex-shrink-0 gap-1 animate-pulse-glow">
@@ -83,6 +94,11 @@ export function ClipCard({ clip, thumbnailUrl, hasAccess, isLoggedIn }: ClipCard
               </Badge>
             )}
           </div>
+          {metaLine && (
+            <p className="text-xs text-foreground/80 truncate font-medium">
+              {metaLine}
+            </p>
+          )}
         </div>
         <time className="text-[11px] text-muted-foreground/70">
           {formatThaiDate(new Date(clip.createdAt))}

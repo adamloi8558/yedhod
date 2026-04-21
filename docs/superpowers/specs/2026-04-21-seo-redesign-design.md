@@ -7,7 +7,7 @@
 
 ## 1. Strategy
 
-- **Canonical domain = Punycode** `https://xn--12c3bah4c1b.com` (user-facing `เย็ดโหด.com`). IDN breaks LINE/FB/X unfurlers; Google treats Punycode as authoritative. Redirect Unicode→Punycode at the edge (Coolify/Cloudflare).
+- **Canonical domain = Punycode** `https://xn--l3ca4bxbygoa7a.com` (user-facing `เย็ดโหด.com`). IDN breaks LINE/FB/X unfurlers; Google treats Punycode as authoritative. Redirect Unicode→Punycode at the edge (Coolify/Cloudflare).
 - **Declared adult, not hidden.** Ship RTA label + `rating=adult` + ICRA + `age-rating=18+` globally. Google indexes; SafeSearch filters. Hiding adult nature gets sites removed.
 - **Brand-search dominance.** Title suffix ` | เย็ดโหด` on every page, H1 on home includes brand, SearchAction JSON-LD gives sitelinks search box, unique titles per page, internal linking through footer + breadcrumb + related clips.
 - **Block AI scrapers** (GPTBot, CCBot, ClaudeBot, anthropic-ai, Google-Extended, PerplexityBot, Bytespider) — adult content has zero value in LLM training; keep Googlebot, Bingbot, Twitterbot, facebookexternalhit, LINE, TelegramBot, Applebot.
@@ -91,7 +91,7 @@ apps/web/src/components/clip-card.tsx
 **IMPORTANT: `clip.title` in DB is the raw filename (e.g. `IMG_2341.mp4`) — UNUSABLE for SEO.** Every user-facing / crawler-facing title and description for a clip is **generated programmatically** from `(category, duration, createdAt, id)`. Admin never writes SEO titles.
 
 ```ts
-export const SITE_URL = 'https://xn--12c3bah4c1b.com';
+export const SITE_URL = 'https://xn--l3ca4bxbygoa7a.com';
 export const BRAND = 'เย็ดโหด';
 export const BRAND_SUFFIX = ' | เย็ดโหด';
 
@@ -233,7 +233,7 @@ Clip description fallback:
 
 ## 6. Risks & gotchas
 
-- **Punycode:** `metadataBase: new URL('https://xn--12c3bah4c1b.com')`. All internal URLs must go through `absoluteUrl()`. Domain-level redirects at Coolify/Cloudflare, not in app.
+- **Punycode:** `metadataBase: new URL('https://xn--l3ca4bxbygoa7a.com')`. All internal URLs must go through `absoluteUrl()`. Domain-level redirects at Coolify/Cloudflare, not in app.
 - **Thai in OG images:** must ship `Kanit-Bold.ttf` (~100KB) at `apps/web/src/app/_fonts/` and load via `fetch(new URL(..., import.meta.url))`. `runtime = 'nodejs'` required.
 - **Long clip titles in OG:** 60-char substring + CSS `-webkit-line-clamp: 2` at 72px Kanit.
 - **`generateSitemaps` cardinality:** 10k clips → 4 sub-sitemaps. Grows by 1 per 5000 new clips.
@@ -288,7 +288,7 @@ Clip description fallback:
 
 ## 10. Environment / secrets
 
-- `NEXT_PUBLIC_SITE_URL=https://xn--12c3bah4c1b.com`
+- `NEXT_PUBLIC_SITE_URL=https://xn--l3ca4bxbygoa7a.com`
 - `NEXT_PUBLIC_GA_ID=G-SSEFS20STL`
 - GSC verification token (static): `4_S0HkzgexgmrG7P0gofWle4J52v1U1zyDr6f-HvmqM` — baked into `metadata.verification.google` + `public/google{token}.html`
 

@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/sidebar";
 import { MobileSidebar } from "@/components/mobile-sidebar";
 import { BannerSlider } from "@/components/banner-slider";
+import { SiteFooter } from "@/components/site-footer";
 import { db } from "@kodhom/db";
 import { categories } from "@kodhom/db/schema";
 import { eq, asc } from "drizzle-orm";
@@ -29,6 +30,7 @@ export default async function MainLayout({
       <main className="flex-1 overflow-y-auto bg-background">
         {banners.length > 0 && <BannerSlider banners={banners} />}
         {children}
+        <SiteFooter />
       </main>
     </div>
   );

@@ -6,6 +6,53 @@ import { ClipCard } from "@/components/clip-card";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 import { notFound } from "next/navigation";
+import { Breadcrumb } from "@/components/breadcrumb";
+import { CollectionPageJsonLd } from "@/components/jsonld/collection-page";
+import {
+  categoryTitle,
+  categoryDescription,
+  canonical,
+} from "@/lib/seo/metadata";
+import type { Metadata } from "next";
+import { Crown } from "lucide-react";
+
+export const revalidate = 600;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const [category] = await db
+    .select()
+    .from(categories)
+    .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
+    .limit(1);
+  if (!category) return { title: "ไม่พบหมวด" };
+
+  const count = await db
+    .select({ id: clips.id })
+    .from(clips)
+    .where(and(eq(clips.categoryId, category.id), eq(clips.isActive, true)));
+  const clipCount = count.length;
+
+  const path = `/category/${category.slug}`;
+  const title = categoryTitle(category.name);
+  const description = categoryDescription(category, clipCount);
+
+  return {
+    title,
+    description,
+    alternates: canonical(path),
+    openGraph: {
+      type: "website",
+      url: path,
+      title,
+      description,
+    },
+  };
+}
 
 export default async function CategoryPage({
   params,
@@ -33,6 +80,7 @@ export default async function CategoryPage({
       duration: clips.duration,
       accessLevel: categories.accessLevel,
       categoryId: clips.categoryId,
+      categoryName: categories.name,
       createdAt: clips.createdAt,
     })
     .from(clips)
@@ -57,34 +105,63 @@ export default async function CategoryPage({
           // ignore
         }
       }
-
       const access = session?.user
         ? hasCategoryAccess(userRole, clip.accessLevel, hasSubscription)
         : false;
-
       return { clip, thumbnailUrl, hasAccess: access };
     })
   );
 
+  const isVip = category.accessLevel === "vip";
+  const descriptionText = categoryDescription(category, categoryClips.length);
+
   return (
-    <div className="mx-auto max-w-5xl p-4 md:p-6 animate-fade-in">
-      {/* Category header */}
-      <div className="mb-8 rounded-2xl bg-gradient-to-br from-primary/10 via-accent/50 to-transparent p-6 md:p-8 border border-border/30">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl md:text-3xl font-bold gradient-text">{category.name}</h1>
+    <div className="mx-auto max-w-6xl p-4 md:p-6 animate-fade-in">
+      <CollectionPageJsonLd
+        category={category}
+        clipCount={categoryClips.length}
+        clips={categoryClips}
+      />
+
+      <Breadcrumb
+        items={[
+          { name: "หน้าแรก", href: "/" },
+          { name: category.name },
+        ]}
+      />
+
+      {/* Category hero */}
+      <section className="relative overflow-hidden mb-8 rounded-2xl border border-border/40 bg-gradient-to-br from-primary/10 via-accent/50 to-transparent p-6 md:p-10">
+        <div className="text-xs font-medium uppercase tracking-[0.2em] text-primary/80">
+          หมวดหมู่
+        </div>
+        <h1 className="mt-2 flex items-center gap-3 text-2xl md:text-4xl font-bold tracking-tight">
+          {category.name}
+          {isVip && <Crown className="h-6 w-6 text-amber-400 shrink-0" />}
           {hasSubscription && (
             <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2.5 py-0.5 text-xs font-medium text-green-400 border border-green-500/20">
               สมัครแล้ว
             </span>
           )}
+        </h1>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+          <span className="inline-flex items-center rounded-full bg-muted/50 border border-border/30 px-3 py-1 font-medium">
+            {categoryClips.length.toLocaleString("th-TH")} คลิป
+          </span>
+          {isVip && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-3 py-1 font-medium text-amber-400">
+              <Crown className="h-3 w-3" />
+              สำหรับสมาชิก VIP
+            </span>
+          )}
         </div>
-        {category.description && (
-          <p className="mt-2 text-sm text-muted-foreground">{category.description}</p>
-        )}
-      </div>
+        <p className="mt-5 max-w-3xl text-sm md:text-base text-muted-foreground leading-relaxed">
+          {descriptionText}
+        </p>
+      </section>
 
       {clipsWithAccess.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center animate-slide-up">
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 py-20 text-center animate-slide-up">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 mb-4">
             <span className="text-3xl opacity-40">📂</span>
           </div>
@@ -96,6 +173,7 @@ export default async function CategoryPage({
             <ClipCard
               key={clip.id}
               clip={clip}
+              categoryName={clip.categoryName}
               thumbnailUrl={thumbnailUrl}
               hasAccess={hasAccess}
               isLoggedIn={!!session?.user}
