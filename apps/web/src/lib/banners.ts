@@ -9,12 +9,14 @@ interface BannerRecord {
   linkUrl: string;
   sortOrder: number;
   isActive: boolean;
+  alt?: string;
 }
 
 export interface ActiveBanner {
   id: string;
   imageUrl: string;
   linkUrl: string;
+  alt?: string;
 }
 
 export async function getActiveBanners(): Promise<ActiveBanner[]> {
@@ -31,10 +33,12 @@ export async function getActiveBanners(): Promise<ActiveBanner[]> {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   const resolved = await Promise.all(
-    banners.map(async (b) => {
+    banners.map(async (b): Promise<ActiveBanner | null> => {
       try {
         const imageUrl = await getPresignedDownloadUrl(b.imageR2Key, 7200);
-        return { id: b.id, imageUrl, linkUrl: b.linkUrl };
+        const result: ActiveBanner = { id: b.id, imageUrl, linkUrl: b.linkUrl };
+        if (b.alt !== undefined) result.alt = b.alt;
+        return result;
       } catch {
         return null;
       }

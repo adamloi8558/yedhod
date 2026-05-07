@@ -68,12 +68,54 @@ export const systemConfigSchema = z.object({
 export const bannerSchema = z.object({
   id: z.string().min(1),
   imageR2Key: z.string().min(1, "กรุณาอัปโหลดรูป"),
-  linkUrl: z.string().url("ลิงก์ไม่ถูกต้อง"),
+  linkUrl: z
+    .string()
+    .url("ลิงก์ไม่ถูกต้อง")
+    .refine(
+      (v) => /^https?:\/\//i.test(v),
+      "ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://"
+    ),
+  alt: z.string().optional(),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
 });
 
 export const bannersListSchema = z.array(bannerSchema);
+
+// Payment provider mode + EasySlip config
+export const paymentModeSchema = z.object({
+  provider: z.enum(["anypay", "easyslip"]),
+});
+
+export const easyslipConfigSchema = z.object({
+  apiKey: z.string().min(1, "กรุณาระบุ API Key"),
+});
+
+export const paymentAccountSchema = z.object({
+  id: z.string().min(1),
+  bankCode: z.string().regex(/^\d{3}$/, "รหัสธนาคารต้องเป็นเลข 3 หลัก"),
+  bankName: z.string().min(1, "กรุณากรอกชื่อธนาคาร"),
+  accountNumber: z
+    .string()
+    .regex(/^\d{8,15}$/, "เลขบัญชีต้องเป็นตัวเลข 8-15 หลัก"),
+  accountName: z.string().min(1, "กรุณากรอกชื่อบัญชี"),
+  weight: z.number().int().min(0).max(100),
+  isActive: z.boolean(),
+});
+
+export const paymentAccountsListSchema = z
+  .array(paymentAccountSchema)
+  .refine(
+    (arr) =>
+      arr.filter((a) => a.isActive).reduce((sum, a) => sum + a.weight, 0) ===
+      100,
+    { message: "น้ำหนักรวมของบัญชีที่ใช้งานต้องเท่ากับ 100" }
+  );
+
+// EasySlip verify slip
+export const verifySlipBodySchema = z.object({
+  paymentId: z.string().min(1),
+});
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -83,3 +125,6 @@ export type PricingPlanInput = z.infer<typeof pricingPlanSchema>;
 export type CreatePaymentInput = z.infer<typeof createPaymentSchema>;
 export type SystemConfigInput = z.infer<typeof systemConfigSchema>;
 export type Banner = z.infer<typeof bannerSchema>;
+export type PaymentMode = z.infer<typeof paymentModeSchema>;
+export type EasySlipConfig = z.infer<typeof easyslipConfigSchema>;
+export type PaymentAccount = z.infer<typeof paymentAccountSchema>;

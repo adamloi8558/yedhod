@@ -56,6 +56,7 @@ export function Header({ session }: HeaderProps) {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="เปิดเมนู"
             className="h-8 w-8 flex-shrink-0 md:hidden hover:bg-accent/80 transition-smooth"
             onClick={toggle}
           >
@@ -82,6 +83,7 @@ export function Header({ session }: HeaderProps) {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="ค้นหา"
             className="h-8 w-8 md:hidden hover:bg-accent/80 transition-smooth"
             onClick={() => router.push("/search")}
           >
@@ -91,6 +93,7 @@ export function Header({ session }: HeaderProps) {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="สลับธีม"
             className="h-8 w-8 relative overflow-hidden hover:bg-accent/80 transition-smooth"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >

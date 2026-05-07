@@ -15,12 +15,13 @@ export const contentType = "image/png";
 export default async function Image({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const [clip] = await db
     .select()
     .from(clips)
-    .where(and(eq(clips.id, params.id), eq(clips.isActive, true)))
+    .where(and(eq(clips.id, id), eq(clips.isActive, true)))
     .limit(1);
 
   const [category] = clip

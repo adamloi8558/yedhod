@@ -7,6 +7,7 @@ interface Banner {
   id: string;
   imageUrl: string;
   linkUrl: string;
+  alt?: string;
 }
 
 const ROTATE_MS = 5000;
@@ -17,6 +18,12 @@ export function BannerSlider({ banners }: { banners: Banner[] }) {
 
   useEffect(() => {
     if (banners.length <= 1 || paused) return;
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
     const t = setInterval(() => {
       setIndex((i) => (i + 1) % banners.length);
     }, ROTATE_MS);
@@ -28,30 +35,44 @@ export function BannerSlider({ banners }: { banners: Banner[] }) {
   return (
     <div className="mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-6">
       <div
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="แบนเนอร์โปรโมชัน"
         className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/30 shadow-lg"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
+        onFocus={() => setPaused(true)}
+        onBlur={() => setPaused(false)}
       >
         <div
           className="flex transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
-          {banners.map((b) => (
-            <a
-              key={b.id}
-              href={b.linkUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full flex-shrink-0"
-            >
-              <img
-                src={b.imageUrl}
-                alt="banner"
-                className="h-auto w-full"
-                loading="eager"
-              />
-            </a>
-          ))}
+          {banners.map((b, i) => {
+            const isActive = i === index;
+            return (
+              <div
+                key={b.id}
+                className={cn("block w-full flex-shrink-0", !isActive && "pointer-events-none")}
+                aria-hidden={!isActive ? "true" : undefined}
+                tabIndex={!isActive ? -1 : undefined}
+              >
+                <a
+                  href={b.linkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  tabIndex={!isActive ? -1 : undefined}
+                >
+                  <img
+                    src={b.imageUrl}
+                    alt={b.alt ?? ""}
+                    className="h-auto w-full"
+                    loading="eager"
+                  />
+                </a>
+              </div>
+            );
+          })}
         </div>
 
         {banners.length > 1 && (
@@ -61,6 +82,7 @@ export function BannerSlider({ banners }: { banners: Banner[] }) {
                 key={b.id}
                 onClick={() => setIndex(i)}
                 aria-label={`สไลด์ ${i + 1}`}
+                aria-current={i === index ? "true" : undefined}
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-300",
                   i === index

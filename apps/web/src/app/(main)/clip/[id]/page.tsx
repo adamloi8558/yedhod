@@ -20,7 +20,6 @@ import {
   absoluteUrl,
 } from "@/lib/seo/metadata";
 import { getRelatedClips } from "@/lib/related-clips";
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -104,22 +103,12 @@ export default async function ClipPage({
   const displayTitle = clipDisplayTitle(clip, category);
   const related = await getRelatedClips(category.id, clip.id, 8);
 
-  const relatedWithAccess = await Promise.all(
-    related.map(async (c: typeof related[number]) => {
-      let thumbnailUrl: string | undefined;
-      if (c.thumbnailR2Key) {
-        try {
-          thumbnailUrl = await getPresignedDownloadUrl(c.thumbnailR2Key, 3600);
-        } catch {
-          // ignore
-        }
-      }
-      const access = session?.user
-        ? hasCategoryAccess(userRole, c.accessLevel, hasSub)
-        : false;
-      return { clip: c, thumbnailUrl, hasAccess: access };
-    })
-  );
+  const relatedWithAccess = related.map((c: typeof related[number]) => {
+    const access = session?.user
+      ? hasCategoryAccess(userRole, c.accessLevel, hasSub)
+      : false;
+    return { clip: c, hasAccess: access };
+  });
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 animate-fade-in">
@@ -230,12 +219,11 @@ export default async function ClipPage({
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {relatedWithAccess.map(({ clip: c, thumbnailUrl, hasAccess: ha }: typeof relatedWithAccess[number]) => (
+            {relatedWithAccess.map(({ clip: c, hasAccess: ha }: typeof relatedWithAccess[number]) => (
               <ClipCard
                 key={c.id}
                 clip={c}
                 categoryName={c.categoryName}
-                thumbnailUrl={thumbnailUrl}
                 hasAccess={ha}
                 isLoggedIn={!!session?.user}
               />

@@ -9,6 +9,7 @@ import {
   CreditCard,
   Users,
   Settings,
+  Banknote,
   LogOut,
   Tag,
   Wallet,
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/dashboard/pricing", label: "แพ็กเกจ", icon: Tag },
   { href: "/dashboard/users", label: "ผู้ใช้", icon: Users },
   { href: "/dashboard/payments", label: "การชำระเงิน", icon: CreditCard },
+  { href: "/dashboard/payment-config", label: "ช่องทางชำระเงิน", icon: Banknote },
   { href: "/dashboard/withdraw", label: "ถอนเงิน", icon: Wallet },
   { href: "/dashboard/config", label: "ตั้งค่า", icon: Settings },
 ];

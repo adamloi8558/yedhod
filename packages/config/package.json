@@ -2,7 +2,10 @@
   "name": "@kodhom/config",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "exports": {
+    ".": "./src/index.ts",
+    "./constants": "./src/constants.ts",
     "./eslint": "./eslint.mjs",
     "./typescript/base": "./typescript/base.json",
     "./typescript/nextjs": "./typescript/nextjs.json"

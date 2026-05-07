@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: require("path").join(__dirname, "../../"),
-  transpilePackages: ["@kodhom/ui", "@kodhom/auth", "@kodhom/db", "@kodhom/r2", "@kodhom/validators"],
+  transpilePackages: ["@kodhom/ui", "@kodhom/auth", "@kodhom/db", "@kodhom/easyslip", "@kodhom/r2", "@kodhom/validators", "@kodhom/config"],
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
   images: {

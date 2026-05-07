@@ -27,7 +27,7 @@ export default async function MainLayout({
         <Sidebar categories={allCategories} />
       </aside>
       <MobileSidebar categories={allCategories} />
-      <main className="flex-1 overflow-y-auto bg-background">
+      <main id="main" className="flex-1 overflow-y-auto bg-background">
         {banners.length > 0 && <BannerSlider banners={banners} />}
         {children}
         <SiteFooter />

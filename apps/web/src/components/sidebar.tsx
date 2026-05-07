@@ -61,7 +61,7 @@ export function Sidebar({ categories }: SidebarProps) {
             {cat.coverImage ? (
               <img
                 src={cat.coverImage}
-                alt={cat.name}
+                alt=""
                 className="h-10 w-10 rounded-xl object-cover transition-smooth group-hover:scale-105"
               />
             ) : (

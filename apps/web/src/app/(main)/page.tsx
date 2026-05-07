@@ -3,7 +3,6 @@ import { clips, categories } from "@kodhom/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipCard } from "@/components/clip-card";
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 import { WebsiteJsonLd } from "@/components/jsonld/website";
 import { BRAND, BRAND_TAGLINE, canonical } from "@/lib/seo/metadata";
@@ -52,24 +51,12 @@ export default async function HomePage() {
     hasSub = await hasActiveSubscription(session.user.id);
   }
 
-  const clipsWithAccess = await Promise.all(
-    allClips.map(async (clip: typeof allClips[number]) => {
-      let thumbnailUrl: string | undefined;
-      if (clip.thumbnailR2Key) {
-        try {
-          thumbnailUrl = await getPresignedDownloadUrl(clip.thumbnailR2Key, 3600);
-        } catch {
-          // ignore
-        }
-      }
-
-      const access = session?.user
-        ? hasCategoryAccess(userRole, clip.accessLevel, hasSub)
-        : false;
-
-      return { clip, thumbnailUrl, hasAccess: access };
-    })
-  );
+  const clipsWithAccess = allClips.map((clip: typeof allClips[number]) => {
+    const access = session?.user
+      ? hasCategoryAccess(userRole, clip.accessLevel, hasSub)
+      : false;
+    return { clip, hasAccess: access };
+  });
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6 animate-fade-in">
@@ -110,12 +97,11 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            {clipsWithAccess.map(({ clip, thumbnailUrl, hasAccess }: typeof clipsWithAccess[number]) => (
+            {clipsWithAccess.map(({ clip, hasAccess }: typeof clipsWithAccess[number]) => (
               <ClipCard
                 key={clip.id}
                 clip={clip}
                 categoryName={clip.categoryName}
-                thumbnailUrl={thumbnailUrl}
                 hasAccess={hasAccess}
                 isLoggedIn={!!session?.user}
               />

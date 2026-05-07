@@ -12,6 +12,7 @@
     "@kodhom/auth": "workspace:*",
     "@kodhom/config": "workspace:*",
     "@kodhom/db": "workspace:*",
+    "@kodhom/easyslip": "workspace:*",
     "@kodhom/r2": "workspace:*",
     "@kodhom/ui": "workspace:*",
     "@kodhom/validators": "workspace:*",

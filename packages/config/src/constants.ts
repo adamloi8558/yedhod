@@ -1,0 +1,11 @@
+export const PAYMENT_POLL_MS = 5000;
+export const PAYMENT_POLL_MAX_ATTEMPTS = 60;
+export const BANNER_ROTATE_MS = 5000;
+export const R2_PRESIGN_STREAM_TTL = 7200;
+export const R2_PRESIGN_THUMBNAIL_TTL = 3600;
+export const R2_PRESIGN_BANNER_TTL = 7200;
+export const LIFETIME_DAYS_THRESHOLD = 36500;
+export const EASYSLIP_BASE_URL = "https://api.easyslip.com/v2";
+export const EASYSLIP_TIMEOUT_MS = 15000;
+export const EASYSLIP_MAX_FILE_BYTES = 4 * 1024 * 1024;
+export const EASYSLIP_ALLOWED_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const;

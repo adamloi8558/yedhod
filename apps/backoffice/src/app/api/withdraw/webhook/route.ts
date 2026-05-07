@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { db } from "@kodhom/db";
 import { withdrawals } from "@kodhom/db/schema";
 import { eq } from "drizzle-orm";
 
 function verifySignature(id: string, signature: string): boolean {
   const apiKey = process.env.ANYPAY_API_KEY!;
-  const expected = createHash("sha256")
-    .update(`${id}:${apiKey}`)
-    .digest("hex");
-  return expected === signature;
+  const expected = createHash("sha256").update(`${id}:${apiKey}`).digest("hex");
+  if (typeof signature !== "string" || signature.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(expected, "hex"), Buffer.from(signature, "hex"));
 }
 
 export async function POST(req: NextRequest) {

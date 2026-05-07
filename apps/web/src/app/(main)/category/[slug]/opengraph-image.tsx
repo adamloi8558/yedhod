@@ -15,12 +15,13 @@ export const contentType = "image/png";
 export default async function Image({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = await params;
   const [category] = await db
     .select()
     .from(categories)
-    .where(and(eq(categories.slug, params.slug), eq(categories.isActive, true)))
+    .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
     .limit(1);
 
   const name = category?.name ?? "หมวดหมู่";

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@kodhom/auth";
 import { db } from "@kodhom/db";
 import { clips, categories } from "@kodhom/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
-import { headers } from "next/headers";
+import { getSession } from "@/lib/auth-server";
 import { hasActiveSubscription, hasCategoryAccess, checkDeviceLimit } from "@/lib/access-control";
 
 export async function GET(
@@ -13,7 +12,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
   }

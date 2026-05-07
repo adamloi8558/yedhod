@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Lock, Crown, Play } from "lucide-react";
 import { Badge } from "@kodhom/ui/components/badge";
 import { formatDuration, formatThaiDate } from "@kodhom/ui/lib/utils";
+import { clipDisplayTitle } from "@/lib/seo/metadata";
 
 interface ClipCardProps {
   clip: {
@@ -22,6 +23,7 @@ interface ClipCardProps {
 }
 
 export function ClipCard({ clip, categoryName, thumbnailUrl, hasAccess, isLoggedIn }: ClipCardProps) {
+  const resolvedThumb = thumbnailUrl ?? (clip.thumbnailR2Key ? `/api/thumbnail/${clip.id}` : undefined);
   const isVip = clip.accessLevel === "vip";
 
   const targetHref = hasAccess
@@ -41,6 +43,8 @@ export function ClipCard({ clip, categoryName, thumbnailUrl, hasAccess, isLogged
       ? `ดูคลิป${categoryName} ความยาว ${durationText}`
       : `ดูคลิป${categoryName ?? ""}`;
 
+  const displayTitle = clipDisplayTitle(clip, { name: categoryName ?? "" });
+
   return (
     <Link
       href={targetHref}
@@ -49,11 +53,11 @@ export function ClipCard({ clip, categoryName, thumbnailUrl, hasAccess, isLogged
     >
       {/* Thumbnail */}
       <div className="relative aspect-video w-28 sm:w-32 md:w-40 flex-shrink-0 overflow-hidden rounded-xl bg-muted">
-        {thumbnailUrl ? (
+        {resolvedThumb ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={thumbnailUrl}
-            alt={ariaLabel}
+            src={resolvedThumb}
+            alt=""
             className="h-full w-full object-cover transition-smooth group-hover:scale-105"
             loading="lazy"
           />
@@ -94,6 +98,9 @@ export function ClipCard({ clip, categoryName, thumbnailUrl, hasAccess, isLogged
               </Badge>
             )}
           </div>
+          <h3 className="text-sm font-semibold line-clamp-2 text-foreground">
+            {displayTitle}
+          </h3>
           {metaLine && (
             <p className="text-xs text-foreground/80 truncate font-medium">
               {metaLine}

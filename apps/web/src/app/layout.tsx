@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: `${BRAND} - ${BRAND_TAGLINE}`,
-    template: `%s`,
+    template: `%s | ${BRAND}`,
   },
   description: `${BRAND} รวมคลิปวิดีโอผู้ใหญ่ไทยคุณภาพสูง อัปเดตใหม่ทุกวัน ดูได้ทุกที่ทุกเวลา สมาชิก VIP ดูไม่จำกัด ปลอดภัย สำหรับผู้มีอายุ 18 ปีขึ้นไป`,
   applicationName: BRAND,
@@ -81,6 +81,12 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen font-sans antialiased">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:shadow-lg"
+        >
+          ข้ามไปยังเนื้อหาหลัก
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

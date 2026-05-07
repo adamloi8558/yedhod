@@ -8,6 +8,10 @@ import { Badge } from "@kodhom/ui/components/badge";
 import { formatThaiDate } from "@kodhom/ui/lib/utils";
 import { AvatarUpload } from "@/components/avatar-upload";
 
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function ProfilePage() {
   const session = await getSession();
   if (!session?.user) redirect("/login");
@@ -22,7 +26,7 @@ export default async function ProfilePage() {
       planName: pricingPlans.name,
     })
     .from(subscriptions)
-    .innerJoin(categories, eq(subscriptions.categoryId, categories.id))
+    .leftJoin(categories, eq(subscriptions.categoryId, categories.id))
     .innerJoin(pricingPlans, eq(subscriptions.pricingPlanId, pricingPlans.id))
     .where(eq(subscriptions.userId, session.user.id));
 
@@ -77,7 +81,7 @@ export default async function ProfilePage() {
                   className={`flex items-center justify-between rounded-xl border p-4 transition-smooth hover:bg-accent/30 ${sub.status === "active" ? "border-primary/20" : "border-border/50"}`}
                 >
                   <div>
-                    <p className="text-sm font-semibold">{sub.categoryName}</p>
+                    <p className="text-sm font-semibold">{sub.categoryName ?? "ทุกหมวดหมู่"}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{sub.planName}</p>
                   </div>
                   <div className="text-right">

@@ -149,6 +149,9 @@ importers:
       '@kodhom/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@kodhom/easyslip':
+        specifier: workspace:*
+        version: link:../../packages/easyslip
       '@kodhom/r2':
         specifier: workspace:*
         version: link:../../packages/r2
@@ -248,6 +251,12 @@ importers:
       drizzle-kit:
         specifier: ^0.30.0
         version: 0.30.6
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/easyslip:
+    devDependencies:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

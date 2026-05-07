@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@kodhom/auth";
 import { db } from "@kodhom/db";
 import { pricingPlans, payments } from "@kodhom/db/schema";
 import { eq } from "drizzle-orm";
 import { createPaymentSchema } from "@kodhom/validators";
-import { headers } from "next/headers";
+import { getSession } from "@/lib/auth-server";
 import { nanoid } from "@/lib/nanoid";
 
 export async function POST(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
   }

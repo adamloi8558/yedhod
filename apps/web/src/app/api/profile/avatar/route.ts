@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@kodhom/auth";
 import { db } from "@kodhom/db";
 import { users } from "@kodhom/db/schema";
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import { getPublicUrl } from "@kodhom/r2";
+import { getSession } from "@/lib/auth-server";
 
 export async function PUT(req: NextRequest) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -15,6 +14,10 @@ export async function PUT(req: NextRequest) {
   const { r2Key } = await req.json();
   if (!r2Key) {
     return NextResponse.json({ error: "r2Key required" }, { status: 400 });
+  }
+
+  if (typeof r2Key !== "string" || !r2Key.startsWith("avatars/")) {
+    return NextResponse.json({ error: "ไฟล์ไม่ถูกต้อง" }, { status: 400 });
   }
 
   const imageUrl = getPublicUrl(r2Key);

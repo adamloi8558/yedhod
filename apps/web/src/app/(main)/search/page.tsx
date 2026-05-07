@@ -6,6 +6,10 @@ import { ClipCard } from "@/components/clip-card";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 export default async function SearchPage({
   searchParams,
 }: {

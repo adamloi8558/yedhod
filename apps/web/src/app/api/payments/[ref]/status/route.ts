@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@kodhom/auth";
 import { db } from "@kodhom/db";
 import { payments } from "@kodhom/db/schema";
 import { eq, and } from "drizzle-orm";
-import { headers } from "next/headers";
+import { getSession } from "@/lib/auth-server";
 
 export async function GET(
   _req: NextRequest,
@@ -11,7 +10,7 @@ export async function GET(
 ) {
   const { ref } = await params;
 
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

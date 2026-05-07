@@ -28,9 +28,14 @@ export function truncate(text: string, max: number): string {
   return text.slice(0, max - 1).trimEnd() + "…";
 }
 
+/**
+ * Returns a page-specific title without the brand suffix.
+ * The root layout's `title.template` (`%s | <BRAND>`) appends it
+ * automatically when this is used as a per-page `title`.
+ */
 export function pageTitle(subject: string): string {
-  const full = subject + BRAND_SUFFIX;
-  return truncate(full, 70);
+  // Reserve room for the auto-appended " | เย็ดโหด" suffix (~10 chars in TH).
+  return truncate(subject, 60);
 }
 
 function formatThaiDateShort(date: Date | string): string {

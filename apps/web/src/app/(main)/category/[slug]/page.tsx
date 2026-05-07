@@ -1,9 +1,8 @@
 import { db } from "@kodhom/db";
 import { clips, categories } from "@kodhom/db/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, count as sqlCount } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipCard } from "@/components/clip-card";
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 import { notFound } from "next/navigation";
 import { Breadcrumb } from "@/components/breadcrumb";
@@ -31,11 +30,11 @@ export async function generateMetadata({
     .limit(1);
   if (!category) return { title: "ไม่พบหมวด" };
 
-  const count = await db
-    .select({ id: clips.id })
+  const [countRow] = await db
+    .select({ c: sqlCount() })
     .from(clips)
     .where(and(eq(clips.categoryId, category.id), eq(clips.isActive, true)));
-  const clipCount = count.length;
+  const clipCount = Number(countRow?.c ?? 0);
 
   const path = `/category/${category.slug}`;
   const title = categoryTitle(category.name);
@@ -86,7 +85,8 @@ export default async function CategoryPage({
     .from(clips)
     .innerJoin(categories, eq(clips.categoryId, categories.id))
     .where(and(eq(clips.categoryId, category.id), eq(clips.isActive, true)))
-    .orderBy(desc(clips.createdAt));
+    .orderBy(desc(clips.createdAt))
+    .limit(60);
 
   let hasSubscription = false;
   let userRole = "member";
@@ -95,22 +95,12 @@ export default async function CategoryPage({
     hasSubscription = await hasActiveSubscription(session.user.id);
   }
 
-  const clipsWithAccess = await Promise.all(
-    categoryClips.map(async (clip: typeof categoryClips[number]) => {
-      let thumbnailUrl: string | undefined;
-      if (clip.thumbnailR2Key) {
-        try {
-          thumbnailUrl = await getPresignedDownloadUrl(clip.thumbnailR2Key, 3600);
-        } catch {
-          // ignore
-        }
-      }
-      const access = session?.user
-        ? hasCategoryAccess(userRole, clip.accessLevel, hasSubscription)
-        : false;
-      return { clip, thumbnailUrl, hasAccess: access };
-    })
-  );
+  const clipsWithAccess = categoryClips.map((clip: typeof categoryClips[number]) => {
+    const access = session?.user
+      ? hasCategoryAccess(userRole, clip.accessLevel, hasSubscription)
+      : false;
+    return { clip, hasAccess: access };
+  });
 
   const isVip = category.accessLevel === "vip";
   const descriptionText = categoryDescription(category, categoryClips.length);
@@ -169,12 +159,11 @@ export default async function CategoryPage({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-          {clipsWithAccess.map(({ clip, thumbnailUrl, hasAccess }: typeof clipsWithAccess[number]) => (
+          {clipsWithAccess.map(({ clip, hasAccess }: typeof clipsWithAccess[number]) => (
             <ClipCard
               key={clip.id}
               clip={clip}
               categoryName={clip.categoryName}
-              thumbnailUrl={thumbnailUrl}
               hasAccess={hasAccess}
               isLoggedIn={!!session?.user}
             />
