@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1778186101872,
+      "tag": "0000_audit_fixes_and_easyslip",
+      "breakpoints": true
+    }
+  ]
+}

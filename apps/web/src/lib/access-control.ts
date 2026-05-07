@@ -1,19 +1,29 @@
 import { db } from "@kodhom/db";
 import { subscriptions, sessions, pricingPlans } from "@kodhom/db/schema";
-import { eq, and, gt, count } from "drizzle-orm";
+import { eq, and, gt, lt, count, isNotNull, isNull, or } from "drizzle-orm";
 
 /**
  * Check if user has any active (non-expired) subscription.
  * Global — not tied to any specific category.
+ * Side effect: bulk-marks past-endDate active rows as expired.
  */
 export async function hasActiveSubscription(userId: string): Promise<boolean> {
   const now = new Date();
 
-  const subs = await db
-    .select({
-      id: subscriptions.id,
-      endDate: subscriptions.endDate,
-    })
+  await db
+    .update(subscriptions)
+    .set({ status: "expired" })
+    .where(
+      and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.status, "active"),
+        isNotNull(subscriptions.endDate),
+        lt(subscriptions.endDate, now)
+      )
+    );
+
+  const [row] = await db
+    .select({ count: count() })
     .from(subscriptions)
     .where(
       and(
@@ -22,26 +32,7 @@ export async function hasActiveSubscription(userId: string): Promise<boolean> {
       )
     );
 
-  const expired: string[] = [];
-  let hasActive = false;
-
-  for (const sub of subs) {
-    if (sub.endDate && new Date(sub.endDate) < now) {
-      expired.push(sub.id);
-    } else {
-      hasActive = true;
-    }
-  }
-
-  // Batch-expire old subscriptions
-  for (const id of expired) {
-    await db
-      .update(subscriptions)
-      .set({ status: "expired" })
-      .where(eq(subscriptions.id, id));
-  }
-
-  return hasActive;
+  return row.count > 0;
 }
 
 /**
@@ -75,6 +66,7 @@ export async function checkDeviceLimit(userId: string) {
       )
     );
 
+  const now = new Date();
   const userPlans = await db
     .select({
       maxDevices: pricingPlans.maxDevices,
@@ -84,7 +76,10 @@ export async function checkDeviceLimit(userId: string) {
     .where(
       and(
         eq(subscriptions.userId, userId),
-        eq(subscriptions.status, "active")
+        eq(subscriptions.status, "active"),
+        // Don't count past-endDate rows that hasActiveSubscription hasn't
+        // bulk-expired yet. endDate=null means lifetime — keep those.
+        or(isNull(subscriptions.endDate), gt(subscriptions.endDate, now))
       )
     );
 

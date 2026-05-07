@@ -3,28 +3,43 @@ import {
   text,
   timestamp,
   numeric,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { subscriptionStatusEnum } from "./enums";
 import { users } from "./auth";
 import { categories } from "./categories";
 import { pricingPlans } from "./pricing";
 
-export const subscriptions = pgTable("subscriptions", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  categoryId: text("category_id").references(() => categories.id, {
-    onDelete: "set null",
-  }),
-  pricingPlanId: text("pricing_plan_id")
-    .notNull()
-    .references(() => pricingPlans.id),
-  status: subscriptionStatusEnum("status").notNull().default("active"),
-  startDate: timestamp("start_date").notNull().defaultNow(),
-  endDate: timestamp("end_date"),
-  amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }),
-  paymentRef: text("payment_ref"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: text("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    pricingPlanId: text("pricing_plan_id")
+      .notNull()
+      .references(() => pricingPlans.id),
+    status: subscriptionStatusEnum("status").notNull().default("active"),
+    startDate: timestamp("start_date").notNull().defaultNow(),
+    endDate: timestamp("end_date"),
+    amountPaid: numeric("amount_paid", { precision: 10, scale: 2 }),
+    paymentRef: text("payment_ref"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userStatusIdx: index("subscriptions_user_status_idx").on(
+      table.userId,
+      table.status
+    ),
+    paymentRefUniq: uniqueIndex("subscriptions_payment_ref_uniq")
+      .on(table.paymentRef)
+      .where(sql`${table.paymentRef} is not null`),
+  })
+);
