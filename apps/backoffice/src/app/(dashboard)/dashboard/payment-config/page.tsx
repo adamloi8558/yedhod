@@ -26,6 +26,7 @@ function nanoLocal() {
 export default function PaymentConfigPage() {
   const [provider, setProvider] = useState<Provider>("anypay");
   const [apiKey, setApiKey] = useState("");
+  const [hasApiKey, setHasApiKey] = useState(false);
   const [accounts, setAccounts] = useState<PaymentAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingMode, setSavingMode] = useState(false);
@@ -38,7 +39,7 @@ export default function PaymentConfigPage() {
       .then((r) => r.json())
       .then((d) => {
         setProvider(d.payment_mode?.provider ?? "anypay");
-        setApiKey(d.easyslip_config?.apiKey ?? "");
+        setHasApiKey(Boolean(d.easyslip_config?.hasApiKey));
         setAccounts(Array.isArray(d.payment_accounts) ? d.payment_accounts : []);
       })
       .finally(() => setLoading(false));
@@ -70,8 +71,13 @@ export default function PaymentConfigPage() {
       body: JSON.stringify({ apiKey }),
     });
     setSavingKey(false);
-    if (res.ok) flash("ok", "บันทึก API Key เรียบร้อย");
-    else flash("err", "บันทึกไม่สำเร็จ");
+    if (res.ok) {
+      flash("ok", "บันทึก API Key เรียบร้อย");
+      setApiKey("");
+      setHasApiKey(true);
+    } else {
+      flash("err", "บันทึกไม่สำเร็จ");
+    }
   }
 
   async function saveAccounts() {
@@ -171,15 +177,25 @@ export default function PaymentConfigPage() {
             </CardContent>
           </Card>
 
-          {/* Section 2: EasySlip API key */}
+          {/* Section 2: EasySlip API key (write-only) */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">EasySlip API Key</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                จาก dashboard ของ EasySlip เก็บไว้ในระบบ
+                จาก dashboard ของ EasySlip ระบบจะเก็บไว้ปลอดภัย ไม่แสดงค่ากลับ
+                — กรอกเฉพาะตอนต้องการตั้งใหม่
               </p>
+              <div className="flex items-center gap-2 rounded-lg bg-accent/40 px-3 py-2 text-xs">
+                <span
+                  className={
+                    "inline-block h-2 w-2 rounded-full " +
+                    (hasApiKey ? "bg-green-500" : "bg-muted-foreground/40")
+                  }
+                />
+                {hasApiKey ? "ตั้งค่า API Key แล้ว" : "ยังไม่ได้ตั้งค่า"}
+              </div>
               <div className="flex gap-2">
                 <Input
                   type="password"
@@ -187,7 +203,8 @@ export default function PaymentConfigPage() {
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setApiKey(e.target.value)
                   }
-                  placeholder="••••••••"
+                  placeholder={hasApiKey ? "ตั้งค่าใหม่ทับของเดิม" : "วาง API Key"}
+                  autoComplete="new-password"
                   className="flex-1"
                 />
                 <Button onClick={saveApiKey} disabled={savingKey || !apiKey}>

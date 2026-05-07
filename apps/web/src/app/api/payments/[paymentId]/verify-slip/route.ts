@@ -80,6 +80,17 @@ export async function POST(
     );
   }
 
+  // Pre-check Content-Length to avoid buffering a huge body just to reject it.
+  // Content-Length isn't guaranteed; the file.size check below is the
+  // definitive gate.
+  const declaredLength = Number(req.headers.get("content-length") ?? 0);
+  if (declaredLength > MAX_FILE_BYTES + 8 * 1024) {
+    return NextResponse.json(
+      { error: "ไฟล์สลิปต้องไม่เกิน 4 MB" },
+      { status: 413 }
+    );
+  }
+
   // Parse multipart
   const form = await req.formData();
   const file = form.get("slip");
@@ -164,14 +175,17 @@ export async function POST(
   // DB transaction: race-safe completion
   try {
     await db.transaction(async (tx) => {
-      // Re-check payment status under lock
+      // Re-check payment status + expiry under lock
       const [fresh] = await tx
         .select()
         .from(payments)
         .where(eq(payments.id, paymentId))
         .limit(1);
-      if (!fresh || fresh.status === "completed") {
-        throw new Error("ALREADY_COMPLETED");
+      if (!fresh) throw new Error("NOT_FOUND");
+      if (fresh.status === "completed") throw new Error("ALREADY_COMPLETED");
+      if (fresh.status !== "pending") throw new Error("BAD_STATE");
+      if (fresh.expiresAt && new Date(fresh.expiresAt) < new Date()) {
+        throw new Error("EXPIRED");
       }
 
       const transRef = result.data.rawSlip.transRef;
@@ -203,10 +217,22 @@ export async function POST(
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
-    if (message === "ALREADY_COMPLETED") {
+    if (message === "ALREADY_COMPLETED" || message === "BAD_STATE") {
       return NextResponse.json(
         { error: "รายการนี้ดำเนินการไปแล้ว" },
         { status: 409 }
+      );
+    }
+    if (message === "EXPIRED") {
+      return NextResponse.json(
+        { error: "หมดเวลาชำระเงิน" },
+        { status: 410 }
+      );
+    }
+    if (message === "NOT_FOUND") {
+      return NextResponse.json(
+        { error: "ไม่พบรายการชำระเงิน" },
+        { status: 404 }
       );
     }
     if (typeof err === "object" && err && "code" in err && err.code === "23505") {

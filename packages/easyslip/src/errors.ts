@@ -1,4 +1,6 @@
-export const easyslipErrorMessages: Record<string, string> = {
+import type { EasySlipErrorCode } from "./types";
+
+export const easyslipErrorMessages: Record<EasySlipErrorCode, string> = {
   MISSING_API_KEY: "ระบบยังไม่ได้ตั้งค่า API Key (กรุณาติดต่อแอดมิน)",
   INVALID_API_KEY: "API Key ไม่ถูกต้อง (กรุณาติดต่อแอดมิน)",
   IP_NOT_ALLOWED: "IP ของเซิร์ฟเวอร์ไม่ได้รับอนุญาต (กรุณาติดต่อแอดมิน)",
@@ -14,10 +16,13 @@ export const easyslipErrorMessages: Record<string, string> = {
   UNKNOWN: "ไม่สามารถตรวจสอบสลิปได้ กรุณาลองใหม่",
 };
 
+const knownCodes = new Set(Object.keys(easyslipErrorMessages));
+
 export function mapEasySlipError(code: string | undefined): {
-  code: string;
+  code: EasySlipErrorCode;
   message: string;
 } {
-  const c = code ?? "UNKNOWN";
-  return { code: c, message: easyslipErrorMessages[c] ?? easyslipErrorMessages.UNKNOWN };
+  const normalized: EasySlipErrorCode =
+    code && knownCodes.has(code) ? (code as EasySlipErrorCode) : "UNKNOWN";
+  return { code: normalized, message: easyslipErrorMessages[normalized] };
 }

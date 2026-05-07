@@ -23,7 +23,8 @@ export async function verifyBankSlip(
   });
   form.append("image", blob, input.imageFilename ?? "slip");
   form.append("matchAmount", String(input.matchAmount));
-  form.append("checkDuplicate", input.checkDuplicate === false ? "false" : "true");
+  // checkDuplicate is typed as literal `true` to prevent silent disabling.
+  form.append("checkDuplicate", "true");
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);

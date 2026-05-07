@@ -44,9 +44,24 @@ export interface EasySlipSuccessData {
   rawSlip: EasySlipRawSlip;
 }
 
+export type EasySlipErrorCode =
+  | "MISSING_API_KEY"
+  | "INVALID_API_KEY"
+  | "IP_NOT_ALLOWED"
+  | "BRANCH_INACTIVE"
+  | "SERVICE_BANNED"
+  | "USER_BANNED"
+  | "QUOTA_EXCEEDED"
+  | "VALIDATION_ERROR"
+  | "SLIP_NOT_FOUND"
+  | "API_SERVER_ERROR"
+  | "NETWORK"
+  | "TIMEOUT"
+  | "UNKNOWN";
+
 export type EasySlipResult =
   | { ok: true; data: EasySlipSuccessData }
-  | { ok: false; code: string; message: string };
+  | { ok: false; code: EasySlipErrorCode; message: string };
 
 export interface EasySlipVerifyInput {
   apiKey: string;
@@ -54,5 +69,7 @@ export interface EasySlipVerifyInput {
   imageMime: string;
   imageFilename?: string;
   matchAmount: number;
-  checkDuplicate?: boolean;
+  // Always true in this codebase — duplicate detection is mandatory.
+  // Typed as a literal to prevent a caller from silently disabling it.
+  checkDuplicate: true;
 }

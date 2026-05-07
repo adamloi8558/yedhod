@@ -17,11 +17,17 @@ export async function GET() {
 
   const out: Record<string, unknown> = {
     payment_mode: { provider: "anypay" },
-    easyslip_config: { apiKey: "" },
+    easyslip_config: { hasApiKey: false },
     payment_accounts: [],
   };
   for (const r of rows) {
-    out[r.key] = r.value;
+    if (r.key === "easyslip_config") {
+      const v = r.value as { apiKey?: string } | null;
+      // Never return the actual API key — only whether one is set.
+      out.easyslip_config = { hasApiKey: Boolean(v?.apiKey) };
+    } else {
+      out[r.key] = r.value;
+    }
   }
   return NextResponse.json(out);
 }

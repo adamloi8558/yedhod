@@ -1,6 +1,20 @@
 -- Audit fixes + EasySlip integration migration
 -- Adds: indexes for hot-path queries, EasySlip columns on payments, unique
 -- constraints on payment refs to enforce idempotency at the DB layer.
+--
+-- IMPORTANT before running on production:
+--   The unique partial index on subscriptions.payment_ref will fail if
+--   duplicate non-null payment_ref rows exist (e.g. from prior webhook
+--   double-delivery). Audit and dedupe first:
+--
+--   SELECT payment_ref, COUNT(*) FROM subscriptions
+--   WHERE payment_ref IS NOT NULL
+--   GROUP BY payment_ref HAVING COUNT(*) > 1;
+--
+--   For each duplicate group, keep the oldest row (the legitimate sub) and
+--   either DELETE or NULL out payment_ref on the rest before applying.
+--
+--   Same caveat for payments.anypay_ref and withdrawals.anypay_ref.
 
 -- ==== payments: add EasySlip columns + ensure provider has a default ====
 ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "provider" text NOT NULL DEFAULT 'anypay';--> statement-breakpoint
