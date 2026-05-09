@@ -104,9 +104,15 @@ async function main() {
   let skipCount = 0;
   let failCount = 0;
 
+  // Telegram throttles getMessages aggressively. Smaller batches + a
+  // small inter-batch delay cuts flood-wait incidents dramatically.
+  const GET_MESSAGES_BATCH = Number(process.env.RETHUMB_BATCH ?? "20");
+  const INTER_BATCH_DELAY_MS = Number(process.env.RETHUMB_DELAY_MS ?? "1500");
+
   for (const [groupId, groupJobs] of byGroup) {
     console.log(
-      `[rethumb] group ${groupId}: ${groupJobs.length} clip(s)`
+      `[rethumb] group ${groupId}: ${groupJobs.length} clip(s) ` +
+        `(batch=${GET_MESSAGES_BATCH}, delay=${INTER_BATCH_DELAY_MS}ms)`
     );
     let entity;
     try {
@@ -120,14 +126,14 @@ async function main() {
       continue;
     }
 
-    // Fetch messages in batches of 100 (Telegram limit)
-    const ids = groupJobs.map((j) => j.telegramMessageId);
-    const messageMap = new Map<number, Api.Message>();
-    const batchSize = 100;
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const batch = ids.slice(i, i + batchSize);
+    let processed = 0;
+    for (let i = 0; i < groupJobs.length; i += GET_MESSAGES_BATCH) {
+      const batchJobs = groupJobs.slice(i, i + GET_MESSAGES_BATCH);
+      const ids = batchJobs.map((j) => j.telegramMessageId);
+      const messageMap = new Map<number, Api.Message>();
+
       try {
-        const msgs = await client.getMessages(entity, { ids: batch });
+        const msgs = await client.getMessages(entity, { ids });
         for (const m of msgs) {
           if (m && "id" in m && typeof m.id === "number") {
             messageMap.set(m.id, m as Api.Message);
@@ -135,63 +141,71 @@ async function main() {
         }
       } catch (err) {
         console.error(`[rethumb] getMessages batch failed:`, err);
-      }
-    }
-
-    let processed = 0;
-    for (const job of groupJobs) {
-      processed += 1;
-      const m = messageMap.get(job.telegramMessageId);
-      if (!m || !m.media) {
-        console.warn(
-          `[rethumb]   ${job.clipId}: message ${job.telegramMessageId} not found`
-        );
-        skipCount += 1;
-        continue;
-      }
-      if (!(m.media instanceof Api.MessageMediaDocument)) {
-        skipCount += 1;
-        continue;
-      }
-      const doc = m.media.document;
-      if (!(doc instanceof Api.Document) || !doc.thumbs?.length) {
-        skipCount += 1;
+        failCount += batchJobs.length;
         continue;
       }
 
-      const thumbIdx = pickLargestThumbIdx(doc.thumbs);
-      const sized = doc.thumbs[thumbIdx];
-      const w = (sized as { w?: number }).w ?? 0;
-      const h = (sized as { h?: number }).h ?? 0;
-
-      if (ARG_DRY) {
-        console.log(
-          `[rethumb]   ${job.clipId}: would download thumb idx=${thumbIdx} ${w}x${h}`
-        );
-        okCount += 1;
-        continue;
-      }
-
-      try {
-        const thumbBuffer = await client.downloadMedia(m, { thumb: thumbIdx });
-        if (!thumbBuffer || !(thumbBuffer instanceof Buffer)) {
-          console.warn(`[rethumb]   ${job.clipId}: empty download`);
-          failCount += 1;
+      for (const job of batchJobs) {
+        processed += 1;
+        const m = messageMap.get(job.telegramMessageId);
+        if (!m || !m.media) {
+          console.warn(
+            `[rethumb]   ${job.clipId}: message ${job.telegramMessageId} not found`
+          );
+          skipCount += 1;
           continue;
         }
-        await uploadBuffer(
-          job.thumbnailR2Key,
-          thumbBuffer,
-          "image/jpeg",
-          thumbBuffer.length
-        );
-        console.log(
-          `[rethumb]   ${job.clipId}: ${w}x${h}, ${thumbBuffer.length}B → ${job.thumbnailR2Key} [${processed}/${groupJobs.length}]`
-        );
-        okCount += 1;
-      } catch (err) {
-        console.error(`[rethumb]   ${job.clipId}: failed`, err);
-        failCount += 1;
+        if (!(m.media instanceof Api.MessageMediaDocument)) {
+          skipCount += 1;
+          continue;
+        }
+        const doc = m.media.document;
+        if (!(doc instanceof Api.Document) || !doc.thumbs?.length) {
+          skipCount += 1;
+          continue;
+        }
+
+        const thumbIdx = pickLargestThumbIdx(doc.thumbs);
+        const sized = doc.thumbs[thumbIdx];
+        const w = (sized as { w?: number }).w ?? 0;
+        const h = (sized as { h?: number }).h ?? 0;
+
+        if (ARG_DRY) {
+          console.log(
+            `[rethumb]   ${job.clipId}: would download thumb idx=${thumbIdx} ${w}x${h}`
+          );
+          okCount += 1;
+          continue;
+        }
+
+        try {
+          const thumbBuffer = await client.downloadMedia(m, {
+            thumb: thumbIdx,
+          });
+          if (!thumbBuffer || !(thumbBuffer instanceof Buffer)) {
+            console.warn(`[rethumb]   ${job.clipId}: empty download`);
+            failCount += 1;
+            continue;
+          }
+          await uploadBuffer(
+            job.thumbnailR2Key,
+            thumbBuffer,
+            "image/jpeg",
+            thumbBuffer.length
+          );
+          console.log(
+            `[rethumb]   ${job.clipId}: ${w}x${h}, ${thumbBuffer.length}B → ${job.thumbnailR2Key} [${processed}/${groupJobs.length}]`
+          );
+          okCount += 1;
+        } catch (err) {
+          console.error(`[rethumb]   ${job.clipId}: failed`, err);
+          failCount += 1;
+        }
+      }
+
+      // Cooldown between getMessages batches.
+      if (i + GET_MESSAGES_BATCH < groupJobs.length) {
+        await new Promise((r) => setTimeout(r, INTER_BATCH_DELAY_MS));
       }
     }
   }
