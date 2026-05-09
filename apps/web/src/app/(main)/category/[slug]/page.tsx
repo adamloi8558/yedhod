@@ -158,7 +158,7 @@ export default async function CategoryPage({
           <p className="text-muted-foreground font-medium">ยังไม่มีคลิปในหมวดหมู่นี้</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-4">
           {clipsWithAccess.map(({ clip, hasAccess }: typeof clipsWithAccess[number]) => (
             <ClipCard
               key={clip.id}

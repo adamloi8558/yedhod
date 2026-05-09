@@ -14,7 +14,7 @@ export function RestrictedOverlay({ isVip, isLoggedIn, clipId }: RestrictedOverl
   const loginHref = `/login?redirect=${encodeURIComponent(`/clip/${clipId}`)}`;
 
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-xl">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-black/70">
       <div className={`flex h-20 w-20 items-center justify-center rounded-2xl ${isVip ? 'bg-gradient-to-br from-amber-400/20 to-amber-600/20 animate-pulse-glow' : 'bg-white/10'} transition-smooth`}>
         {!isLoggedIn ? (
           <LogIn className="h-10 w-10 text-white/80" />
