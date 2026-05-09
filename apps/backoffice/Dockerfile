@@ -12,6 +12,7 @@ COPY packages/r2/package.json ./packages/r2/
 COPY packages/ui/package.json ./packages/ui/
 COPY packages/validators/package.json ./packages/validators/
 COPY packages/config/package.json ./packages/config/
+COPY packages/easyslip/package.json ./packages/easyslip/
 RUN pnpm install --frozen-lockfile
 
 # --- Builder ---
