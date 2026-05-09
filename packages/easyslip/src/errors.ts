@@ -9,7 +9,11 @@ export const easyslipErrorMessages: Record<EasySlipErrorCode, string> = {
   USER_BANNED: "บัญชีผู้ใช้ตรวจสลิปถูกระงับ",
   QUOTA_EXCEEDED: "โควต้าตรวจสลิปหมด กรุณาลองใหม่ภายหลังหรือติดต่อแอดมิน",
   VALIDATION_ERROR: "ไฟล์สลิปไม่ถูกต้อง",
-  SLIP_NOT_FOUND: "ไม่พบข้อมูลสลิป กรุณาตรวจสอบรูปอีกครั้ง",
+  SLIP_NOT_FOUND: "ไม่พบ QR Code ในสลิป กรุณาตรวจสอบรูปและลองใหม่",
+  SLIP_PENDING:
+    "สลิปธนาคารกรุงเทพภายใน 5 นาทีล่าสุดอาจยังไม่พร้อมตรวจ กรุณารอสักครู่แล้วลองใหม่",
+  IMAGE_SIZE_TOO_LARGE: "ไฟล์ใหญ่เกิน 4 MB กรุณาบีบอัดและลองใหม่",
+  INVALID_IMAGE_FORMAT: "ไฟล์ไม่ใช่รูปภาพที่รองรับ (JPG/PNG/GIF/WEBP)",
   API_SERVER_ERROR: "ระบบตรวจสลิปขัดข้อง กรุณาลองใหม่",
   NETWORK: "ไม่สามารถเชื่อมต่อระบบตรวจสลิปได้ กรุณาลองใหม่",
   TIMEOUT: "ระบบตรวจสลิปตอบช้าเกินไป กรุณาลองใหม่",

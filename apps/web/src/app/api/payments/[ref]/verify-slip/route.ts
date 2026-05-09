@@ -261,7 +261,10 @@ function checkSlipRules(
   snapshot: AccountSnapshot,
   opts: CheckOpts
 ): { ok: true } | { ok: false; message: string } {
-  // Rule 2: amount matched (both flag + literal compare)
+  // Rule 2: amount matched (both flag + literal compare).
+  // isAmountMatched is optional in the response (only present when matchAmount
+  // was sent — which we always do); we still treat its absence as a mismatch
+  // for safety.
   if (data.isAmountMatched !== true) {
     return { ok: false, message: "ยอดเงินในสลิปไม่ตรงกับแพ็กเกจ" };
   }
@@ -272,8 +275,23 @@ function checkSlipRules(
   if (data.rawSlip.receiver.bank.id !== snapshot.bankCode) {
     return { ok: false, message: "ธนาคารปลายทางในสลิปไม่ตรงกัน" };
   }
-  // Rule 3b: receiver account tail
-  const slipAcc = data.rawSlip.receiver.account.bank.account;
+  // Rule 3b: receiver account tail.
+  // EasySlip returns either `bank.account` (regular transfer) or `proxy.account`
+  // (PromptPay/MSISDN/etc). Snapshot only stores the bank account number, but
+  // tail-match works on digits regardless: a PromptPay-by-phone slip will have
+  // proxy.account = phone-number, which won't match the bank account tail —
+  // that's the correct behavior because we cannot verify the customer hit the
+  // right account otherwise.
+  const slipAcc =
+    data.rawSlip.receiver.account.bank?.account ??
+    data.rawSlip.receiver.account.proxy?.account ??
+    "";
+  if (!slipAcc) {
+    return {
+      ok: false,
+      message: "ไม่สามารถอ่านบัญชีปลายทางในสลิปได้",
+    };
+  }
   if (!tailMatches(slipAcc, snapshot.accountNumber)) {
     return {
       ok: false,

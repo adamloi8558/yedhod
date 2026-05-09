@@ -9,9 +9,19 @@ export interface EasySlipAccountName {
   en?: string;
 }
 
+export type EasySlipAccountType = "BANKAC" | "TOKEN" | "DUMMY";
+export type EasySlipProxyType =
+  | "NATID"
+  | "MSISDN"
+  | "EWALLETID"
+  | "EMAIL"
+  | "BILLERID";
+
 export interface EasySlipAccount {
   name: EasySlipAccountName;
-  bank: { type: string; account: string };
+  // bank and proxy are alternatives; PromptPay slips often have only proxy.
+  bank?: { type: EasySlipAccountType; account: string };
+  proxy?: { type: EasySlipProxyType; account: string };
 }
 
 export interface EasySlipParty {
@@ -19,28 +29,36 @@ export interface EasySlipParty {
   account: EasySlipAccount;
 }
 
+export type EasySlipReceiver = EasySlipParty & {
+  merchantId?: string | null;
+};
+
 export interface EasySlipAmount {
   amount: number;
-  local: { amount: number; currency: string };
+  local?: { amount: number; currency: string };
 }
 
 export interface EasySlipRawSlip {
   payload: string;
   transRef: string;
   date: string;
-  countryCode: string;
+  countryCode?: string;
   amount: EasySlipAmount;
-  fee: number;
+  fee?: number;
+  ref1?: string;
+  ref2?: string;
+  ref3?: string;
   sender: EasySlipParty;
-  receiver: EasySlipParty;
+  receiver: EasySlipReceiver;
 }
 
 export interface EasySlipSuccessData {
   isDuplicate: boolean;
   amountInSlip: number;
-  amountInOrder: number;
-  isAmountMatched: boolean;
+  amountInOrder?: number;
+  isAmountMatched?: boolean;
   matchedAccount: unknown | null;
+  remark?: string;
   rawSlip: EasySlipRawSlip;
 }
 
@@ -54,6 +72,9 @@ export type EasySlipErrorCode =
   | "QUOTA_EXCEEDED"
   | "VALIDATION_ERROR"
   | "SLIP_NOT_FOUND"
+  | "SLIP_PENDING"
+  | "IMAGE_SIZE_TOO_LARGE"
+  | "INVALID_IMAGE_FORMAT"
   | "API_SERVER_ERROR"
   | "NETWORK"
   | "TIMEOUT"
