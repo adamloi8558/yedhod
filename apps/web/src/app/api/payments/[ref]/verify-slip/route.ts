@@ -31,9 +31,9 @@ interface AccountSnapshot {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ paymentId: string }> }
+  { params }: { params: Promise<{ ref: string }> }
 ) {
-  const { paymentId } = await params;
+  const { ref: paymentId } = await params;
 
   const session = await getSession();
   if (!session?.user) {
