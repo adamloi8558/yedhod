@@ -21,6 +21,12 @@ import {
   SelectValue,
 } from "@kodhom/ui/components/select";
 import { Pencil, Trash2, Upload } from "lucide-react";
+import {
+  ResponsiveTable,
+  MobileCards,
+  MobileCard,
+  MobileField,
+} from "@/components/responsive-table";
 
 interface Clip {
   id: string;
@@ -154,6 +160,42 @@ export function ClipList({
 
   const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
+  function accessBadge(clip: Clip) {
+    return (
+      <Badge
+        variant={clip.accessLevel === "vip" ? "vip" : "secondary"}
+        className={
+          clip.accessLevel === "vip"
+            ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/20"
+            : "bg-blue-500/15 text-blue-400 hover:bg-blue-500/20"
+        }
+      >
+        {clip.accessLevel.toUpperCase()}
+      </Badge>
+    );
+  }
+
+  function statusBadge(clip: Clip) {
+    return (
+      <Badge variant={clip.isActive ? "default" : "secondary"} className={clip.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
+        {clip.isActive ? "เปิด" : "ปิด"}
+      </Badge>
+    );
+  }
+
+  function renderActions(clip: Clip) {
+    return (
+      <>
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground transition-colors hover:text-primary" onClick={() => openEdit(clip)} title="แก้ไข">
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground transition-colors hover:text-destructive" onClick={() => handleDelete(clip.id)} title="ลบ">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="mb-4">
@@ -162,15 +204,15 @@ export function ClipList({
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border/50 bg-card/50">
-        <div className="overflow-x-auto">
+      <ResponsiveTable
+        table={
           <table className="admin-table">
             <thead>
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ชื่อ</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">หมวดหมู่</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">หมวดหมู่</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ระดับ</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">สถานะ</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">สถานะ</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">จัดการ</th>
               </tr>
             </thead>
@@ -178,45 +220,38 @@ export function ClipList({
               {clips.map((clip) => (
                 <tr key={clip.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
                   <td className="px-4 py-3 font-medium text-foreground">{clip.title}</td>
-                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                  <td className="px-4 py-3 text-muted-foreground">
                     {categoryMap.get(clip.categoryId) ?? "-"}
                   </td>
-                  <td className="px-4 py-3">
-                    <Badge
-                      variant={clip.accessLevel === "vip" ? "vip" : "secondary"}
-                      className={
-                        clip.accessLevel === "vip"
-                          ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/20"
-                          : "bg-blue-500/15 text-blue-400 hover:bg-blue-500/20"
-                      }
-                    >
-                      {clip.accessLevel.toUpperCase()}
-                    </Badge>
-                  </td>
-                  <td className="hidden px-4 py-3 sm:table-cell">
-                    <Badge variant={clip.isActive ? "default" : "secondary"} className={clip.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
-                      {clip.isActive ? "เปิด" : "ปิด"}
-                    </Badge>
-                  </td>
+                  <td className="px-4 py-3">{accessBadge(clip)}</td>
+                  <td className="px-4 py-3">{statusBadge(clip)}</td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:text-primary" onClick={() => openEdit(clip)} title="แก้ไข">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:text-destructive" onClick={() => handleDelete(clip.id)} title="ลบ">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    <div className="flex items-center justify-end gap-1">{renderActions(clip)}</div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        }
+        mobile={
+          <MobileCards>
+            {clips.map((clip) => (
+              <MobileCard
+                key={clip.id}
+                title={clip.title}
+                badge={statusBadge(clip)}
+                actions={renderActions(clip)}
+              >
+                <MobileField label="หมวดหมู่" value={categoryMap.get(clip.categoryId) ?? "-"} />
+                <MobileField label="ระดับ" value={accessBadge(clip)} />
+              </MobileCard>
+            ))}
+          </MobileCards>
+        }
+      />
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="border-border/60 bg-card sm:max-w-md">
+        <DialogContent className="border-border/60 bg-card sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">{editItem ? "แก้ไขคลิป" : "เพิ่มคลิป"}</DialogTitle>
           </DialogHeader>

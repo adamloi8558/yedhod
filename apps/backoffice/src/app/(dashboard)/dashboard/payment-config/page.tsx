@@ -233,108 +233,115 @@ export default function PaymentConfigPage() {
                 น้ำหนักรวมของบัญชีที่ใช้งานต้องเท่ากับ 100
               </p>
 
-              <div className="space-y-2">
-                {accounts.map((a) => (
+              <div className="space-y-3">
+                {accounts.map((a, idx) => (
                   <div
                     key={a.id}
-                    className="grid grid-cols-1 gap-2 rounded-lg border border-border/60 p-3 md:grid-cols-[1fr_2fr_2fr_2fr_80px_70px_40px]"
+                    className="rounded-lg border border-border/60 p-3"
                   >
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        รหัส
-                      </Label>
-                      <Input
-                        value={a.bankCode}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateRow(a.id, {
-                            bankCode: e.target.value.replace(/\D/g, "").slice(0, 3),
-                          })
-                        }
-                        placeholder="004"
-                        className="mt-1 font-mono text-sm"
-                      />
+                    {/* Row header: title + active toggle + delete */}
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        บัญชี #{idx + 1}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <label className="flex cursor-pointer items-center gap-1.5 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={a.isActive}
+                            onChange={(e) =>
+                              updateRow(a.id, { isActive: e.target.checked })
+                            }
+                          />
+                          ใช้งาน
+                        </label>
+                        <button
+                          onClick={() => removeRow(a.id)}
+                          className="rounded p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          aria-label="ลบบัญชี"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        ธนาคาร
-                      </Label>
-                      <Input
-                        value={a.bankName}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateRow(a.id, { bankName: e.target.value })
-                        }
-                        placeholder="กสิกรไทย"
-                        className="mt-1 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        เลขบัญชี
-                      </Label>
-                      <Input
-                        value={a.accountNumber}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateRow(a.id, {
-                            accountNumber: e.target.value.replace(/\D/g, ""),
-                          })
-                        }
-                        placeholder="1234567890"
-                        className="mt-1 font-mono text-sm"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        ชื่อบัญชี
-                      </Label>
-                      <Input
-                        value={a.accountName}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateRow(a.id, { accountName: e.target.value })
-                        }
-                        placeholder="นายสมชาย ใจดี"
-                        className="mt-1 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        น้ำหนัก
-                      </Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={a.weight}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                          updateRow(a.id, {
-                            weight: Math.max(
-                              0,
-                              Math.min(100, parseInt(e.target.value || "0", 10))
-                            ),
-                          })
-                        }
-                        className="mt-1 text-sm"
-                      />
-                    </div>
-                    <div className="flex items-end pb-1">
-                      <label className="flex cursor-pointer items-center gap-1.5 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={a.isActive}
-                          onChange={(e) =>
-                            updateRow(a.id, { isActive: e.target.checked })
+                    {/* Fields: stack on mobile, fluid grid on larger screens */}
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                      <div className="col-span-1">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          รหัส
+                        </Label>
+                        <Input
+                          value={a.bankCode}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateRow(a.id, {
+                              bankCode: e.target.value.replace(/\D/g, "").slice(0, 3),
+                            })
                           }
+                          placeholder="004"
+                          className="mt-1 font-mono text-sm"
                         />
-                        ใช้งาน
-                      </label>
-                    </div>
-                    <div className="flex items-end pb-1">
-                      <button
-                        onClick={() => removeRow(a.id)}
-                        className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        aria-label="ลบบัญชี"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      </div>
+                      <div className="col-span-1 sm:col-span-2 lg:col-span-2">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          ธนาคาร
+                        </Label>
+                        <Input
+                          value={a.bankName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateRow(a.id, { bankName: e.target.value })
+                          }
+                          placeholder="กสิกรไทย"
+                          className="mt-1 text-sm"
+                        />
+                      </div>
+                      <div className="col-span-2 sm:col-span-3 lg:col-span-3">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          เลขบัญชี
+                        </Label>
+                        <Input
+                          value={a.accountNumber}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateRow(a.id, {
+                              accountNumber: e.target.value.replace(/\D/g, ""),
+                            })
+                          }
+                          placeholder="1234567890"
+                          className="mt-1 font-mono text-sm"
+                        />
+                      </div>
+                      <div className="col-span-2 sm:col-span-2 lg:col-span-4">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          ชื่อบัญชี
+                        </Label>
+                        <Input
+                          value={a.accountName}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateRow(a.id, { accountName: e.target.value })
+                          }
+                          placeholder="นายสมชาย ใจดี"
+                          className="mt-1 text-sm"
+                        />
+                      </div>
+                      <div className="col-span-1 sm:col-span-1 lg:col-span-2">
+                        <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          น้ำหนัก (%)
+                        </Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={a.weight}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                            updateRow(a.id, {
+                              weight: Math.max(
+                                0,
+                                Math.min(100, parseInt(e.target.value || "0", 10))
+                              ),
+                            })
+                          }
+                          className="mt-1 text-sm"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}

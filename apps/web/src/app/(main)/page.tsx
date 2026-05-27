@@ -96,7 +96,7 @@ export default async function HomePage() {
             <p className="text-sm text-muted-foreground/60 mt-1">คลิปใหม่กำลังจะมาเร็วๆ นี้</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-4">
             {clipsWithAccess.map(({ clip, hasAccess }: typeof clipsWithAccess[number]) => (
               <ClipCard
                 key={clip.id}

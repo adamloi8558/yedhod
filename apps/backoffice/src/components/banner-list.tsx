@@ -226,20 +226,20 @@ export function BannerList({ initialBanners }: { initialBanners: Banner[] }) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground transition-colors hover:text-primary"
+                        className="h-9 w-9 text-muted-foreground transition-colors hover:text-primary"
                         onClick={() => openEdit(b)}
                         title="แก้ไข"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground transition-colors hover:text-destructive"
+                        className="h-9 w-9 text-muted-foreground transition-colors hover:text-destructive"
                         onClick={() => handleDelete(b.id)}
                         title="ลบ"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </td>
@@ -251,7 +251,7 @@ export function BannerList({ initialBanners }: { initialBanners: Banner[] }) {
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="border-border/60 bg-card sm:max-w-md">
+        <DialogContent className="border-border/60 bg-card sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">
               {editItem ? "แก้ไข Banner" : "เพิ่ม Banner"}

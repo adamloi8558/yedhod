@@ -21,6 +21,12 @@ import {
   SelectValue,
 } from "@kodhom/ui/components/select";
 import { Pencil, Trash2, Upload } from "lucide-react";
+import {
+  ResponsiveTable,
+  MobileCards,
+  MobileCard,
+  MobileField,
+} from "@/components/responsive-table";
 
 interface Category {
   id: string;
@@ -133,6 +139,35 @@ export function CategoryList({ categories }: { categories: Category[] }) {
     router.refresh();
   }
 
+  function accessBadge(cat: Category) {
+    return (
+      <Badge variant="secondary" className={cat.accessLevel === "vip" ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/20" : "bg-blue-500/15 text-blue-400 hover:bg-blue-500/20"}>
+        {cat.accessLevel === "vip" ? "VIP" : "Member"}
+      </Badge>
+    );
+  }
+
+  function statusBadge(cat: Category) {
+    return (
+      <Badge variant={cat.isActive ? "default" : "secondary"} className={cat.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
+        {cat.isActive ? "เปิด" : "ปิด"}
+      </Badge>
+    );
+  }
+
+  function renderActions(cat: Category) {
+    return (
+      <>
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground transition-colors hover:text-primary" onClick={() => openEdit(cat)} title="แก้ไข">
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground transition-colors hover:text-destructive" onClick={() => handleDelete(cat.id)} title="ลบ">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="mb-4">
@@ -141,15 +176,15 @@ export function CategoryList({ categories }: { categories: Category[] }) {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border/50 bg-card/50">
-        <div className="overflow-x-auto">
+      <ResponsiveTable
+        table={
           <table className="admin-table">
             <thead>
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ชื่อ</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">Slug</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">ระดับ</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">ลำดับ</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Slug</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ระดับ</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ลำดับ</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">สถานะ</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">จัดการ</th>
               </tr>
@@ -158,37 +193,38 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               {categories.map((cat) => (
                 <tr key={cat.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
                   <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
-                  <td className="hidden px-4 py-3 font-mono text-xs text-muted-foreground md:table-cell">{cat.slug}</td>
-                  <td className="hidden px-4 py-3 sm:table-cell">
-                    <Badge variant="secondary" className={cat.accessLevel === "vip" ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/20" : "bg-blue-500/15 text-blue-400 hover:bg-blue-500/20"}>
-                      {cat.accessLevel === "vip" ? "VIP" : "Member"}
-                    </Badge>
-                  </td>
-                  <td className="hidden px-4 py-3 tabular-nums text-muted-foreground sm:table-cell">{cat.sortOrder}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={cat.isActive ? "default" : "secondary"} className={cat.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
-                      {cat.isActive ? "เปิด" : "ปิด"}
-                    </Badge>
-                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{cat.slug}</td>
+                  <td className="px-4 py-3">{accessBadge(cat)}</td>
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">{cat.sortOrder}</td>
+                  <td className="px-4 py-3">{statusBadge(cat)}</td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:text-primary" onClick={() => openEdit(cat)} title="แก้ไข">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:text-destructive" onClick={() => handleDelete(cat.id)} title="ลบ">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    <div className="flex items-center justify-end gap-1">{renderActions(cat)}</div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        }
+        mobile={
+          <MobileCards>
+            {categories.map((cat) => (
+              <MobileCard
+                key={cat.id}
+                title={cat.name}
+                badge={statusBadge(cat)}
+                actions={renderActions(cat)}
+              >
+                <MobileField label="Slug" value={<span className="font-mono text-xs">{cat.slug}</span>} />
+                <MobileField label="ระดับ" value={accessBadge(cat)} />
+                <MobileField label="ลำดับ" value={cat.sortOrder} />
+              </MobileCard>
+            ))}
+          </MobileCards>
+        }
+      />
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="border-border/60 bg-card sm:max-w-md">
+        <DialogContent className="border-border/60 bg-card sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">
               {editItem ? "แก้ไขหมวดหมู่" : "เพิ่มหมวดหมู่"}

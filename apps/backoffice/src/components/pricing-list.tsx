@@ -15,6 +15,12 @@ import {
 } from "@kodhom/ui/components/dialog";
 import { Pencil, Trash2 } from "lucide-react";
 import { formatCurrency } from "@kodhom/ui/lib/utils";
+import {
+  ResponsiveTable,
+  MobileCards,
+  MobileCard,
+  MobileField,
+} from "@/components/responsive-table";
 
 interface Plan {
   id: string;
@@ -107,6 +113,19 @@ export function PricingList({
     router.refresh();
   }
 
+  function renderActions(plan: Plan) {
+    return (
+      <>
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground transition-colors hover:text-primary" onClick={() => openEdit(plan)} title="แก้ไข">
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground transition-colors hover:text-destructive" onClick={() => handleDelete(plan.id)} title="ลบ">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="mb-4">
@@ -115,15 +134,15 @@ export function PricingList({
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border/50 bg-card/50">
-        <div className="overflow-x-auto">
+      <ResponsiveTable
+        table={
           <table className="admin-table">
             <thead>
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ชื่อ</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ราคา</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">ระยะเวลา</th>
-                <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground lg:table-cell">อุปกรณ์</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">ระยะเวลา</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">อุปกรณ์</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">สถานะ</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">จัดการ</th>
               </tr>
@@ -133,32 +152,45 @@ export function PricingList({
                 <tr key={plan.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
                   <td className="px-4 py-3 font-medium text-foreground">{plan.name}</td>
                   <td className="px-4 py-3 font-semibold tabular-nums text-foreground">{formatCurrency(plan.priceThb)}</td>
-                  <td className="hidden px-4 py-3 tabular-nums text-muted-foreground sm:table-cell">{plan.durationDays} วัน</td>
-                  <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">{plan.maxDevices}</td>
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">{plan.durationDays} วัน</td>
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">{plan.maxDevices}</td>
                   <td className="px-4 py-3">
                     <Badge variant={plan.isActive ? "default" : "secondary"} className={plan.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
                       {plan.isActive ? "เปิด" : "ปิด"}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:text-primary" onClick={() => openEdit(plan)} title="แก้ไข">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground transition-colors hover:text-destructive" onClick={() => handleDelete(plan.id)} title="ลบ">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    <div className="flex items-center justify-end gap-1">{renderActions(plan)}</div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
+        }
+        mobile={
+          <MobileCards>
+            {plans.map((plan) => (
+              <MobileCard
+                key={plan.id}
+                title={plan.name}
+                badge={
+                  <Badge variant={plan.isActive ? "default" : "secondary"} className={plan.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
+                    {plan.isActive ? "เปิด" : "ปิด"}
+                  </Badge>
+                }
+                actions={renderActions(plan)}
+              >
+                <MobileField label="ราคา" value={<span className="font-semibold tabular-nums">{formatCurrency(plan.priceThb)}</span>} />
+                <MobileField label="ระยะเวลา" value={`${plan.durationDays} วัน`} />
+                <MobileField label="อุปกรณ์สูงสุด" value={plan.maxDevices} />
+              </MobileCard>
+            ))}
+          </MobileCards>
+        }
+      />
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="border-border/60 bg-card sm:max-w-lg">
+        <DialogContent className="border-border/60 bg-card sm:max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold">{editItem ? "แก้ไขแพ็กเกจ" : "เพิ่มแพ็กเกจ"}</DialogTitle>
           </DialogHeader>

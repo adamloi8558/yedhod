@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Search, Menu, LogOut, User, Monitor } from "lucide-react";
+import { Moon, Sun, Search, Menu, LogOut, User, Monitor, X } from "lucide-react";
 import { Button } from "@kodhom/ui/components/button";
 import { Input } from "@kodhom/ui/components/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@kodhom/ui/components/avatar";
@@ -31,15 +31,25 @@ export function Header({ session }: HeaderProps) {
   const pathname = usePathname();
   const { toggle } = useSidebarStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
 
   // Hide sidebar toggle on auth pages (no sidebar there)
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
+
+  // Auto-focus the mobile search field when the overlay opens.
+  useEffect(() => {
+    if (mobileSearchOpen) {
+      mobileSearchInputRef.current?.focus();
+    }
+  }, [mobileSearchOpen]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const q = searchQuery.trim();
     if (q) {
       router.push(`/search?q=${encodeURIComponent(q)}`);
+      setMobileSearchOpen(false);
     }
   }
 
@@ -50,14 +60,17 @@ export function Header({ session }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/50 glass-strong">
+    <header
+      className="sticky top-0 z-30 border-b border-border/50 glass-strong"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="flex h-14 items-center gap-2 px-3 sm:gap-3 sm:px-4">
         {!isAuthPage && (
           <Button
             variant="ghost"
             size="icon"
             aria-label="เปิดเมนู"
-            className="h-8 w-8 flex-shrink-0 md:hidden hover:bg-accent/80 transition-smooth"
+            className="h-9 w-9 flex-shrink-0 md:hidden hover:bg-accent/80 transition-smooth"
             onClick={toggle}
           >
             <Menu className="h-5 w-5" />
@@ -79,22 +92,27 @@ export function Header({ session }: HeaderProps) {
         </form>
 
         <div className="ml-auto flex items-center gap-1">
-          {/* Mobile search */}
+          {/* Mobile search — toggles an inline overlay bar below the header */}
           <Button
             variant="ghost"
             size="icon"
-            aria-label="ค้นหา"
-            className="h-8 w-8 md:hidden hover:bg-accent/80 transition-smooth"
-            onClick={() => router.push("/search")}
+            aria-label={mobileSearchOpen ? "ปิดค้นหา" : "ค้นหา"}
+            aria-expanded={mobileSearchOpen}
+            className="h-9 w-9 md:hidden hover:bg-accent/80 transition-smooth"
+            onClick={() => setMobileSearchOpen((v) => !v)}
           >
-            <Search className="h-4 w-4" />
+            {mobileSearchOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
           </Button>
 
           <Button
             variant="ghost"
             size="icon"
             aria-label="สลับธีม"
-            className="h-8 w-8 relative overflow-hidden hover:bg-accent/80 transition-smooth"
+            className="h-9 w-9 relative overflow-hidden hover:bg-accent/80 transition-smooth"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
             <Sun className="h-4 w-4 rotate-0 scale-100 transition-all duration-300 dark:-rotate-90 dark:scale-0" />
@@ -152,6 +170,27 @@ export function Header({ session }: HeaderProps) {
           )}
         </div>
       </div>
+
+      {/* Mobile inline search overlay — slides open below the header row */}
+      {mobileSearchOpen && !isAuthPage && (
+        <div className="border-t border-border/50 px-3 py-2 md:hidden animate-slide-up">
+          <form onSubmit={handleSearch} className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+            <Input
+              ref={mobileSearchInputRef}
+              placeholder="ค้นหาคลิป..."
+              className="pl-9 pr-3 bg-accent/50 border-border/50 focus:bg-accent focus:border-primary/40 focus:ring-primary/20 transition-smooth rounded-xl"
+              value={searchQuery}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setSearchQuery(e.target.value)
+              }
+              onKeyDown={(e: React.KeyboardEvent) => {
+                if (e.key === "Escape") setMobileSearchOpen(false);
+              }}
+            />
+          </form>
+        </div>
+      )}
     </header>
   );
 }
