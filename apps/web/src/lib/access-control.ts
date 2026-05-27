@@ -89,8 +89,12 @@ export async function checkDeviceLimit(userId: string) {
 
   const current = sessionCount.count;
 
+  // The requesting user's own session is included in `current`, and the
+  // login hook (packages/auth) already trims sessions down to `maxDevices`.
+  // So being AT the limit is allowed; only an over-limit count (e.g. a brief
+  // race before the hook trims, or concurrent tabs) is rejected.
   return {
-    allowed: current < maxDevices,
+    allowed: current <= maxDevices,
     current,
     max: maxDevices,
   };

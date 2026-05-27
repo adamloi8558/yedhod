@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "better-auth": "^1.2.0",
-    "@kodhom/db": "workspace:*"
+    "@kodhom/db": "workspace:*",
+    "drizzle-orm": "^0.39.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0"
