@@ -9,7 +9,7 @@ import {
   telegramSyncMessages,
   telegramPostedClips,
 } from "@kodhom/db/schema";
-import { and, eq, gte, lte, lt, gt, isNotNull, sql, desc, count } from "drizzle-orm";
+import { and, eq, gte, lte, lt, gt, isNotNull, isNull, or, sql, desc, count } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth-server";
 
 // Paid = enum "completed" (NOT "paid").
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       .where(
         and(
           eq(subscriptions.status, "active"),
-          sql`(${subscriptions.endDate} is null or ${subscriptions.endDate} > ${now})`
+          or(isNull(subscriptions.endDate), gt(subscriptions.endDate, now))
         )
       ),
 
