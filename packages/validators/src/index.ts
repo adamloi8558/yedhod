@@ -48,6 +48,7 @@ export const pricingPlanSchema = z.object({
   priceThb: z.string().regex(/^\d+(\.\d{1,2})?$/, "ราคาไม่ถูกต้อง"),
   maxDevices: z.number().int().positive().default(1),
   isActive: z.boolean().default(true),
+  isFeatured: z.boolean().default(false),
   sortOrder: z.number().int().default(0),
 });
 

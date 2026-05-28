@@ -51,11 +51,11 @@ export default async function PricingPage() {
         <p className="text-sm text-muted-foreground py-4 text-center">ยังไม่มีแพ็กเกจ</p>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {allPlans.map((plan: typeof allPlans[number], index: number) => (
+          {allPlans.map((plan: typeof allPlans[number]) => (
             <PricingCard
               key={plan.id}
               plan={plan}
-              featured={index === Math.floor(allPlans.length / 2) && allPlans.length > 1}
+              featured={plan.isFeatured}
               isLoggedIn={isLoggedIn}
             />
           ))}

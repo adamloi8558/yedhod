@@ -12,6 +12,7 @@ interface PricingCardProps {
     durationDays: number;
     priceThb: string;
     maxDevices: number;
+    isFeatured?: boolean;
   };
   featured?: boolean;
   isLoggedIn: boolean;
@@ -37,9 +38,13 @@ export function PricingCard({ plan, featured, isLoggedIn }: PricingCardProps) {
   }
 
   return (
-    <Card className={`relative overflow-hidden rounded-2xl transition-smooth hover:scale-[1.02] hover:shadow-xl ${featured ? 'ring-2 ring-primary glow-primary border-primary/30' : 'border-border/50 hover:border-primary/30'}`}>
+    <Card className={`relative overflow-hidden rounded-2xl border-primary/30 transition-smooth hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/10 ${featured ? 'ring-2 ring-primary glow-primary' : 'hover:border-primary/50'}`}>
+      {/* Top gradient bar on every card; featured stands out via ring + glow + badge */}
+      <div className="absolute top-0 left-0 right-0 h-1 gradient-primary" />
       {featured && (
-        <div className="absolute top-0 left-0 right-0 h-1 gradient-primary" />
+        <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full gradient-primary px-2.5 py-0.5 text-[11px] font-semibold text-white shadow-md shadow-primary/30">
+          ⭐ แนะนำ
+        </span>
       )}
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold">{plan.name}</CardTitle>
@@ -64,8 +69,7 @@ export function PricingCard({ plan, featured, isLoggedIn }: PricingCardProps) {
           </li>
         </ul>
         <Button
-          className={`w-full rounded-xl transition-smooth ${featured ? 'gradient-primary text-white border-0 shadow-lg shadow-primary/20 hover:shadow-primary/30' : 'hover:bg-primary hover:text-primary-foreground'}`}
-          variant={featured ? "default" : "outline"}
+          className="w-full rounded-xl gradient-primary text-white border-0 shadow-lg shadow-primary/20 transition-smooth hover:shadow-primary/30"
           onClick={handleClick}
         >
           {isLoggedIn ? "สมัครเลย" : "เข้าสู่ระบบเพื่อสมัคร"}

@@ -19,6 +19,7 @@ export const pricingPlans = pgTable("pricing_plans", {
   priceThb: numeric("price_thb", { precision: 10, scale: 2 }).notNull(),
   maxDevices: integer("max_devices").notNull().default(1),
   isActive: boolean("is_active").notNull().default(true),
+  isFeatured: boolean("is_featured").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

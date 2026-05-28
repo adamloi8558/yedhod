@@ -30,6 +30,7 @@ interface Plan {
   priceThb: string;
   maxDevices: number;
   isActive: boolean;
+  isFeatured: boolean;
   sortOrder: number;
 }
 
@@ -48,6 +49,7 @@ export function PricingList({
     priceThb: "0",
     maxDevices: 1,
     isActive: true,
+    isFeatured: false,
     sortOrder: 0,
   });
   const [loading, setLoading] = useState(false);
@@ -61,6 +63,7 @@ export function PricingList({
       priceThb: "0",
       maxDevices: 1,
       isActive: true,
+      isFeatured: false,
       sortOrder: 0,
     });
     setShowDialog(true);
@@ -75,6 +78,7 @@ export function PricingList({
       priceThb: plan.priceThb,
       maxDevices: plan.maxDevices,
       isActive: plan.isActive,
+      isFeatured: plan.isFeatured,
       sortOrder: plan.sortOrder,
     });
     setShowDialog(true);
@@ -150,7 +154,14 @@ export function PricingList({
             <tbody>
               {plans.map((plan) => (
                 <tr key={plan.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
-                  <td className="px-4 py-3 font-medium text-foreground">{plan.name}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    <span className="inline-flex items-center gap-2">
+                      {plan.name}
+                      {plan.isFeatured && (
+                        <Badge variant="secondary" className="bg-primary/15 text-primary">⭐ แนะนำ</Badge>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 font-semibold tabular-nums text-foreground">{formatCurrency(plan.priceThb)}</td>
                   <td className="px-4 py-3 tabular-nums text-muted-foreground">{plan.durationDays} วัน</td>
                   <td className="px-4 py-3 tabular-nums text-muted-foreground">{plan.maxDevices}</td>
@@ -172,7 +183,14 @@ export function PricingList({
             {plans.map((plan) => (
               <MobileCard
                 key={plan.id}
-                title={plan.name}
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    {plan.name}
+                    {plan.isFeatured && (
+                      <Badge variant="secondary" className="bg-primary/15 text-primary">⭐</Badge>
+                    )}
+                  </span>
+                }
                 badge={
                   <Badge variant={plan.isActive ? "default" : "secondary"} className={plan.isActive ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/20" : ""}>
                     {plan.isActive ? "เปิด" : "ปิด"}
@@ -245,15 +263,27 @@ export function PricingList({
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isActive: e.target.checked })}
-                id="planActive"
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              <Label htmlFor="planActive" className="text-sm">เปิดใช้งาน</Label>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isActive: e.target.checked })}
+                  id="planActive"
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                <Label htmlFor="planActive" className="text-sm">เปิดใช้งาน</Label>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={form.isFeatured}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isFeatured: e.target.checked })}
+                  id="planFeatured"
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                <Label htmlFor="planFeatured" className="text-sm">⭐ แพ็กเกจแนะนำ</Label>
+              </div>
             </div>
           </div>
           <DialogFooter className="gap-2">

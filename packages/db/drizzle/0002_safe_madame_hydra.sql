@@ -1,0 +1,1 @@
+ALTER TABLE "pricing_plans" ADD COLUMN "is_featured" boolean DEFAULT false NOT NULL;
