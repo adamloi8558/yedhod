@@ -66,25 +66,15 @@ export async function GET(req: NextRequest) {
       ),
 
     // New paying customers: users whose FIRST completed payment falls in range.
-    db
-      .select({ c: count() })
-      .from(
-        db
-          .select({
-            userId: payments.userId,
-            firstPaid: sql<Date>`min(${payments.paidAt})`.as("first_paid"),
-          })
-          .from(payments)
-          .where(eq(payments.status, PAID))
-          .groupBy(payments.userId)
-          .as("fp")
-      )
-      .where(
-        and(
-          sql`fp.first_paid >= ${from}`,
-          sql`fp.first_paid <= ${to}`
-        )
-      ),
+    db.execute(sql`
+      select count(*)::int as c from (
+        select user_id, min(paid_at) as first_paid
+        from payments
+        where status = ${PAID}
+        group by user_id
+      ) fp
+      where fp.first_paid >= ${from} and fp.first_paid <= ${to}
+    `),
 
     // New subscriptions created in range.
     db
@@ -282,7 +272,7 @@ export async function GET(req: NextRequest) {
     summary: {
       revenue: Number(revenue[0]?.total ?? 0),
       bills: revenue[0]?.bills ?? 0,
-      newPayingCustomers: newPayingCustomers[0]?.c ?? 0,
+      newPayingCustomers: (rows(newPayingCustomers)[0] as { c?: number })?.c ?? 0,
       newSubs: newSubs[0]?.c ?? 0,
       newUsers: newUsers[0]?.c ?? 0,
       activeVip: activeVip[0]?.c ?? 0,

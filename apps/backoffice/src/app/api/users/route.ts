@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@kodhom/db";
-import { users, subscriptions } from "@kodhom/db/schema";
+import { users } from "@kodhom/db/schema";
 import { roleEnum } from "@kodhom/db/schema";
-import { eq, or, ilike, desc, count, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth-server";
 
 const PAGE_SIZE = 30;
 const VALID_ROLES = roleEnum.enumValues; // ["member","vip","admin"]
+
+type UserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: "member" | "vip" | "admin";
+  createdAt: string;
+  vipUntil: string | null;
+  vipLifetime: boolean;
+};
+
+function asRows<T>(r: unknown): T[] {
+  return ((r as { rows?: unknown[] }).rows ?? (r as unknown[])) as T[];
+}
 
 export async function GET(req: NextRequest) {
   if (!(await getAdminSession())) {
@@ -18,52 +32,51 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
   const now = new Date();
+  const like = `%${q}%`;
 
-  const where = q
-    ? or(ilike(users.name, `%${q}%`), ilike(users.email, `%${q}%`))
-    : undefined;
+  // Correlated subqueries via raw SQL (robust): real VIP entitlement is
+  // an active, non-expired subscription — not the role label.
+  const listSql = q
+    ? sql`
+        select u.id, u.name, u.email, u.role, u.created_at as "createdAt",
+          (select max(s.end_date) from subscriptions s
+            where s.user_id = u.id and s.status = 'active'
+              and (s.end_date is null or s.end_date > ${now})) as "vipUntil",
+          exists(select 1 from subscriptions s
+            where s.user_id = u.id and s.status = 'active' and s.end_date is null) as "vipLifetime"
+        from users u
+        where u.name ilike ${like} or u.email ilike ${like}
+        order by u.created_at desc
+        limit ${PAGE_SIZE} offset ${offset}
+      `
+    : sql`
+        select u.id, u.name, u.email, u.role, u.created_at as "createdAt",
+          (select max(s.end_date) from subscriptions s
+            where s.user_id = u.id and s.status = 'active'
+              and (s.end_date is null or s.end_date > ${now})) as "vipUntil",
+          exists(select 1 from subscriptions s
+            where s.user_id = u.id and s.status = 'active' and s.end_date is null) as "vipLifetime"
+        from users u
+        order by u.created_at desc
+        limit ${PAGE_SIZE} offset ${offset}
+      `;
 
-  // Latest active, non-expired subscription end date per user (the source of
-  // truth for "VIP that actually works" — role is just a label).
-  const activeSubEnd = sql<Date | null>`(
-    select max(${subscriptions.endDate})
-    from ${subscriptions}
-    where ${subscriptions.userId} = ${users.id}
-      and ${subscriptions.status} = 'active'
-      and (${subscriptions.endDate} is null or ${subscriptions.endDate} > ${now})
-  )`;
-  // A lifetime (null endDate) active sub also counts as VIP.
-  const hasLifetime = sql<boolean>`exists (
-    select 1 from ${subscriptions}
-    where ${subscriptions.userId} = ${users.id}
-      and ${subscriptions.status} = 'active'
-      and ${subscriptions.endDate} is null
-  )`;
+  const countSql = q
+    ? sql`select count(*)::int as total from users u where u.name ilike ${like} or u.email ilike ${like}`
+    : sql`select count(*)::int as total from users`;
 
-  const [rows, [{ total }]] = await Promise.all([
-    db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        role: users.role,
-        createdAt: users.createdAt,
-        vipUntil: activeSubEnd,
-        vipLifetime: hasLifetime,
-      })
-      .from(users)
-      .where(where)
-      .orderBy(desc(users.createdAt))
-      .limit(PAGE_SIZE)
-      .offset(offset),
-    db.select({ total: count() }).from(users).where(where),
+  const [listRes, totalRes] = await Promise.all([
+    db.execute(listSql),
+    db.execute(countSql),
   ]);
+
+  const rows = asRows<UserRow>(listRes);
+  const total = asRows<{ total: number }>(totalRes)[0]?.total ?? 0;
 
   return NextResponse.json({
     users: rows.map((u) => ({
       ...u,
-      // real entitlement, independent of role label
-      isVipActive: u.vipLifetime || !!u.vipUntil,
+      isVipActive: !!u.vipLifetime || !!u.vipUntil,
     })),
     total,
     page,
