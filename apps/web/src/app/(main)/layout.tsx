@@ -3,6 +3,7 @@ import { MobileSidebar } from "@/components/mobile-sidebar";
 import { BannerSlider } from "@/components/banner-slider";
 import { SiteFooter } from "@/components/site-footer";
 import { BottomNav } from "@/components/bottom-nav";
+import { ScrollReset } from "@/components/scroll-reset";
 import { db } from "@kodhom/db";
 import { categories } from "@kodhom/db/schema";
 import { eq, asc } from "drizzle-orm";
@@ -26,6 +27,7 @@ export default async function MainLayout({
 
   return (
     <div className="flex flex-1 overflow-hidden">
+      <ScrollReset />
       <aside className="hidden w-72 flex-shrink-0 border-r border-border/40 bg-card/30 md:block transition-smooth">
         <Sidebar categories={allCategories} />
       </aside>
