@@ -3,6 +3,7 @@ import { clips, categories } from "@kodhom/db/schema";
 import { eq, and, ilike, desc, or } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipCard } from "@/components/clip-card";
+import { SearchBox } from "@/components/search-box";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 
@@ -21,7 +22,8 @@ export default async function SearchPage({
   if (!query) {
     return (
       <div className="mx-auto max-w-5xl p-4 md:p-6 animate-fade-in">
-        <h1 className="mb-6 text-2xl font-bold gradient-text">ค้นหา</h1>
+        <h1 className="mb-4 text-2xl font-bold gradient-text">ค้นหา</h1>
+        <SearchBox />
         <div className="flex flex-col items-center justify-center py-20 text-center animate-slide-up">
           <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-muted/50 mb-4">
             <span className="text-3xl opacity-40">🔍</span>
@@ -88,7 +90,8 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-5xl p-4 md:p-6 animate-fade-in">
-      <h1 className="mb-2 text-2xl font-bold gradient-text">ผลการค้นหา</h1>
+      <h1 className="mb-4 text-2xl font-bold gradient-text">ผลการค้นหา</h1>
+      <SearchBox initialQuery={query} />
       <p className="mb-6 text-sm text-muted-foreground">
         &quot;{query}&quot; — พบ {clipsWithAccess.length} คลิป
       </p>
