@@ -31,7 +31,7 @@ export function BottomNav({ isLoggedIn }: BottomNavProps) {
 
   const itemClass = (active: boolean) =>
     cn(
-      "flex flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[10px] font-medium transition-smooth",
+      "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium transition-smooth",
       active
         ? "text-primary"
         : "text-muted-foreground hover:text-foreground"
@@ -45,7 +45,7 @@ export function BottomNav({ isLoggedIn }: BottomNavProps) {
     >
       <div className="flex items-stretch">
         <Link href="/" className={itemClass(isActive("/"))} aria-label="หน้าแรก">
-          <Home className="h-5 w-5" />
+          <Home className="h-[22px] w-[22px]" />
           <span>หน้าแรก</span>
         </Link>
 
@@ -56,7 +56,7 @@ export function BottomNav({ isLoggedIn }: BottomNavProps) {
           aria-expanded={isOpen}
           className={itemClass(isOpen)}
         >
-          <LayoutGrid className="h-5 w-5" />
+          <LayoutGrid className="h-[22px] w-[22px]" />
           <span>หมวดหมู่</span>
         </button>
 
@@ -65,7 +65,7 @@ export function BottomNav({ isLoggedIn }: BottomNavProps) {
           className={itemClass(isActive("/search"))}
           aria-label="ค้นหา"
         >
-          <Search className="h-5 w-5" />
+          <Search className="h-[22px] w-[22px]" />
           <span>ค้นหา</span>
         </Link>
 
@@ -74,7 +74,7 @@ export function BottomNav({ isLoggedIn }: BottomNavProps) {
           className={itemClass(isActive("/pricing"))}
           aria-label="สมาชิก VIP"
         >
-          <Crown className="h-5 w-5" />
+          <Crown className="h-[22px] w-[22px]" />
           <span>VIP</span>
         </Link>
 
@@ -83,7 +83,7 @@ export function BottomNav({ isLoggedIn }: BottomNavProps) {
           className={itemClass(isActive("/profile"))}
           aria-label="โปรไฟล์"
         >
-          <User className="h-5 w-5" />
+          <User className="h-[22px] w-[22px]" />
           <span>โปรไฟล์</span>
         </Link>
       </div>

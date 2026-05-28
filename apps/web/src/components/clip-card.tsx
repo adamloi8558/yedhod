@@ -113,13 +113,13 @@ export function ClipCard({
       </div>
 
       {/* Info */}
-      <div className="flex flex-col gap-1 p-3">
-        <h3 className="text-sm font-semibold line-clamp-2 text-foreground leading-snug">
+      <div className="flex flex-col gap-1.5 p-3 md:p-3.5">
+        <h3 className="text-[13px] md:text-sm font-semibold line-clamp-2 text-foreground leading-snug group-hover:text-primary transition-smooth">
           {displayTitle}
         </h3>
         <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground/80">
           {metaLine && <span className="truncate font-medium">{metaLine}</span>}
-          <time className="flex-shrink-0">
+          <time className="flex-shrink-0 tabular-nums">
             {formatThaiDate(new Date(clip.createdAt))}
           </time>
         </div>
