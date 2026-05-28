@@ -33,6 +33,12 @@ export async function GET(req: NextRequest) {
 
   const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
+  // Raw db.execute(sql``) with postgres-js cannot bind Date objects — pass
+  // ISO strings and let Postgres cast them to timestamps.
+  const fromIso = from.toISOString();
+  const toIso = to.toISOString();
+  const nowIso = now.toISOString();
+
   try {
   const [
     revenue,
@@ -74,7 +80,7 @@ export async function GET(req: NextRequest) {
         where status = ${PAID}
         group by user_id
       ) fp
-      where fp.first_paid >= ${from} and fp.first_paid <= ${to}
+      where fp.first_paid >= ${fromIso} and fp.first_paid <= ${toIso}
     `),
 
     // New subscriptions created in range.
@@ -123,18 +129,18 @@ export async function GET(req: NextRequest) {
     db.execute(sql`
       with days as (
         select to_char(d, 'YYYY-MM-DD') as day
-        from generate_series(date_trunc('day', ${from}::timestamp), date_trunc('day', ${to}::timestamp), interval '1 day') d
+        from generate_series(date_trunc('day', ${fromIso}::timestamp), date_trunc('day', ${toIso}::timestamp), interval '1 day') d
       ),
       u as (
         select to_char(date_trunc('day', created_at), 'YYYY-MM-DD') as day, count(*)::int as n
-        from users where created_at >= ${from} and created_at <= ${to}
+        from users where created_at >= ${fromIso} and created_at <= ${toIso}
         group by 1
       ),
       p as (
         select to_char(first_paid, 'YYYY-MM-DD') as day, count(*)::int as n from (
           select user_id, min(paid_at) as first_paid from payments
           where status = ${PAID} group by user_id
-        ) fp where first_paid >= ${from} and first_paid <= ${to}
+        ) fp where first_paid >= ${fromIso} and first_paid <= ${toIso}
         group by 1
       )
       select days.day,
@@ -200,7 +206,7 @@ export async function GET(req: NextRequest) {
           select 1 from subscriptions s
           where s.user_id = p.user_id
             and s.status = 'active'
-            and (s.end_date is null or s.end_date > ${now})
+            and (s.end_date is null or s.end_date > ${nowIso})
         )
       group by p.user_id, u.name, u.email
       order by max(p.paid_at) desc nulls last

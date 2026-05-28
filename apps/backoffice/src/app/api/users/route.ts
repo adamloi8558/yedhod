@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get("q")?.trim() ?? "";
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const offset = (page - 1) * PAGE_SIZE;
-  const now = new Date();
+  // Raw db.execute(sql``) with postgres-js cannot bind a Date — use ISO string.
+  const nowIso = new Date().toISOString();
   const like = `%${q}%`;
 
   // Correlated subqueries via raw SQL (robust): real VIP entitlement is
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
         select u.id, u.name, u.email, u.role, u.created_at as "createdAt",
           (select max(s.end_date) from subscriptions s
             where s.user_id = u.id and s.status = 'active'
-              and (s.end_date is null or s.end_date > ${now})) as "vipUntil",
+              and (s.end_date is null or s.end_date > ${nowIso})) as "vipUntil",
           exists(select 1 from subscriptions s
             where s.user_id = u.id and s.status = 'active' and s.end_date is null) as "vipLifetime"
         from users u
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
         select u.id, u.name, u.email, u.role, u.created_at as "createdAt",
           (select max(s.end_date) from subscriptions s
             where s.user_id = u.id and s.status = 'active'
-              and (s.end_date is null or s.end_date > ${now})) as "vipUntil",
+              and (s.end_date is null or s.end_date > ${nowIso})) as "vipUntil",
           exists(select 1 from subscriptions s
             where s.user_id = u.id and s.status = 'active' and s.end_date is null) as "vipLifetime"
         from users u
