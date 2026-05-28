@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
 
   const in3Days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
+  try {
   const [
     revenue,
     newPayingCustomers,
@@ -323,6 +324,13 @@ export async function GET(req: NextRequest) {
       emptyCategories: (rows(emptyCats)[0] as { c: number })?.c ?? 0,
     },
   });
+  } catch (err) {
+    console.error("[dashboard] query failed:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
 }
 
 function parseDate(s: string | null): Date | null {

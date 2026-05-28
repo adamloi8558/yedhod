@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
     ? sql`select count(*)::int as total from users u where u.name ilike ${like} or u.email ilike ${like}`
     : sql`select count(*)::int as total from users`;
 
+  try {
   const [listRes, totalRes] = await Promise.all([
     db.execute(listSql),
     db.execute(countSql),
@@ -83,6 +84,13 @@ export async function GET(req: NextRequest) {
     pageSize: PAGE_SIZE,
     totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
   });
+  } catch (err) {
+    console.error("[users] query failed:", err);
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(req: NextRequest) {
