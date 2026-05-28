@@ -333,7 +333,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[dashboard] query failed:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
+      { error: "ไม่สามารถโหลดข้อมูลแดชบอร์ดได้" },
       { status: 500 }
     );
   }

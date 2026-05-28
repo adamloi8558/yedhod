@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("[users] query failed:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
+      { error: "ไม่สามารถโหลดรายชื่อผู้ใช้ได้" },
       { status: 500 }
     );
   }
