@@ -34,6 +34,8 @@ interface Category {
   slug: string;
   description: string | null;
   coverImage: string | null;
+  parentId: string | null;
+  isPinned: boolean;
   accessLevel: "member" | "vip";
   sortOrder: number;
   isActive: boolean;
@@ -47,6 +49,8 @@ export function CategoryList({ categories }: { categories: Category[] }) {
     name: "",
     slug: "",
     description: "",
+    parentId: "" as string,
+    isPinned: false,
     accessLevel: "member" as "member" | "vip",
     sortOrder: 0,
     isActive: true,
@@ -85,7 +89,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
 
   function openCreate() {
     setEditItem(null);
-    setForm({ name: "", slug: "", description: "", accessLevel: "member" as const, sortOrder: 0, isActive: true });
+    setForm({ name: "", slug: "", description: "", parentId: "", isPinned: false, accessLevel: "member" as const, sortOrder: 0, isActive: true });
     setCoverImage(null);
     setShowDialog(true);
   }
@@ -96,6 +100,8 @@ export function CategoryList({ categories }: { categories: Category[] }) {
       name: cat.name,
       slug: cat.slug,
       description: cat.description ?? "",
+      parentId: cat.parentId ?? "",
+      isPinned: cat.isPinned,
       accessLevel: cat.accessLevel,
       sortOrder: cat.sortOrder,
       isActive: cat.isActive,
@@ -114,7 +120,11 @@ export function CategoryList({ categories }: { categories: Category[] }) {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, coverImage }),
+        body: JSON.stringify({
+          ...form,
+          coverImage,
+          parentId: form.parentId || null,
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -192,7 +202,17 @@ export function CategoryList({ categories }: { categories: Category[] }) {
             <tbody>
               {categories.map((cat) => (
                 <tr key={cat.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
-                  <td className="px-4 py-3 font-medium text-foreground">{cat.name}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      {cat.isPinned && <Badge variant="secondary" className="bg-primary/15 text-primary">📌</Badge>}
+                      {cat.name}
+                      {cat.parentId && (
+                        <span className="text-xs font-normal text-muted-foreground">
+                          ↳ {categories.find((p) => p.id === cat.parentId)?.name ?? "—"}
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{cat.slug}</td>
                   <td className="px-4 py-3">{accessBadge(cat)}</td>
                   <td className="px-4 py-3 tabular-nums text-muted-foreground">{cat.sortOrder}</td>
@@ -284,6 +304,27 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               </div>
             </div>
             <div className="space-y-2">
+              <Label className="text-xs font-medium text-muted-foreground">หมวดหลัก (จัดกลุ่ม)</Label>
+              <Select
+                value={form.parentId || "none"}
+                onValueChange={(v) => setForm({ ...form, parentId: v === "none" ? "" : v })}
+              >
+                <SelectTrigger className="bg-input/50">
+                  <SelectValue placeholder="ไม่มี (เป็นหมวดหลัก)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— ไม่มี (เป็นหมวดหลัก) —</SelectItem>
+                  {categories
+                    .filter((c) => !c.parentId && c.id !== editItem?.id)
+                    .map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label className="text-xs font-medium text-muted-foreground">ระดับการเข้าถึง</Label>
               <Select
                 value={form.accessLevel}
@@ -309,15 +350,27 @@ export function CategoryList({ categories }: { categories: Category[] }) {
                 className="w-24 bg-input/50 tabular-nums transition-colors focus:bg-input"
               />
             </div>
-            <div className="flex items-center gap-2.5">
-              <input
-                type="checkbox"
-                checked={form.isActive}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isActive: e.target.checked })}
-                id="isActive"
-                className="h-4 w-4 rounded border-border accent-primary"
-              />
-              <Label htmlFor="isActive" className="text-sm">เปิดใช้งาน</Label>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={form.isActive}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isActive: e.target.checked })}
+                  id="isActive"
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                <Label htmlFor="isActive" className="text-sm">เปิดใช้งาน</Label>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={form.isPinned}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isPinned: e.target.checked })}
+                  id="catPinned"
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                <Label htmlFor="catPinned" className="text-sm">📌 ปักหมุดใน sidebar</Label>
+              </div>
             </div>
           </div>
           <DialogFooter className="gap-2">

@@ -20,6 +20,8 @@ export const categorySchema = z.object({
     .min(1),
   description: z.string().nullable().optional(),
   coverImage: z.string().nullable().optional(),
+  parentId: z.string().nullable().optional(),
+  isPinned: z.boolean().default(false),
   accessLevel: z.enum(["member", "vip"]).default("member"),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),

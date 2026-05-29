@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
+import { LayoutGrid } from "lucide-react";
 import { ScrollArea } from "@kodhom/ui/components/scroll-area";
 import { cn } from "@kodhom/ui/lib/utils";
 
@@ -19,7 +20,9 @@ interface SidebarProps {
 
 export function Sidebar({ categories }: SidebarProps) {
   const params = useParams();
+  const pathname = usePathname();
   const activeSlug = params?.slug as string | undefined;
+  const onAllCategories = pathname === "/categories";
 
   return (
     <ScrollArea className="h-full">
@@ -77,6 +80,24 @@ export function Sidebar({ categories }: SidebarProps) {
             </div>
           </Link>
         ))}
+
+        {/* See all categories */}
+        <div className="mx-3 my-2 h-px bg-border/50" />
+        <Link
+          href="/categories"
+          className={cn(
+            "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-smooth hover:bg-accent/70",
+            onAllCategories && "bg-accent text-accent-foreground"
+          )}
+        >
+          {onAllCategories && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-r-full bg-primary glow-primary" />
+          )}
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-smooth group-hover:bg-primary/15">
+            <LayoutGrid className="h-5 w-5" />
+          </div>
+          <span className="flex-1">ดูทุกหมวดหมู่</span>
+        </Link>
       </div>
     </ScrollArea>
   );
