@@ -5,42 +5,9 @@ import { nanoid, slugify } from "./utils.js";
 
 // In-memory cache: "groupId:topicId" -> categoryId
 const topicCategoryMap = new Map<string, string>();
-let cachedUncategorizedId: string | null = null;
-
-const UNCATEGORIZED_SLUG = "uncategorized";
-const UNCATEGORIZED_NAME = "ไม่ได้จัดหมวด";
 
 function cacheKey(groupId: string, topicId: number): string {
   return `${groupId}:${topicId}`;
-}
-
-/**
- * Get-or-create the "Uncategorized" top-level category so newly synced
- * topics land somewhere obvious for the admin to organize later.
- */
-async function getUncategorizedParentId(): Promise<string> {
-  if (cachedUncategorizedId) return cachedUncategorizedId;
-
-  const existing = await db.query.categories.findFirst({
-    where: eq(categories.slug, UNCATEGORIZED_SLUG),
-  });
-  if (existing) {
-    cachedUncategorizedId = existing.id;
-    return existing.id;
-  }
-
-  const id = nanoid();
-  await db.insert(categories).values({
-    id,
-    name: UNCATEGORIZED_NAME,
-    slug: UNCATEGORIZED_SLUG,
-    accessLevel: "member",
-    isActive: true,
-    sortOrder: 9999, // push to the bottom
-  });
-  console.log(`[topics] Created "${UNCATEGORIZED_NAME}" parent (${UNCATEGORIZED_SLUG})`);
-  cachedUncategorizedId = id;
-  return id;
 }
 
 export async function isForumGroup(
@@ -143,10 +110,9 @@ export async function getOrCreateCategory(
     return existingBySlug.id;
   }
 
-  // Create new category as a child of "Uncategorized" so admin sees what
-  // needs sorting. (Admin can later move it under a real parent.)
+  // Create new category at top-level — admin can later set a parent
+  // (e.g. group under "OnlyFans") via the backoffice if desired.
   const id = nanoid();
-  const parentId = await getUncategorizedParentId();
   await db.insert(categories).values({
     id,
     name: topicTitle,
@@ -154,10 +120,9 @@ export async function getOrCreateCategory(
     accessLevel,
     isActive: true,
     sortOrder: 0,
-    parentId,
   });
 
-  console.log(`[topics] Created category "${topicTitle}" (${slug}) [${accessLevel}] under Uncategorized`);
+  console.log(`[topics] Created category "${topicTitle}" (${slug}) [${accessLevel}]`);
   topicCategoryMap.set(key, id);
   return id;
 }
