@@ -6,7 +6,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { ScrollReset } from "@/components/scroll-reset";
 import { db } from "@kodhom/db";
 import { categories } from "@kodhom/db/schema";
-import { eq, and, or, isNull, asc, desc } from "drizzle-orm";
+import { eq, and, isNull, asc, desc } from "drizzle-orm";
 import { getActiveBanners } from "@/lib/banners";
 import { getSession } from "@/lib/auth-server";
 
@@ -16,16 +16,12 @@ export default async function MainLayout({
   children: React.ReactNode;
 }) {
   const [sidebarCategories, banners, session] = await Promise.all([
-    // Slim sidebar: only pinned or top-level (no parent) categories.
+    // Slim sidebar: only top-level (parent) categories. Subcategories live
+    // on /categories/[slug]. Pinned ones float to the top.
     db
       .select()
       .from(categories)
-      .where(
-        and(
-          eq(categories.isActive, true),
-          or(eq(categories.isPinned, true), isNull(categories.parentId))
-        )
-      )
+      .where(and(eq(categories.isActive, true), isNull(categories.parentId)))
       .orderBy(desc(categories.isPinned), asc(categories.sortOrder))
       .limit(15),
     getActiveBanners(),
