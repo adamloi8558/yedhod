@@ -11,13 +11,22 @@ export interface CategoryCardData {
   clipCount?: number;
 }
 
-export function CategoryCard({ category }: { category: CategoryCardData }) {
+export function CategoryCard({
+  category,
+  href,
+  countLabel = "คลิป",
+}: {
+  category: CategoryCardData;
+  href?: string;
+  countLabel?: string;
+}) {
   const imageUrl = category.coverImage ?? category.thumbnailUrl ?? null;
   const fallbackLetter = category.name.trim().charAt(0).toUpperCase();
+  const linkHref = href ?? `/category/${category.slug}`;
 
   return (
     <Link
-      href={`/category/${category.slug}`}
+      href={linkHref}
       aria-label={`ดูหมวดหมู่ ${category.name}`}
       className="group relative flex flex-col overflow-hidden rounded-2xl bg-card/60 transition-smooth hover:-translate-y-0.5 hover:bg-card hover:shadow-lg hover:shadow-primary/10"
     >
@@ -54,7 +63,7 @@ export function CategoryCard({ category }: { category: CategoryCardData }) {
           </h3>
           {typeof category.clipCount === "number" && category.clipCount > 0 && (
             <p className="mt-0.5 text-[11px] font-medium text-white/80">
-              {category.clipCount.toLocaleString("th-TH")} คลิป
+              {category.clipCount.toLocaleString("th-TH")} {countLabel}
             </p>
           )}
         </div>

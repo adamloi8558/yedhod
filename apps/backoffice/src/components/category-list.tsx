@@ -58,6 +58,14 @@ export function CategoryList({ categories }: { categories: Category[] }) {
   const [loading, setLoading] = useState(false);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [tab, setTab] = useState<"parents" | "children">("parents");
+
+  const visibleCategories =
+    tab === "parents"
+      ? categories.filter((c) => !c.parentId)
+      : categories.filter((c) => !!c.parentId);
+  const parentCount = categories.filter((c) => !c.parentId).length;
+  const childCount = categories.length - parentCount;
 
   async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -180,10 +188,27 @@ export function CategoryList({ categories }: { categories: Category[] }) {
 
   return (
     <>
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Button onClick={openCreate} className="gap-2 transition-all duration-200 hover:shadow-lg hover:shadow-primary/20">
           เพิ่มหมวดหมู่
         </Button>
+        {/* Tabs: หมวดหลัก / หมวดย่อย */}
+        <div className="inline-flex rounded-xl border border-border/50 bg-card/50 p-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setTab("parents")}
+            className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${tab === "parents" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            หมวดหลัก ({parentCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("children")}
+            className={`rounded-lg px-3 py-1.5 font-medium transition-colors ${tab === "children" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            หมวดย่อย ({childCount})
+          </button>
+        </div>
       </div>
 
       <ResponsiveTable
@@ -200,7 +225,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
               </tr>
             </thead>
             <tbody>
-              {categories.map((cat) => (
+              {visibleCategories.map((cat) => (
                 <tr key={cat.id} className="border-b border-border/40 transition-colors duration-150 hover:bg-accent/50">
                   <td className="px-4 py-3 font-medium text-foreground">
                     <span className="inline-flex flex-wrap items-center gap-2">
@@ -227,7 +252,7 @@ export function CategoryList({ categories }: { categories: Category[] }) {
         }
         mobile={
           <MobileCards>
-            {categories.map((cat) => (
+            {visibleCategories.map((cat) => (
               <MobileCard
                 key={cat.id}
                 title={cat.name}

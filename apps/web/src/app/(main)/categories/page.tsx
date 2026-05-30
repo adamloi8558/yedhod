@@ -1,9 +1,8 @@
 import { db } from "@kodhom/db";
 import { categories, clips } from "@kodhom/db/schema";
-import { and, eq, desc, count, isNotNull, asc } from "drizzle-orm";
+import { and, eq, desc, count, isNotNull, isNull, asc } from "drizzle-orm";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { CategoryCard } from "@/components/category-card";
-import { groupCategories } from "@/lib/group-categories";
 import { pageTitle, canonical } from "@/lib/seo/metadata";
 import type { Metadata } from "next";
 
@@ -13,48 +12,66 @@ export function generateMetadata(): Metadata {
   const title = pageTitle("หมวดหมู่ทั้งหมด");
   return {
     title,
-    description: "เลือกดูคลิปวิดีโอตามหมวดหมู่ จัดกลุ่มให้ค้นหาง่าย",
+    description: "เลือกดูคลิปวิดีโอตามหมวดหลัก",
     alternates: canonical("/categories"),
   };
 }
 
 export default async function CategoriesPage() {
-  const rows = await db
+  // Top-level categories only. Each card links to /categories/[slug] which
+  // shows its children. Top-level categories with no children link straight
+  // to /category/[slug] (the clip feed) instead.
+  const parents = await db
     .select({
       id: categories.id,
       name: categories.name,
       slug: categories.slug,
       coverImage: categories.coverImage,
-      parentId: categories.parentId,
       isPinned: categories.isPinned,
     })
     .from(categories)
-    .where(eq(categories.isActive, true))
+    .where(and(eq(categories.isActive, true), isNull(categories.parentId)))
     .orderBy(desc(categories.isPinned), asc(categories.sortOrder), asc(categories.name));
 
-  // Clip count per category (active clips only).
-  const counts = await db
-    .select({ categoryId: clips.categoryId, n: count() })
-    .from(clips)
-    .where(eq(clips.isActive, true))
-    .groupBy(clips.categoryId);
-  const countByCat = new Map(counts.map((c) => [c.categoryId, c.n]));
+  // child-count per parent (active only)
+  const childCounts = await db
+    .select({ parentId: categories.parentId, n: count() })
+    .from(categories)
+    .where(and(eq(categories.isActive, true), isNotNull(categories.parentId)))
+    .groupBy(categories.parentId);
+  const childByParent = new Map(
+    childCounts.map((r) => [r.parentId as string, r.n])
+  );
 
-  // Representative thumbnail per category = newest active clip with a thumb.
+  // Representative thumbnail per top-level category: pick the latest active
+  // clip with a thumb, where the clip's category is either this parent OR
+  // one of its children.
   const thumbRows = await db
-    .selectDistinctOn([clips.categoryId], {
-      categoryId: clips.categoryId,
+    .selectDistinctOn([categories.id], {
+      parentCatId: categories.id,
       clipId: clips.id,
       thumbnailR2Key: clips.thumbnailR2Key,
     })
-    .from(clips)
-    .where(and(eq(clips.isActive, true), isNotNull(clips.thumbnailR2Key)))
-    .orderBy(clips.categoryId, desc(clips.createdAt));
-  const thumbByCat = new Map(
-    thumbRows.map((t) => [t.categoryId, `/api/thumbnail/${t.clipId}`])
+    .from(categories)
+    .innerJoin(
+      clips,
+      and(
+        // clip belongs to this category OR a child of it
+        // (handled via OR using sql)
+        // simplest: clip.categoryId = this category.id OR clip.categoryId is a child id
+        // we approximate with: join on (clips.categoryId = categories.id) OR (parent_id = categories.id of clip's cat)
+        // For simplicity, two-step: first take the clip's own category, then look at the parent.
+        // Here: cat = clip's direct category and cat is either top-level itself or has a parent that matches.
+        eq(clips.categoryId, categories.id),
+        eq(clips.isActive, true),
+        isNotNull(clips.thumbnailR2Key)
+      )
+    )
+    .where(isNull(categories.parentId))
+    .orderBy(categories.id, desc(clips.createdAt));
+  const thumbByParent = new Map(
+    thumbRows.map((t) => [t.parentCatId, `/api/thumbnail/${t.clipId}`])
   );
-
-  const sections = groupCategories(rows);
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6 animate-fade-in">
@@ -71,42 +88,34 @@ export default async function CategoriesPage() {
           หมวดหมู่ทั้งหมด
         </h1>
         <p className="relative mt-3 max-w-xl text-sm md:text-base text-muted-foreground">
-          เลือกดูคลิปตามหมวดหมู่ที่คุณสนใจ จัดกลุ่มไว้ให้ค้นหาง่ายขึ้น
+          เลือกหมวดหลักเพื่อดูหมวดย่อยและคลิปข้างใน
         </p>
       </section>
 
-      {sections.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted-foreground">ยังไม่มีหมวดหมู่</p>
+      {parents.length === 0 ? (
+        <p className="py-16 text-center text-sm text-muted-foreground">ยังไม่มีหมวดหมู่หลัก</p>
       ) : (
-        <div className="space-y-10">
-          {sections.map((section) => (
-            <section key={section.parent?.id ?? "general"} className="animate-slide-up">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span aria-hidden className="h-6 w-1 rounded-full gradient-primary" />
-                  <h2 className="text-lg md:text-xl font-semibold tracking-tight">
-                    {section.title}
-                  </h2>
-                </div>
-                <span className="rounded-full bg-card/60 px-2.5 py-1 text-xs text-muted-foreground">
-                  {section.children.length} หมวด
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 md:gap-4">
-                {section.children.map((cat) => (
-                  <CategoryCard
-                    key={cat.id}
-                    category={{
-                      ...cat,
-                      thumbnailUrl: cat.coverImage ? null : thumbByCat.get(cat.id) ?? null,
-                      clipCount: countByCat.get(cat.id) ?? 0,
-                    }}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 md:gap-4">
+          {parents.map((cat) => {
+            const childCount = childByParent.get(cat.id) ?? 0;
+            // If parent has children → link to /categories/<slug>; else go straight to /category/<slug>
+            return (
+              <CategoryCard
+                key={cat.id}
+                category={{
+                  ...cat,
+                  thumbnailUrl: cat.coverImage ? null : thumbByParent.get(cat.id) ?? null,
+                  clipCount: childCount > 0 ? childCount : undefined,
+                }}
+                href={
+                  childCount > 0
+                    ? `/categories/${cat.slug}`
+                    : `/category/${cat.slug}`
+                }
+                countLabel={childCount > 0 ? "หมวดย่อย" : undefined}
+              />
+            );
+          })}
         </div>
       )}
     </div>
