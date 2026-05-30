@@ -14,6 +14,7 @@ import {
   Tag,
   Wallet,
   Image as ImageIcon,
+  History,
   X,
 } from "lucide-react";
 import { cn } from "@kodhom/ui/lib/utils";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/dashboard/payments", label: "การชำระเงิน", icon: CreditCard },
   { href: "/dashboard/payment-config", label: "ช่องทางชำระเงิน", icon: Banknote },
   { href: "/dashboard/withdraw", label: "ถอนเงิน", icon: Wallet },
+  { href: "/dashboard/audit-logs", label: "Audit log", icon: History },
   { href: "/dashboard/config", label: "ตั้งค่า", icon: Settings },
 ];
 

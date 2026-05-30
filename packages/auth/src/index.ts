@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { multiSession } from "better-auth/plugins";
+import { multiSession, admin } from "better-auth/plugins";
 import { and, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@kodhom/db";
 import {
@@ -110,6 +110,13 @@ export const auth = betterAuth({
   plugins: [
     multiSession({
       maximumSessions: 5,
+    }),
+    // Admin plugin: server-side user mgmt (ban/unban, set password, revoke
+    // sessions, impersonate, list, delete). Maps to our existing role enum
+    // so users.role = "admin" is recognized as admin.
+    admin({
+      defaultRole: "member",
+      adminRoles: ["admin"],
     }),
   ],
   user: {

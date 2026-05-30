@@ -13,6 +13,7 @@ type UserRow = {
   name: string;
   email: string;
   role: "member" | "vip" | "admin";
+  banned: boolean;
   createdAt: string;
   vipUntil: string | null;
   vipLifetime: boolean;
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
   // an active, non-expired subscription — not the role label.
   const listSql = q
     ? sql`
-        select u.id, u.name, u.email, u.role, u.created_at as "createdAt",
+        select u.id, u.name, u.email, u.role, u.banned, u.created_at as "createdAt",
           (select max(s.end_date) from subscriptions s
             where s.user_id = u.id and s.status = 'active'
               and (s.end_date is null or s.end_date > ${nowIso})) as "vipUntil",
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
         limit ${PAGE_SIZE} offset ${offset}
       `
     : sql`
-        select u.id, u.name, u.email, u.role, u.created_at as "createdAt",
+        select u.id, u.name, u.email, u.role, u.banned, u.created_at as "createdAt",
           (select max(s.end_date) from subscriptions s
             where s.user_id = u.id and s.status = 'active'
               and (s.end_date is null or s.end_date > ${nowIso})) as "vipUntil",
