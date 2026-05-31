@@ -7,7 +7,7 @@ import { ScrollReset } from "@/components/scroll-reset";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { db } from "@kodhom/db";
 import { categories } from "@kodhom/db/schema";
-import { eq, and, isNull, asc, desc } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, asc, desc, count } from "drizzle-orm";
 import { getActiveBanners } from "@/lib/banners";
 import { getSession } from "@/lib/auth-server";
 
@@ -16,7 +16,7 @@ export default async function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [sidebarCategories, banners, session] = await Promise.all([
+  const [sidebarParents, sidebarChildCounts, banners, session] = await Promise.all([
     // Slim sidebar: only top-level (parent) categories. Subcategories live
     // on /categories/[slug]. Pinned ones float to the top.
     db
@@ -25,9 +25,24 @@ export default async function MainLayout({
       .where(and(eq(categories.isActive, true), isNull(categories.parentId)))
       .orderBy(desc(categories.isPinned), asc(categories.sortOrder))
       .limit(15),
+    // Count of children per parent — sidebar uses this to route to
+    // /categories/[slug] (sub list) vs /category/[slug] (clip feed).
+    db
+      .select({ parentId: categories.parentId, n: count() })
+      .from(categories)
+      .where(and(eq(categories.isActive, true), isNotNull(categories.parentId)))
+      .groupBy(categories.parentId),
     getActiveBanners(),
     getSession(),
   ]);
+
+  const childCountByParent = new Map(
+    sidebarChildCounts.map((r) => [r.parentId as string, r.n])
+  );
+  const sidebarCategories = sidebarParents.map((cat) => ({
+    ...cat,
+    childCount: childCountByParent.get(cat.id) ?? 0,
+  }));
 
   // Better Auth sets session.impersonatedBy when admin is acting as a user.
   const impersonatedBy =

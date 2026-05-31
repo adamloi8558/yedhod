@@ -12,6 +12,7 @@ interface Category {
   slug: string;
   description: string | null;
   coverImage: string | null;
+  childCount?: number;
 }
 
 interface SidebarProps {
@@ -31,10 +32,10 @@ export function Sidebar({ categories }: SidebarProps) {
           href="/"
           className={cn(
             "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-smooth hover:bg-accent/70",
-            !activeSlug && "bg-accent text-accent-foreground"
+            pathname === "/" && "bg-accent text-accent-foreground"
           )}
         >
-          {!activeSlug && (
+          {pathname === "/" && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-r-full bg-primary glow-primary" />
           )}
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold text-sm transition-smooth group-hover:bg-primary/15">
@@ -52,7 +53,11 @@ export function Sidebar({ categories }: SidebarProps) {
         {categories.map((cat) => (
           <Link
             key={cat.id}
-            href={`/category/${cat.slug}`}
+            href={
+              (cat.childCount ?? 0) > 0
+                ? `/categories/${cat.slug}`
+                : `/category/${cat.slug}`
+            }
             className={cn(
               "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-smooth hover:bg-accent/70",
               activeSlug === cat.slug && "bg-accent text-accent-foreground"

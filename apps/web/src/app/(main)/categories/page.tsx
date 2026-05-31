@@ -1,6 +1,7 @@
 import { db } from "@kodhom/db";
 import { categories, clips } from "@kodhom/db/schema";
-import { and, eq, desc, count, isNotNull, isNull, asc } from "drizzle-orm";
+import { and, eq, desc, count, isNotNull, isNull, asc, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { CategoryCard } from "@/components/category-card";
 import { pageTitle, canonical } from "@/lib/seo/metadata";
@@ -43,9 +44,10 @@ export default async function CategoriesPage() {
     childCounts.map((r) => [r.parentId as string, r.n])
   );
 
-  // Representative thumbnail per top-level category: pick the latest active
-  // clip with a thumb, where the clip's category is either this parent OR
-  // one of its children.
+  // Representative thumbnail per top-level category. Most clips live under
+  // child categories, so we join via an alias `clipCategory` that matches
+  // either the parent itself OR any of its direct children.
+  const clipCategory = alias(categories, "clip_category");
   const thumbRows = await db
     .selectDistinctOn([categories.id], {
       parentCatId: categories.id,
@@ -54,20 +56,24 @@ export default async function CategoriesPage() {
     })
     .from(categories)
     .innerJoin(
+      clipCategory,
+      and(
+        eq(clipCategory.isActive, true),
+        or(
+          eq(clipCategory.id, categories.id),
+          eq(clipCategory.parentId, categories.id)
+        )
+      )
+    )
+    .innerJoin(
       clips,
       and(
-        // clip belongs to this category OR a child of it
-        // (handled via OR using sql)
-        // simplest: clip.categoryId = this category.id OR clip.categoryId is a child id
-        // we approximate with: join on (clips.categoryId = categories.id) OR (parent_id = categories.id of clip's cat)
-        // For simplicity, two-step: first take the clip's own category, then look at the parent.
-        // Here: cat = clip's direct category and cat is either top-level itself or has a parent that matches.
-        eq(clips.categoryId, categories.id),
+        eq(clips.categoryId, clipCategory.id),
         eq(clips.isActive, true),
         isNotNull(clips.thumbnailR2Key)
       )
     )
-    .where(isNull(categories.parentId))
+    .where(and(eq(categories.isActive, true), isNull(categories.parentId)))
     .orderBy(categories.id, desc(clips.createdAt));
   const thumbByParent = new Map(
     thumbRows.map((t) => [t.parentCatId, `/api/thumbnail/${t.clipId}`])
