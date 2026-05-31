@@ -35,6 +35,23 @@ export async function hasActiveSubscription(userId: string): Promise<boolean> {
   return row.count > 0;
 }
 
+export async function hasActiveSubscriptionReadOnly(userId: string): Promise<boolean> {
+  const now = new Date();
+
+  const [row] = await db
+    .select({ count: count() })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.status, "active"),
+        or(isNull(subscriptions.endDate), gt(subscriptions.endDate, now))
+      )
+    );
+
+  return row.count > 0;
+}
+
 /**
  * Check if user has access to a category.
  * - Admin: always true

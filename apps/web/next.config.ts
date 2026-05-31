@@ -15,6 +15,38 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/api/thumbnail/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value:
+              "public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/",
+        headers: [
+          {
+            key: "Cache-Control",
+            value:
+              "public, max-age=60, s-maxage=300, stale-while-revalidate=1800",
+          },
+          { key: "Vary", value: "Cookie" },
+        ],
+      },
+      {
+        source: "/category/:slug*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value:
+              "public, max-age=60, s-maxage=600, stale-while-revalidate=3600",
+          },
+          { key: "Vary", value: "Cookie" },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {

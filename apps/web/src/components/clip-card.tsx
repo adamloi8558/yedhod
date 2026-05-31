@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Lock, Crown, Play } from "lucide-react";
 import { Badge } from "@kodhom/ui/components/badge";
@@ -53,56 +53,22 @@ export function ClipCard({
 
   const displayTitle = clipDisplayTitle(clip, { name: categoryName ?? "" });
 
-  // Hold-to-preview state
-  const videoRef = useRef<HTMLVideoElement | null>(null);
   const startTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fetchedUrlRef = useRef<string | null>(null);
-  const inflightRef = useRef<Promise<string | null> | null>(null);
-  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
-  const [previewing, setPreviewing] = useState(false);
+  const [previewActive, setPreviewActive] = useState(false);
 
-  const PREVIEW_MS = 8000; // 8s preview
   const HOLD_DELAY_MS = 450; // long-press/hover delay
-
-  const fetchStreamUrl = useCallback(async (): Promise<string | null> => {
-    if (fetchedUrlRef.current) return fetchedUrlRef.current;
-    if (inflightRef.current) return inflightRef.current;
-    inflightRef.current = (async () => {
-      try {
-        const res = await fetch(`/api/clips/${clip.id}/stream`);
-        if (!res.ok) return null;
-        const { url } = await res.json();
-        fetchedUrlRef.current = url ?? null;
-        return fetchedUrlRef.current;
-      } catch {
-        return null;
-      } finally {
-        inflightRef.current = null;
-      }
-    })();
-    return inflightRef.current;
-  }, [clip.id]);
 
   const beginPreview = useCallback(() => {
     if (!hasAccess) return;
     if (startTimer.current) clearTimeout(startTimer.current);
-    startTimer.current = setTimeout(async () => {
-      const url = await fetchStreamUrl();
-      if (!url) return;
-      setPreviewSrc(url);
-      setPreviewing(true);
-      if (stopTimer.current) clearTimeout(stopTimer.current);
-      stopTimer.current = setTimeout(() => endPreview(), PREVIEW_MS);
+    startTimer.current = setTimeout(() => {
+      setPreviewActive(true);
     }, HOLD_DELAY_MS);
-  }, [hasAccess, fetchStreamUrl]);
+  }, [hasAccess]);
 
   const endPreview = useCallback(() => {
     if (startTimer.current) { clearTimeout(startTimer.current); startTimer.current = null; }
-    if (stopTimer.current) { clearTimeout(stopTimer.current); stopTimer.current = null; }
-    setPreviewing(false);
-    const v = videoRef.current;
-    if (v) { try { v.pause(); } catch {} }
+    setPreviewActive(false);
   }, []);
 
   return (
@@ -116,7 +82,7 @@ export function ClipCard({
       onTouchEnd={(e) => {
         // If preview is already showing on mobile, suppress navigation —
         // user held to preview, not tapped to open.
-        if (previewing) {
+        if (previewActive) {
           e.preventDefault();
         }
         endPreview();
@@ -130,8 +96,11 @@ export function ClipCard({
           <img
             src={resolvedThumb}
             alt=""
+            width={320}
+            height={180}
             className="h-full w-full object-cover transition-smooth group-hover:scale-105"
             loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-secondary">
@@ -140,16 +109,8 @@ export function ClipCard({
         )}
 
         {/* Hold-to-preview video (muted) — covers the thumb while previewing */}
-        {previewSrc && (
-          <video
-            ref={videoRef}
-            src={previewSrc}
-            muted
-            playsInline
-            autoPlay
-            preload="metadata"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${previewing ? "opacity-100" : "opacity-0 pointer-events-none"}`}
-          />
+        {previewActive && (
+          <ClipPreviewVideo clipId={clip.id} onDone={endPreview} />
         )}
 
         {/* Hover overlay (only when user can play) */}
@@ -203,5 +164,63 @@ export function ClipCard({
         </div>
       </div>
     </Link>
+  );
+}
+
+function ClipPreviewVideo({
+  clipId,
+  onDone,
+}: {
+  clipId: string;
+  onDone: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    const stopTimer = setTimeout(onDone, 8000);
+
+    async function loadPreview() {
+      try {
+        const res = await fetch(`/api/clips/${clipId}/stream`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const { url } = await res.json();
+        if (!cancelled) setPreviewSrc(url ?? null);
+      } catch {
+        // Preview is opportunistic.
+      }
+    }
+
+    loadPreview();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearTimeout(stopTimer);
+      const video = videoRef.current;
+      if (video) {
+        try {
+          video.pause();
+        } catch {}
+      }
+    };
+  }, [clipId, onDone]);
+
+  if (!previewSrc) return null;
+
+  return (
+    <video
+      ref={videoRef}
+      src={previewSrc}
+      muted
+      playsInline
+      autoPlay
+      preload="metadata"
+      className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200"
+    />
   );
 }
