@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SidebarProvider } from "@/lib/sidebar-store";
 import { HeaderWrapper } from "@/components/header-wrapper";
 import { Analytics } from "@/components/analytics";
+import { PWARegister } from "@/components/pwa-register";
 import {
   SITE_URL,
   BRAND,
@@ -10,6 +11,13 @@ import {
   adultMetaOther,
 } from "@/lib/seo/metadata";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0f",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -62,7 +70,15 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
-  other: adultMetaOther(),
+  appleWebApp: {
+    capable: true,
+    title: BRAND,
+    statusBarStyle: "black-translucent",
+  },
+  other: {
+    ...adultMetaOther(),
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
@@ -101,6 +117,7 @@ export default function RootLayout({
           </SidebarProvider>
         </ThemeProvider>
         <Analytics />
+        <PWARegister />
       </body>
     </html>
   );
