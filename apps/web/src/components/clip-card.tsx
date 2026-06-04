@@ -182,6 +182,7 @@ function ClipPreviewVideo({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const startAtRef = useRef<number>(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -200,6 +201,8 @@ function ClipPreviewVideo({
         const data = await res.json();
         if (cancelled) return;
         setPreviewSrc(data.url ?? null);
+        startAtRef.current =
+          typeof data.teaserStartAt === "number" ? data.teaserStartAt : 0;
         const teaserSec =
           typeof data.teaserDuration === "number" ? data.teaserDuration : 10;
         clearTimeout(stopTimer);
@@ -234,6 +237,17 @@ function ClipPreviewVideo({
       playsInline
       autoPlay
       preload="metadata"
+      onLoadedMetadata={(e) => {
+        const v = e.currentTarget;
+        const start = startAtRef.current;
+        if (start > 0 && start < v.duration - 0.5) {
+          try {
+            v.currentTime = start;
+          } catch {
+            // Some browsers can't seek before "loadeddata" — fall back to 0.
+          }
+        }
+      }}
       className="absolute inset-0 h-full w-full object-cover transition-opacity duration-200"
     />
   );

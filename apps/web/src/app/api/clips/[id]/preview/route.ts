@@ -29,7 +29,16 @@ export async function GET(
   }
 
   const url = await getPresignedDownloadUrl(clip.r2Key, 60);
-  const teaserDuration = Math.min(10, Math.max(2, (clip.duration ?? 10) * 0.3));
+  const totalDuration = clip.duration ?? 0;
+  const teaserDuration = Math.min(10, Math.max(2, totalDuration * 0.3 || 10));
+  // Start the teaser around the middle of the clip so it skips intros and
+  // shows something more representative. Keep enough room before the end
+  // so the full teaserDuration can play out before the file actually ends.
+  // For clips shorter than the teaser + a small buffer, just start at 0.
+  const teaserStartAt =
+    totalDuration > teaserDuration + 2
+      ? Math.max(0, totalDuration / 2 - teaserDuration / 2)
+      : 0;
 
-  return NextResponse.json({ url, teaserDuration });
+  return NextResponse.json({ url, teaserDuration, teaserStartAt });
 }

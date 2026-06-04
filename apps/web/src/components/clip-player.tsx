@@ -16,6 +16,7 @@ export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerP
   // and gets a CTA overlay when it ends.
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [teaserDuration, setTeaserDuration] = useState<number | null>(null);
+  const [teaserStartAt, setTeaserStartAt] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [teaserEnded, setTeaserEnded] = useState(false);
@@ -45,6 +46,9 @@ export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerP
         if (!hasAccess && typeof data.teaserDuration === "number") {
           setTeaserDuration(data.teaserDuration);
         }
+        if (!hasAccess && typeof data.teaserStartAt === "number") {
+          setTeaserStartAt(data.teaserStartAt);
+        }
       } catch {
         if (!cancelled && hasAccess) {
           setError("เกิดข้อผิดพลาดในการโหลดวิดีโอ");
@@ -63,7 +67,8 @@ export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerP
 
   function handleTimeUpdate() {
     if (hasAccess || !videoRef.current || teaserDuration == null) return;
-    if (videoRef.current.currentTime >= teaserDuration) {
+    // Stop once we've played `teaserDuration` seconds from the start point.
+    if (videoRef.current.currentTime >= teaserStartAt + teaserDuration) {
       videoRef.current.pause();
       setTeaserEnded(true);
     }
@@ -71,6 +76,15 @@ export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerP
 
   function handleLoadedMetadata() {
     if (hasAccess || teaserDuration == null) return;
+    const v = videoRef.current;
+    if (v && teaserStartAt > 0 && teaserStartAt < v.duration - 0.5) {
+      try {
+        v.currentTime = teaserStartAt;
+      } catch {
+        // Some browsers can't seek immediately on loadedmetadata — fall
+        // back to playing from 0 rather than failing the teaser.
+      }
+    }
     // Belt-and-suspenders: even if timeupdate is throttled, force-stop a
     // little past the teaser duration.
     if (stopTimer.current) clearTimeout(stopTimer.current);
@@ -168,7 +182,7 @@ export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerP
                 type="button"
                 onClick={() => {
                   if (videoRef.current) {
-                    videoRef.current.currentTime = 0;
+                    videoRef.current.currentTime = teaserStartAt;
                     videoRef.current.play().catch(() => {});
                     setTeaserEnded(false);
                   }
