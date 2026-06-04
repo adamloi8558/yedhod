@@ -59,12 +59,11 @@ export function ClipCard({
   const HOLD_DELAY_MS = 450; // long-press/hover delay
 
   const beginPreview = useCallback(() => {
-    if (!hasAccess) return;
     if (startTimer.current) clearTimeout(startTimer.current);
     startTimer.current = setTimeout(() => {
       setPreviewActive(true);
     }, HOLD_DELAY_MS);
-  }, [hasAccess]);
+  }, []);
 
   const endPreview = useCallback(() => {
     if (startTimer.current) { clearTimeout(startTimer.current); startTimer.current = null; }
@@ -108,9 +107,15 @@ export function ClipCard({
           </div>
         )}
 
-        {/* Hold-to-preview video (muted) — covers the thumb while previewing */}
+        {/* Hold-to-preview video (muted) — covers the thumb while previewing.
+            Works for everyone (guest/non-VIP too) via /preview endpoint when
+            user doesn't have full access. */}
         {previewActive && (
-          <ClipPreviewVideo clipId={clip.id} onDone={endPreview} />
+          <ClipPreviewVideo
+            clipId={clip.id}
+            hasAccess={hasAccess}
+            onDone={endPreview}
+          />
         )}
 
         {/* Hover overlay (only when user can play) */}
@@ -133,12 +138,16 @@ export function ClipCard({
           </span>
         )}
 
-        {/* Locked overlay for VIP-only clips, sharp (no blur) */}
-        {!hasAccess && isVip && (
+        {/* Locked overlay for VIP-only clips, sharp (no blur).
+            Hidden while teaser is playing so user can see the preview. */}
+        {!hasAccess && isVip && !previewActive && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55">
             <Lock className="mb-1 h-6 w-6 text-white drop-shadow" />
             <span className="text-[11px] font-semibold uppercase tracking-wider text-white/95 drop-shadow">
               VIP เท่านั้น
+            </span>
+            <span className="mt-0.5 text-[10px] text-white/80 drop-shadow">
+              กดค้างเพื่อดูตัวอย่าง
             </span>
           </div>
         )}
@@ -169,9 +178,11 @@ export function ClipCard({
 
 function ClipPreviewVideo({
   clipId,
+  hasAccess,
   onDone,
 }: {
   clipId: string;
+  hasAccess: boolean;
   onDone: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -180,16 +191,26 @@ function ClipPreviewVideo({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    const stopTimer = setTimeout(onDone, 8000);
+    // Subscribers see the full clip via /stream (their existing entitlement);
+    // everyone else hits /preview which is open but client-stops at teaserDuration.
+    const endpoint = hasAccess
+      ? `/api/clips/${clipId}/stream`
+      : `/api/clips/${clipId}/preview`;
+    // Hard cap so a stuck/slow client always releases the overlay.
+    let stopTimer: ReturnType<typeof setTimeout> = setTimeout(onDone, 11000);
 
     async function loadPreview() {
       try {
-        const res = await fetch(`/api/clips/${clipId}/stream`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(endpoint, { signal: controller.signal });
         if (!res.ok) return;
-        const { url } = await res.json();
-        if (!cancelled) setPreviewSrc(url ?? null);
+        const data = await res.json();
+        if (cancelled) return;
+        setPreviewSrc(data.url ?? null);
+        const teaserSec = typeof data.teaserDuration === "number"
+          ? data.teaserDuration
+          : hasAccess ? 8 : 10;
+        clearTimeout(stopTimer);
+        stopTimer = setTimeout(onDone, Math.round(teaserSec * 1000));
       } catch {
         // Preview is opportunistic.
       }
@@ -208,7 +229,7 @@ function ClipPreviewVideo({
         } catch {}
       }
     };
-  }, [clipId, onDone]);
+  }, [clipId, hasAccess, onDone]);
 
   if (!previewSrc) return null;
 

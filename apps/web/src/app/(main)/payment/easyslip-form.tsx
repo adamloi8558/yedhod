@@ -23,8 +23,10 @@ interface CreateRes {
 const MAX_BYTES = 4 * 1024 * 1024;
 const ALLOWED = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
-export function EasySlipForm({ planId }: { planId: string }) {
+export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: string }) {
   const router = useRouter();
+  const successHref = redirect ?? "/";
+  const successLabel = redirect ? "กลับไปดูคลิป" : "กลับหน้าหลัก";
   const [phase, setPhase] = useState<"loading" | "ready" | "success">("loading");
   const [order, setOrder] = useState<CreateRes | null>(null);
   const [error, setError] = useState("");
@@ -131,9 +133,9 @@ export function EasySlipForm({ planId }: { planId: string }) {
             </p>
             <Button
               className="mt-6 gradient-primary text-white border-0 rounded-xl px-8 shadow-lg shadow-primary/20 transition-smooth"
-              onClick={() => router.push("/")}
+              onClick={() => router.push(successHref)}
             >
-              กลับหน้าหลัก
+              {successLabel}
             </Button>
           </CardContent>
         </Card>

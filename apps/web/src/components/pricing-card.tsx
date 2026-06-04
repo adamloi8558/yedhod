@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@kodhom/ui/components/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@kodhom/ui/components/card";
 import { formatCurrency } from "@kodhom/ui/lib/utils";
@@ -26,15 +26,45 @@ function formatDuration(days: number): string {
   return `${days} วัน`;
 }
 
+// Short value tag derived from duration. Helps users compare plans at a
+// glance without us inventing fake "popularity" data.
+function valueTag(days: number): string {
+  if (days >= 365) return "ประหยัดสุด";
+  if (days >= 90) return "คุ้มกว่า";
+  if (days >= 30) return "ยอดนิยม";
+  return "ลองใช้งาน";
+}
+
+function isValidRedirect(value: string | null): value is string {
+  if (!value) return false;
+  // Allow only same-origin relative paths.
+  return value.startsWith("/") && !value.startsWith("//");
+}
+
 export function PricingCard({ plan, featured, isLoggedIn }: PricingCardProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get("redirect");
+  const redirect = isValidRedirect(redirectParam) ? redirectParam : null;
+
+  const priceNumber = Number.parseFloat(plan.priceThb);
+  const pricePerDay =
+    Number.isFinite(priceNumber) && plan.durationDays > 0
+      ? Math.max(1, Math.round(priceNumber / plan.durationDays))
+      : null;
+  const tag = valueTag(plan.durationDays);
 
   function handleClick() {
     if (!isLoggedIn) {
-      router.push(`/login?redirect=${encodeURIComponent("/pricing")}`);
+      const dest = redirect
+        ? `/pricing?redirect=${encodeURIComponent(redirect)}`
+        : "/pricing";
+      router.push(`/login?redirect=${encodeURIComponent(dest)}`);
       return;
     }
-    router.push(`/payment?planId=${plan.id}`);
+    const params = new URLSearchParams({ planId: plan.id });
+    if (redirect) params.set("redirect", redirect);
+    router.push(`/payment?${params.toString()}`);
   }
 
   return (
@@ -48,15 +78,25 @@ export function PricingCard({ plan, featured, isLoggedIn }: PricingCardProps) {
       )}
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold">{plan.name}</CardTitle>
+        <span className="mt-1 inline-flex w-fit items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">
+          {tag}
+        </span>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="flex items-baseline gap-1">
-          <span className="text-3xl font-bold gradient-text">
-            {formatCurrency(plan.priceThb)}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            / {formatDuration(plan.durationDays)}
-          </span>
+        <div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-bold gradient-text">
+              {formatCurrency(plan.priceThb)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              / {formatDuration(plan.durationDays)}
+            </span>
+          </div>
+          {pricePerDay !== null && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              เฉลี่ย {pricePerDay} บาท/วัน
+            </div>
+          )}
         </div>
         <ul className="space-y-2.5 text-sm text-muted-foreground">
           <li className="flex items-center gap-2">

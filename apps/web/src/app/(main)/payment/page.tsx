@@ -8,12 +8,17 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
+function sanitizeRedirect(value: string | undefined) {
+  if (!value) return undefined;
+  return value.startsWith("/") && !value.startsWith("//") ? value : undefined;
+}
+
 export default async function PaymentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ planId?: string }>;
+  searchParams: Promise<{ planId?: string; redirect?: string }>;
 }) {
-  const { planId } = await searchParams;
+  const { planId, redirect: redirectParam } = await searchParams;
   if (!planId) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center animate-fade-in">
@@ -27,10 +32,11 @@ export default async function PaymentPage({
     );
   }
 
+  const redirect = sanitizeRedirect(redirectParam);
   const provider = await getPaymentMode();
   if (provider === "easyslip") {
-    return <EasySlipForm planId={planId} />;
+    return <EasySlipForm planId={planId} redirect={redirect} />;
   }
-  return <AnyPayForm planId={planId} />;
+  return <AnyPayForm planId={planId} redirect={redirect} />;
 }
 

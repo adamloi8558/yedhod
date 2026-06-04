@@ -11,8 +11,10 @@ import { QRCodeSVG } from "qrcode.react";
 const POLL_MS = 5000;
 const POLL_MAX_ATTEMPTS = 60; // 5 minutes
 
-export function AnyPayForm({ planId }: { planId: string }) {
+export function AnyPayForm({ planId, redirect }: { planId: string; redirect?: string }) {
   const router = useRouter();
+  const successHref = redirect ?? "/";
+  const successLabel = redirect ? "กลับไปดูคลิป" : "กลับหน้าหลัก";
   const [bankNumber, setBankNumber] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -119,9 +121,9 @@ export function AnyPayForm({ planId }: { planId: string }) {
             </p>
             <Button
               className="mt-6 gradient-primary text-white border-0 rounded-xl px-8 shadow-lg shadow-primary/20 transition-smooth"
-              onClick={() => router.push("/")}
+              onClick={() => router.push(successHref)}
             >
-              กลับหน้าหลัก
+              {successLabel}
             </Button>
           </CardContent>
         </Card>

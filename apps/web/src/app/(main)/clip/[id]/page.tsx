@@ -172,7 +172,7 @@ export default async function ClipPage({
         />
         {!hasAccess && isVip && (
           <Link
-            href="/pricing"
+            href={`/pricing?redirect=${encodeURIComponent(`/clip/${clip.id}`)}`}
             className="inline-flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3 pr-4 transition-smooth hover:bg-primary/10"
           >
             <Crown className="h-5 w-5 text-amber-400 flex-shrink-0" />
