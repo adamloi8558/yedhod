@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Pin } from "lucide-react";
+import { useState } from "react";
 
 export interface CategoryCardData {
   id: string;
@@ -23,6 +26,10 @@ export function CategoryCard({
   const imageUrl = category.coverImage ?? category.thumbnailUrl ?? null;
   const fallbackLetter = category.name.trim().charAt(0).toUpperCase();
   const linkHref = href ?? `/category/${category.slug}`;
+  // Track image-load failures so we degrade to the gradient+letter card
+  // when a presigned URL has gone stale or R2 returns an error.
+  const [imgFailed, setImgFailed] = useState(false);
+  const showImage = !!imageUrl && !imgFailed;
 
   return (
     <Link
@@ -31,12 +38,13 @@ export function CategoryCard({
       className="group relative flex flex-col overflow-hidden rounded-2xl bg-card/60 transition-smooth hover:-translate-y-0.5 hover:bg-card hover:shadow-lg hover:shadow-primary/10"
     >
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        {imageUrl ? (
+        {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={imageUrl}
+            src={imageUrl!}
             alt=""
             loading="lazy"
+            onError={() => setImgFailed(true)}
             className="h-full w-full object-cover transition-smooth group-hover:scale-105"
           />
         ) : (

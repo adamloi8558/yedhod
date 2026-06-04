@@ -4,6 +4,16 @@ import { clips } from "@kodhom/db/schema";
 import { eq } from "drizzle-orm";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 
+// Cache window must stay STRICTLY shorter than the presigned URL TTL,
+// otherwise browsers/CDNs serve a redirect whose signed URL R2 has
+// already rejected (403). Previously we cached 3600s s-maxage with a
+// 7200s presign — anything cached past 2h returned a stale URL and the
+// image silently broke. We now presign for 24h and cap edge cache at 6h,
+// with a small browser cache to absorb burst loads on a category page.
+const PRESIGN_TTL_SEC = 24 * 3600;
+const BROWSER_MAX_AGE = 600;          // 10 min
+const EDGE_MAX_AGE = 6 * 3600;        // 6h — well under PRESIGN_TTL_SEC
+
 export const revalidate = 1800;
 
 export async function GET(
@@ -24,13 +34,12 @@ export async function GET(
   }
 
   try {
-    const url = await getPresignedDownloadUrl(row.key, 7200);
+    const url = await getPresignedDownloadUrl(row.key, PRESIGN_TTL_SEC);
     return new Response(null, {
       status: 302,
       headers: {
         Location: url,
-        "Cache-Control":
-          "public, max-age=1800, s-maxage=3600, stale-while-revalidate=86400",
+        "Cache-Control": `public, max-age=${BROWSER_MAX_AGE}, s-maxage=${EDGE_MAX_AGE}, stale-while-revalidate=300`,
       },
     });
   } catch {
