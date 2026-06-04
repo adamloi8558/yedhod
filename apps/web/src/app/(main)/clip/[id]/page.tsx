@@ -1,10 +1,11 @@
 import { db } from "@kodhom/db";
-import { clips, categories } from "@kodhom/db/schema";
+import { clips, categories, clipStats, clipReactions } from "@kodhom/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipPlayer } from "@/components/clip-player";
+import { LikeButton } from "@/components/like-button";
 import { Badge } from "@kodhom/ui/components/badge";
-import { Crown, Clock, Calendar, Tag } from "lucide-react";
+import { Crown, Clock, Calendar, Tag, Eye } from "lucide-react";
 import { formatDuration, formatThaiDate } from "@kodhom/ui/lib/utils";
 import { notFound } from "next/navigation";
 import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
@@ -101,6 +102,34 @@ export default async function ClipPage({
   }
 
   const displayTitle = clipDisplayTitle(clip, category);
+
+  // Stats — view count + like count from clip_stats, plus whether this
+  // user has already hearted the clip (only when logged in).
+  const [stats] = await db
+    .select({
+      viewCount: clipStats.viewCount,
+      likeCount: clipStats.likeCount,
+    })
+    .from(clipStats)
+    .where(eq(clipStats.clipId, clip.id))
+    .limit(1);
+  let userLiked = false;
+  if (session?.user) {
+    const [reaction] = await db
+      .select({ clipId: clipReactions.clipId })
+      .from(clipReactions)
+      .where(
+        and(
+          eq(clipReactions.clipId, clip.id),
+          eq(clipReactions.userId, session.user.id)
+        )
+      )
+      .limit(1);
+    userLiked = !!reaction;
+  }
+  const viewCount = stats?.viewCount ?? 0;
+  const likeCount = stats?.likeCount ?? 0;
+
   const related = await getRelatedClips(category.id, clip.id, 8);
 
   const relatedWithAccess = related.map((c: typeof related[number]) => {
@@ -157,6 +186,12 @@ export default async function ClipPage({
           <Calendar className="h-3 w-3" />
           {formatThaiDate(new Date(clip.createdAt))}
         </span>
+        {viewCount > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/30 border border-border/30 px-3 py-1 text-xs text-muted-foreground tabular-nums">
+            <Eye className="h-3 w-3" />
+            {viewCount.toLocaleString("th-TH")} ครั้ง
+          </span>
+        )}
       </div>
 
       {/* H1 — generated title */}
@@ -164,7 +199,15 @@ export default async function ClipPage({
         {displayTitle}
       </h1>
 
-      {/* Share row + VIP upgrade CTA */}
+      {/* Like + Share row + VIP upgrade CTA */}
+      <div className="mb-4">
+        <LikeButton
+          clipId={clip.id}
+          initialLiked={userLiked}
+          initialCount={likeCount}
+          isLoggedIn={!!session?.user}
+        />
+      </div>
       <div className="grid md:grid-cols-[1fr_auto] gap-4 items-start">
         <ShareRow
           url={absoluteUrl(`/clip/${clip.id}`)}

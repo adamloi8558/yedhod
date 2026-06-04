@@ -22,6 +22,9 @@ export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerP
   const [teaserEnded, setTeaserEnded] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewBumped = useRef(false);
+  const progressSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressKey = `kodhom_watch_${clipId}`;
 
   const redirectPath = `/clip/${clipId}`;
   const loginHref = `/login?redirect=${encodeURIComponent(redirectPath)}`;
@@ -62,38 +65,104 @@ export function ClipPlayer({ clipId, hasAccess, isVip, isLoggedIn }: ClipPlayerP
     return () => {
       cancelled = true;
       if (stopTimer.current) clearTimeout(stopTimer.current);
+      if (progressSaveTimer.current) clearTimeout(progressSaveTimer.current);
     };
   }, [clipId, hasAccess]);
 
   function handleTimeUpdate() {
-    if (hasAccess || !videoRef.current || teaserDuration == null) return;
-    // Stop once we've played `teaserDuration` seconds from the start point.
-    if (videoRef.current.currentTime >= teaserStartAt + teaserDuration) {
-      videoRef.current.pause();
-      setTeaserEnded(true);
+    const v = videoRef.current;
+    if (!v) return;
+
+    // Teaser cut-off (non-subscribers only).
+    if (!hasAccess && teaserDuration != null) {
+      if (v.currentTime >= teaserStartAt + teaserDuration) {
+        v.pause();
+        setTeaserEnded(true);
+      }
+      return;
+    }
+
+    // Logged-in full playback: throttle progress saves (~every 8s of play).
+    if (!progressSaveTimer.current) {
+      progressSaveTimer.current = setTimeout(() => {
+        progressSaveTimer.current = null;
+        const pos = v.currentTime;
+        const dur = Number.isFinite(v.duration) ? v.duration : null;
+        // localStorage works for everyone, even guests resuming on this device.
+        try {
+          window.localStorage.setItem(
+            progressKey,
+            JSON.stringify({ position: pos, duration: dur, savedAt: Date.now() })
+          );
+        } catch {
+          // localStorage might be disabled — skip silently.
+        }
+        if (isLoggedIn && pos > 5) {
+          fetch(`/api/clips/${clipId}/progress`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ position: pos, duration: dur }),
+            keepalive: true,
+          }).catch(() => {});
+        }
+      }, 8000);
     }
   }
 
   function handleLoadedMetadata() {
-    if (hasAccess || teaserDuration == null) return;
     const v = videoRef.current;
-    if (v && teaserStartAt > 0 && teaserStartAt < v.duration - 0.5) {
+
+    // Teaser mode: seek to mid-clip and arm the hard-stop fallback.
+    if (!hasAccess && teaserDuration != null) {
+      if (v && teaserStartAt > 0 && teaserStartAt < v.duration - 0.5) {
+        try {
+          v.currentTime = teaserStartAt;
+        } catch {
+          // Some browsers can't seek immediately on loadedmetadata.
+        }
+      }
+      if (stopTimer.current) clearTimeout(stopTimer.current);
+      stopTimer.current = setTimeout(() => {
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+        setTeaserEnded(true);
+      }, Math.round((teaserDuration + 0.5) * 1000));
+      return;
+    }
+
+    // Full playback: resume from saved position if any, then bump view once.
+    if (v) {
+      // Prefer server progress (already fetched into the response) — but
+      // we don't have it here; fall back to localStorage which works for
+      // both logged-in users on this device and guests with access.
       try {
-        v.currentTime = teaserStartAt;
+        const raw = window.localStorage.getItem(progressKey);
+        if (raw) {
+          const saved = JSON.parse(raw) as { position?: number };
+          const pos = Number(saved?.position);
+          if (
+            Number.isFinite(pos) &&
+            pos > 5 &&
+            v.duration &&
+            pos < v.duration - 5
+          ) {
+            v.currentTime = pos;
+          }
+        }
       } catch {
-        // Some browsers can't seek immediately on loadedmetadata — fall
-        // back to playing from 0 rather than failing the teaser.
+        // Ignore corrupt cached values.
       }
     }
-    // Belt-and-suspenders: even if timeupdate is throttled, force-stop a
-    // little past the teaser duration.
-    if (stopTimer.current) clearTimeout(stopTimer.current);
-    stopTimer.current = setTimeout(() => {
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
-      }
-      setTeaserEnded(true);
-    }, Math.round((teaserDuration + 0.5) * 1000));
+
+    // View counter bump (fire-and-forget). Once per page-load.
+    if (!viewBumped.current) {
+      viewBumped.current = true;
+      fetch(`/api/clips/${clipId}/view`, {
+        method: "POST",
+        keepalive: true,
+      }).catch(() => {});
+    }
   }
 
   return (

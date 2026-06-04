@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { db } from "@kodhom/db";
-import { clips, categories } from "@kodhom/db/schema";
-import { eq, desc, and, count, gt, isNull } from "drizzle-orm";
+import { clips, categories, clipStats, watchProgress } from "@kodhom/db/schema";
+import { eq, desc, and, count, gt, isNull, lt } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipCard } from "@/components/clip-card";
 import { hasActiveSubscription, hasCategoryAccess } from "@/lib/access-control";
 import { WebsiteJsonLd } from "@/components/jsonld/website";
 import { BRAND, BRAND_TAGLINE, canonical } from "@/lib/seo/metadata";
-import { Crown, Sparkles, ArrowRight, PlayCircle } from "lucide-react";
+import { Crown, Sparkles, ArrowRight, PlayCircle, Flame } from "lucide-react";
 import type { Metadata } from "next";
 
 export const revalidate = 300;
@@ -29,30 +29,39 @@ export default async function HomePage() {
   const session = await getSession();
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
+  // Common select shape — every grid section needs the same columns plus
+  // viewCount/likeCount from clip_stats. We left-join because brand-new
+  // clips may not have a stats row yet (the first viewer creates it).
+  const clipSelect = {
+    id: clips.id,
+    title: clips.title,
+    description: clips.description,
+    thumbnailR2Key: clips.thumbnailR2Key,
+    duration: clips.duration,
+    accessLevel: categories.accessLevel,
+    categoryId: clips.categoryId,
+    categoryName: categories.name,
+    createdAt: clips.createdAt,
+    viewCount: clipStats.viewCount,
+    likeCount: clipStats.likeCount,
+  };
+
   const [
     allClips,
     [clipTotal],
     [categoryTotal],
     [newThisWeek],
     vipLatest,
+    trending,
     popularCategories,
   ] = await Promise.all([
     // Latest 24 clips for the main feed (was 50 — we now have a dedicated
     // /clips page for "ดูทั้งหมด", so the homepage feed stays light).
     db
-      .select({
-        id: clips.id,
-        title: clips.title,
-        description: clips.description,
-        thumbnailR2Key: clips.thumbnailR2Key,
-        duration: clips.duration,
-        accessLevel: categories.accessLevel,
-        categoryId: clips.categoryId,
-        categoryName: categories.name,
-        createdAt: clips.createdAt,
-      })
+      .select(clipSelect)
       .from(clips)
       .innerJoin(categories, eq(clips.categoryId, categories.id))
+      .leftJoin(clipStats, eq(clipStats.clipId, clips.id))
       .where(and(eq(clips.isActive, true), eq(categories.isActive, true)))
       .orderBy(desc(clips.createdAt))
       .limit(24),
@@ -80,19 +89,10 @@ export default async function HomePage() {
       ),
     // VIP-latest row: teaser-friendly preview of premium content for guests.
     db
-      .select({
-        id: clips.id,
-        title: clips.title,
-        description: clips.description,
-        thumbnailR2Key: clips.thumbnailR2Key,
-        duration: clips.duration,
-        accessLevel: categories.accessLevel,
-        categoryId: clips.categoryId,
-        categoryName: categories.name,
-        createdAt: clips.createdAt,
-      })
+      .select(clipSelect)
       .from(clips)
       .innerJoin(categories, eq(clips.categoryId, categories.id))
+      .leftJoin(clipStats, eq(clipStats.clipId, clips.id))
       .where(
         and(
           eq(clips.isActive, true),
@@ -102,6 +102,17 @@ export default async function HomePage() {
       )
       .orderBy(desc(clips.createdAt))
       .limit(8),
+    // Trending — sort by recent view bucket; falls back to view total
+    // when recent is sparse. Inner join clip_stats so brand-new clips
+    // without any views don't crowd the trending row.
+    db
+      .select(clipSelect)
+      .from(clips)
+      .innerJoin(categories, eq(clips.categoryId, categories.id))
+      .innerJoin(clipStats, eq(clipStats.clipId, clips.id))
+      .where(and(eq(clips.isActive, true), eq(categories.isActive, true)))
+      .orderBy(desc(clipStats.recentViews), desc(clipStats.viewCount))
+      .limit(12),
     // Popular categories = top-level pinned/sortOrder — no view-count proxy.
     db
       .select({
@@ -118,9 +129,30 @@ export default async function HomePage() {
 
   let hasSub = false;
   let userRole = "member";
+  // Continue-watching is logged-in only on the server; guests see a
+  // localStorage-based row rendered client-side (out of scope here).
+  let continueWatching: typeof allClips = [];
   if (session?.user) {
     userRole = (session.user as Record<string, unknown>).role as string ?? "member";
     hasSub = await hasActiveSubscription(session.user.id);
+    continueWatching = await db
+      .select(clipSelect)
+      .from(watchProgress)
+      .innerJoin(clips, eq(clips.id, watchProgress.clipId))
+      .innerJoin(categories, eq(categories.id, clips.categoryId))
+      .leftJoin(clipStats, eq(clipStats.clipId, clips.id))
+      .where(
+        and(
+          eq(watchProgress.userId, session.user.id),
+          eq(clips.isActive, true),
+          eq(categories.isActive, true),
+          // Skip clips that were already finished.
+          gt(watchProgress.positionSec, 5),
+          lt(watchProgress.positionSec, 99999) // sentinel — keep finite
+        )
+      )
+      .orderBy(desc(watchProgress.updatedAt))
+      .limit(8);
   }
 
   const decorateAccess = <T extends { accessLevel: "member" | "vip" }>(items: T[]) =>
@@ -133,6 +165,8 @@ export default async function HomePage() {
 
   const clipsWithAccess = decorateAccess(allClips);
   const vipWithAccess = decorateAccess(vipLatest);
+  const trendingWithAccess = decorateAccess(trending);
+  const continueWatchingWithAccess = decorateAccess(continueWatching);
 
   return (
     <div className="mx-auto max-w-6xl p-4 md:p-6 animate-fade-in">
@@ -246,6 +280,59 @@ export default async function HomePage() {
             >
               ทั้งหมด <ArrowRight className="h-3.5 w-3.5" />
             </Link>
+          </div>
+        </section>
+      )}
+
+      {/* Continue watching — only for logged-in users with progress */}
+      {continueWatchingWithAccess.length > 0 && (
+        <section aria-labelledby="continue-heading" className="mb-12">
+          <div className="mb-5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <PlayCircle aria-hidden className="h-5 w-5 text-primary" />
+              <h2 id="continue-heading" className="text-lg md:text-xl font-semibold tracking-tight">
+                ดูต่อจากที่ค้างไว้
+              </h2>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-4">
+            {continueWatchingWithAccess.map(({ clip, hasAccess }) => (
+              <ClipCard
+                key={clip.id}
+                clip={clip}
+                categoryName={clip.categoryName}
+                hasAccess={hasAccess}
+                isLoggedIn={!!session?.user}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Trending — sorted by recent view bucket */}
+      {trendingWithAccess.length > 0 && (
+        <section aria-labelledby="trending-heading" className="mb-12">
+          <div className="mb-5 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <Flame aria-hidden className="h-5 w-5 text-orange-400" fill="currentColor" />
+              <h2 id="trending-heading" className="text-lg md:text-xl font-semibold tracking-tight">
+                คลิปมาแรง
+              </h2>
+            </div>
+            <span className="rounded-full bg-orange-500/10 border border-orange-500/30 px-2.5 py-1 text-[11px] font-semibold text-orange-300">
+              🔥 ฮอตที่สุดตอนนี้
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-3 md:gap-4">
+            {trendingWithAccess.slice(0, 12).map(({ clip, hasAccess }) => (
+              <ClipCard
+                key={clip.id}
+                clip={clip}
+                categoryName={clip.categoryName}
+                hasAccess={hasAccess}
+                isLoggedIn={!!session?.user}
+              />
+            ))}
           </div>
         </section>
       )}

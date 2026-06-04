@@ -2,10 +2,21 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
-import { Lock, Crown, Play } from "lucide-react";
+import { Lock, Crown, Play, Eye, Heart } from "lucide-react";
 import { Badge } from "@kodhom/ui/components/badge";
 import { formatDuration, formatThaiDate } from "@kodhom/ui/lib/utils";
 import { clipDisplayTitle } from "@/lib/seo/metadata";
+
+// Thai-friendly compact number ("1.2K", "3.4M"). We round down so we never
+// over-state — 999 stays 999, 1000 → "1K".
+function formatCompactCount(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n < 0) return "0";
+  if (n < 1000) return n.toLocaleString("th-TH");
+  if (n < 10_000) return (Math.floor(n / 100) / 10).toFixed(1) + "K";
+  if (n < 1_000_000) return Math.floor(n / 1000) + "K";
+  if (n < 10_000_000) return (Math.floor(n / 100_000) / 10).toFixed(1) + "M";
+  return Math.floor(n / 1_000_000) + "M";
+}
 
 interface ClipCardProps {
   clip: {
@@ -16,6 +27,8 @@ interface ClipCardProps {
     duration?: number | null;
     accessLevel: "member" | "vip";
     createdAt: Date;
+    viewCount?: number | null;
+    likeCount?: number | null;
   };
   categoryName?: string;
   thumbnailUrl?: string;
@@ -168,6 +181,22 @@ export function ClipCard({
             {formatThaiDate(new Date(clip.createdAt))}
           </time>
         </div>
+        {(clip.viewCount != null || clip.likeCount != null) && (
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground/80 pt-0.5">
+            {clip.viewCount != null && clip.viewCount > 0 && (
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                <Eye className="h-3 w-3" />
+                {formatCompactCount(clip.viewCount)}
+              </span>
+            )}
+            {clip.likeCount != null && clip.likeCount > 0 && (
+              <span className="inline-flex items-center gap-1 tabular-nums">
+                <Heart className="h-3 w-3" fill="currentColor" />
+                {formatCompactCount(clip.likeCount)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );

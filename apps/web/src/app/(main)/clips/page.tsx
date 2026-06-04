@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { db } from "@kodhom/db";
-import { clips, categories } from "@kodhom/db/schema";
+import { clips, categories, clipStats } from "@kodhom/db/schema";
 import { eq, desc, and, count as sqlCount } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { ClipCard } from "@/components/clip-card";
@@ -120,9 +120,12 @@ async function AllClipsGrid({
         categoryId: clips.categoryId,
         categoryName: categories.name,
         createdAt: clips.createdAt,
+        viewCount: clipStats.viewCount,
+        likeCount: clipStats.likeCount,
       })
       .from(clips)
       .innerJoin(categories, eq(clips.categoryId, categories.id))
+      .leftJoin(clipStats, eq(clipStats.clipId, clips.id))
       .where(and(eq(clips.isActive, true), eq(categories.isActive, true)))
       .orderBy(desc(clips.createdAt))
       .limit(PAGE_SIZE)
