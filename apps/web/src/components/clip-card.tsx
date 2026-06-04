@@ -108,14 +108,11 @@ export function ClipCard({
         )}
 
         {/* Hold-to-preview video (muted) — covers the thumb while previewing.
-            Works for everyone (guest/non-VIP too) via /preview endpoint when
-            user doesn't have full access. */}
+            Always uses the open /preview endpoint so every hold-press shows
+            the same short teaser, regardless of whether the user has full
+            access. Full playback only happens on the clip detail page. */}
         {previewActive && (
-          <ClipPreviewVideo
-            clipId={clip.id}
-            hasAccess={hasAccess}
-            onDone={endPreview}
-          />
+          <ClipPreviewVideo clipId={clip.id} onDone={endPreview} />
         )}
 
         {/* Hover overlay (only when user can play) */}
@@ -178,11 +175,9 @@ export function ClipCard({
 
 function ClipPreviewVideo({
   clipId,
-  hasAccess,
   onDone,
 }: {
   clipId: string;
-  hasAccess: boolean;
   onDone: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -191,24 +186,22 @@ function ClipPreviewVideo({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    // Subscribers see the full clip via /stream (their existing entitlement);
-    // everyone else hits /preview which is open but client-stops at teaserDuration.
-    const endpoint = hasAccess
-      ? `/api/clips/${clipId}/stream`
-      : `/api/clips/${clipId}/preview`;
-    // Hard cap so a stuck/slow client always releases the overlay.
+    // Always use the open /preview endpoint so every hold-press shows the
+    // same short teaser, regardless of subscription status. Full playback
+    // is reserved for the clip detail page.
     let stopTimer: ReturnType<typeof setTimeout> = setTimeout(onDone, 11000);
 
     async function loadPreview() {
       try {
-        const res = await fetch(endpoint, { signal: controller.signal });
+        const res = await fetch(`/api/clips/${clipId}/preview`, {
+          signal: controller.signal,
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
         setPreviewSrc(data.url ?? null);
-        const teaserSec = typeof data.teaserDuration === "number"
-          ? data.teaserDuration
-          : hasAccess ? 8 : 10;
+        const teaserSec =
+          typeof data.teaserDuration === "number" ? data.teaserDuration : 10;
         clearTimeout(stopTimer);
         stopTimer = setTimeout(onDone, Math.round(teaserSec * 1000));
       } catch {
@@ -229,7 +222,7 @@ function ClipPreviewVideo({
         } catch {}
       }
     };
-  }, [clipId, hasAccess, onDone]);
+  }, [clipId, onDone]);
 
   if (!previewSrc) return null;
 

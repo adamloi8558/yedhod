@@ -13,10 +13,15 @@ import {
   Zap,
   ShieldCheck,
   Smartphone,
-  Crown,
-  Sparkles,
-  PlayCircle,
   RefreshCw,
+  Crown,
+  Film,
+  PlayCircle,
+  ShieldAlert,
+  Infinity as InfinityIcon,
+  MonitorSmartphone,
+  RotateCw,
+  Sparkles,
 } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -67,28 +72,30 @@ export default async function PricingPage() {
           ? "sm:grid-cols-2"
           : "";
 
-  const trustSignals: { icon: typeof Clock; text: string }[] = [
-    { icon: Clock, text: "ซื้อได้ 24 ชั่วโมง เปิดใช้อัตโนมัติ" },
-    { icon: Zap, text: "เข้าดูภายใน 30 วินาทีหลังจ่าย" },
-    { icon: ShieldCheck, text: "ไม่ตัดเงินอัตโนมัติ จ่ายเป็นครั้งๆ" },
-    { icon: Smartphone, text: "ดูได้ทุกอุปกรณ์" },
-  ];
-
-  const whyVip: { icon: typeof Crown; title: string; desc: string }[] = [
+  const trustSignals: {
+    icon: typeof Clock;
+    title: string;
+    sub: string;
+  }[] = [
     {
-      icon: Crown,
-      title: "ปลดล็อกคลิป VIP ทั้งหมด",
-      desc: "เข้าถึงทุกหมวด VIP เต็มเรื่อง ไม่มีตัดต่อ ไม่ใส่ลายน้ำ",
+      icon: Clock,
+      title: "สมัครได้ตลอด 24 ชั่วโมง",
+      sub: "สมัครเมื่อไรก็ได้",
     },
     {
-      icon: Sparkles,
-      title: "อัปเดตคลิปใหม่ต่อเนื่อง",
-      desc: "เพิ่มคลิปใหม่ทุกวัน เห็นก่อนใครก่อนเปิดให้ดูฟรี",
+      icon: Zap,
+      title: "เปิดใช้งานทันทีภายในไม่กี่วินาที",
+      sub: "หลังยืนยันการชำระเงิน",
     },
     {
-      icon: PlayCircle,
-      title: "ดูได้ไม่จำกัด",
-      desc: "ดูกี่คลิป กี่ครั้ง กี่ชั่วโมงก็ได้ ตลอดอายุแพ็กเกจ",
+      icon: ShieldCheck,
+      title: "ชำระครั้งเดียว ไม่มีต่ออายุอัตโนมัติ",
+      sub: "หมดอายุเมื่อครบระยะเวลา",
+    },
+    {
+      icon: Smartphone,
+      title: "รองรับทุกอุปกรณ์",
+      sub: "มือถือ แท็บเล็ต และคอมพิวเตอร์",
     },
   ];
 
@@ -119,43 +126,78 @@ export default async function PricingPage() {
     <div className="mx-auto max-w-6xl p-4 md:p-6 animate-fade-in">
       <ProductJsonLd plans={allPlans} />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden mb-10 rounded-3xl border border-border/40 bg-gradient-to-br from-primary/15 via-accent/40 to-background p-6 md:p-10 lg:p-14 text-center">
+      {/* Hero — balanced premium card */}
+      <section className="relative overflow-hidden mb-10 rounded-3xl border border-primary/30 bg-gradient-to-b from-primary/[0.08] via-background to-background p-6 md:p-9 text-center shadow-xl shadow-primary/10">
         <div
           aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full bg-primary/20 blur-3xl"
+          className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-64 w-64 rounded-full bg-primary/25 blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -bottom-32 left-1/4 h-72 w-72 rounded-full bg-vip/10 blur-3xl"
+          className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-vip/12 blur-3xl"
         />
-        <span className="relative inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/60 px-3 py-1 text-xs font-medium text-muted-foreground backdrop-blur">
-          <Sparkles className="h-3.5 w-3.5 text-primary" />
-          ระบบอัตโนมัติ 24 ชั่วโมง
+        {/* Pill */}
+        <span className="relative inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-card/70 px-3.5 py-1.5 text-xs md:text-sm font-medium text-foreground/90 backdrop-blur">
+          <span className="flex h-5 w-5 items-center justify-center rounded-full gradient-primary text-white">
+            <Zap className="h-3 w-3" fill="currentColor" strokeWidth={0} />
+          </span>
+          ระบบเปิดใช้งานอัตโนมัติ 24 ชั่วโมง
         </span>
-        <h1 className="relative mt-4 text-3xl md:text-5xl font-bold gradient-text tracking-tight">
-          เลือกแพ็กเกจที่ใช่
+
+        {/* Headline */}
+        <h1 className="relative mt-4 text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
+          <span className="text-foreground">เลือกแพ็กเกจสมาชิก </span>
+          <span className="bg-gradient-to-br from-vip via-vip to-amber-300 bg-clip-text text-transparent drop-shadow-[0_0_18px_oklch(0.78_0.14_75/0.4)]">
+            VIP
+          </span>
         </h1>
-        <p className="relative mt-3 md:mt-4 text-sm md:text-lg text-muted-foreground max-w-2xl mx-auto">
-          จ่ายครั้งเดียว ดูคลิป VIP เต็มเรื่อง ไม่จำกัดเวลา ไม่จำกัดจำนวน — เปิดใช้งานอัตโนมัติทันทีหลังจ่ายเงิน
+
+        <p className="relative mt-3 text-sm md:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          เข้าถึงทุกอรรถรสแบบเต็มรูปแบบ ดูได้ไม่จำกัด ทุกที่ ทุกเวลา
+          <br className="hidden md:inline" />
+          <span className="text-primary font-semibold">พร้อมเปิดใช้งานอัตโนมัติหลังการชำระเงิน</span>
         </p>
 
-        {/* Trust row */}
-        <div className="relative mt-7 flex flex-wrap justify-center gap-2 md:gap-2.5">
-          {trustSignals.map((t) => {
-            const Icon = t.icon;
-            return (
-              <span
-                key={t.text}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-card/60 px-3 py-1.5 text-[11px] md:text-xs font-medium text-foreground/85 backdrop-blur"
-              >
-                <Icon className="h-3.5 w-3.5 text-primary" />
-                {t.text}
-              </span>
-            );
-          })}
+        {/* Trust row — 4 columns */}
+        <div className="relative mt-7">
+          <div className="rounded-2xl border border-primary/20 bg-card/30 px-3 py-4 md:px-5 md:py-5 backdrop-blur">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 md:gap-y-0 md:divide-x divide-primary/15">
+              {trustSignals.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <div
+                    key={t.title}
+                    className="flex items-center gap-3 px-2 md:px-4 md:justify-center"
+                  >
+                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ring-1 ring-primary/40 bg-gradient-to-b from-primary/20 to-primary/5">
+                      <Icon className="h-5 w-5 text-primary" strokeWidth={2.2} />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="text-xs md:text-sm font-semibold text-foreground leading-tight">
+                        {t.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] md:text-xs text-muted-foreground leading-snug">
+                        {t.sub}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </section>
+
+      {/* Section heading — extra space so the featured card's notched
+          ribbon never collides with the subheading. */}
+      <div className="text-center mb-10 md:mb-14">
+        <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+          เลือกแพ็กเกจที่<span className="gradient-text">ใช่</span>สำหรับคุณ
+        </h2>
+        <p className="mt-1.5 text-xs md:text-sm text-muted-foreground">
+          ราคาเดียวจบ ไม่มีค่าใช้จ่ายซ่อน
+        </p>
+      </div>
 
       {/* Plan grid */}
       {allPlans.length === 0 ? (
@@ -163,17 +205,17 @@ export default async function PricingPage() {
       ) : (
         <Suspense
           fallback={
-            <div className={`grid gap-5 ${gridCols}`}>
+            <div className={`grid gap-6 ${gridCols}`}>
               {allPlans.map((plan) => (
                 <div
                   key={plan.id}
-                  className="h-96 rounded-2xl border border-primary/20 bg-card/40 animate-pulse"
+                  className="h-[28rem] rounded-2xl border border-primary/20 bg-card/40 animate-pulse"
                 />
               ))}
             </div>
           }
         >
-          <div className={`grid gap-5 ${gridCols}`}>
+          <div className={`grid gap-6 md:gap-7 ${gridCols} items-stretch`}>
             {allPlans.map((plan: typeof allPlans[number]) => (
               <PricingCard
                 key={plan.id}
@@ -186,41 +228,6 @@ export default async function PricingPage() {
           </div>
         </Suspense>
       )}
-
-      <p className="mt-5 text-center text-xs text-muted-foreground">
-        ราคารวม VAT แล้ว ไม่มีค่าใช้จ่ายซ่อน
-      </p>
-
-      {/* Why VIP — 3 columns of concrete benefits */}
-      <section className="mt-16">
-        <h2 className="text-center text-xl md:text-2xl font-bold tracking-tight mb-2">
-          ทำไมต้องเป็น <span className="gradient-text">VIP</span>?
-        </h2>
-        <p className="text-center text-sm text-muted-foreground mb-8">
-          สมัครครั้งเดียว ได้ทุกอย่างที่ต้องการ
-        </p>
-        <div className="grid gap-4 md:grid-cols-3">
-          {whyVip.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.title}
-                className="group rounded-2xl border border-border/40 bg-card/40 p-5 md:p-6 transition-smooth hover:bg-card hover:border-primary/40"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 text-primary mb-4 transition-smooth group-hover:bg-primary/25">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <h3 className="text-base font-semibold tracking-tight">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                  {item.desc}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
 
       {/* How it works — 3 steps */}
       <section className="mt-16">
@@ -249,47 +256,140 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      {/* Comparison — keep it but tightened */}
-      <section className="mt-16 max-w-3xl mx-auto">
-        <h2 className="text-center text-xl md:text-2xl font-bold tracking-tight mb-6">
-          ไม่สมัคร <span className="text-muted-foreground/70 text-base font-normal">vs</span>{" "}
-          <span className="gradient-text">สมาชิก VIP</span>
-        </h2>
-        <div className="rounded-2xl border border-border/40 bg-card/30 overflow-hidden">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 md:px-6 py-3 text-xs md:text-sm font-semibold border-b border-border/40 bg-card/40">
-            <span className="text-muted-foreground">สิ่งที่ได้</span>
-            <span className="text-muted-foreground text-center min-w-[64px]">ไม่สมัคร</span>
-            <span className="gradient-text text-center min-w-[64px]">VIP</span>
+      {/* Comparison — premium access table */}
+      <section className="mt-16 max-w-5xl mx-auto">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl md:text-4xl font-extrabold tracking-tight">
+            เปรียบเทียบ
+            <span className="bg-gradient-to-br from-vip via-vip to-amber-300 bg-clip-text text-transparent drop-shadow-[0_0_14px_oklch(0.78_0.14_75/0.35)]">
+              สิทธิ์การเข้าถึง
+            </span>
+          </h2>
+          <div className="mx-auto mt-4 flex items-center justify-center gap-2 text-primary/60">
+            <span aria-hidden className="h-px w-12 bg-gradient-to-r from-transparent to-primary/40" />
+            <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary/60" />
+            <p className="px-2 text-xs md:text-sm text-muted-foreground">
+              อิสระในการรับชมที่เหนือกว่า เพื่อประสบการณ์ระดับพรีเมียม
+            </p>
+            <span aria-hidden className="h-1.5 w-1.5 rotate-45 bg-primary/60" />
+            <span aria-hidden className="h-px w-12 bg-gradient-to-l from-transparent to-primary/40" />
           </div>
-          {[
-            { label: "ดูตัวอย่างคลิป (สั้นๆ)", free: true, vip: true },
-            { label: "ดูคลิปทั่วไปเต็มเรื่อง", free: false, vip: true },
-            { label: "ดูคลิป VIP เต็มเรื่อง", free: false, vip: true },
-            { label: "ไม่จำกัดเวลา/จำนวนคลิป", free: false, vip: true },
-            { label: "ดูพร้อมกันหลายอุปกรณ์", free: false, vip: true },
-            { label: "อัปเดตคลิปใหม่ต่อเนื่อง", free: true, vip: true },
-          ].map((row) => (
-            <div
-              key={row.label}
-              className="grid grid-cols-[1fr_auto_auto] gap-2 px-4 md:px-6 py-3 text-sm border-b border-border/30 last:border-0"
-            >
-              <span className="text-foreground/90">{row.label}</span>
-              <span className="flex items-center justify-center min-w-[64px]">
-                {row.free ? (
-                  <Check className="h-4 w-4 text-primary/70" />
-                ) : (
-                  <X className="h-4 w-4 text-muted-foreground/40" />
-                )}
+        </div>
+
+        <div className="relative rounded-2xl border border-primary/20 bg-card/30 overflow-hidden">
+          {/* Header row */}
+          <div className="grid grid-cols-[1fr_120px_140px] md:grid-cols-[1fr_160px_180px] items-center px-3 md:px-5 py-4 border-b border-primary/15 bg-card/40">
+            <div className="flex items-center justify-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <Sparkles className="h-3.5 w-3.5" />
               </span>
-              <span className="flex items-center justify-center min-w-[64px]">
-                {row.vip ? (
-                  <Check className="h-4 w-4 text-vip" strokeWidth={3} />
-                ) : (
-                  <X className="h-4 w-4 text-muted-foreground/40" />
-                )}
+              <span className="text-sm md:text-base font-semibold text-foreground">
+                สิทธิประโยชน์
               </span>
             </div>
-          ))}
+            <div className="text-center text-xs md:text-sm font-medium text-muted-foreground">
+              สมาชิกทั่วไป
+            </div>
+            <div className="text-center text-xs md:text-sm font-bold flex items-center justify-center gap-1.5 text-vip">
+              <Crown className="h-4 w-4" fill="currentColor" />
+              สมาชิก VIP
+            </div>
+          </div>
+
+          {/* VIP column gold tint background */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute right-0 top-0 bottom-0 w-[140px] md:w-[180px] bg-gradient-to-b from-vip/[0.08] via-vip/[0.04] to-transparent ring-1 ring-inset ring-vip/30 rounded-r-2xl"
+          />
+
+          {[
+            {
+              icon: Film,
+              title: "รับชมตัวอย่างคอนเทนต์",
+              sub: "ตัวอย่างคอนเทนต์คุณภาพระดับพรีเมียม",
+              free: true,
+              vip: true,
+            },
+            {
+              icon: PlayCircle,
+              title: "เข้าถึงคอนเทนต์มาตรฐานแบบเต็มรูปแบบ",
+              sub: "รับชมคอนเทนต์ทั่วไปแบบเต็มเรื่อง",
+              free: false,
+              vip: true,
+            },
+            {
+              icon: ShieldAlert,
+              title: "เข้าถึงคอนเทนต์ VIP แบบเต็มรูปแบบ",
+              sub: "คอนเทนต์พิเศษสำหรับสมาชิก VIP เท่านั้น",
+              free: false,
+              vip: true,
+            },
+            {
+              icon: InfinityIcon,
+              title: "รับชมได้ไม่จำกัดตลอดระยะเวลาสมาชิก",
+              sub: "ไม่จำกัดเวลาและจำนวนคอนเทนต์",
+              free: false,
+              vip: true,
+            },
+            {
+              icon: MonitorSmartphone,
+              title: "รองรับการใช้งานหลายอุปกรณ์",
+              sub: "รับชมได้พร้อมกันบนหลายอุปกรณ์",
+              free: false,
+              vip: true,
+            },
+            {
+              icon: RotateCw,
+              title: "อัปเดตคอนเทนต์ใหม่อย่างต่อเนื่อง",
+              sub: "เข้าถึงคอนเทนต์ใหม่ก่อนใคร ไม่พลาดทุกความบันเทิง",
+              free: true,
+              vip: true,
+            },
+          ].map((row) => {
+            const Icon = row.icon;
+            return (
+              <div
+                key={row.title}
+                className="relative grid grid-cols-[1fr_120px_140px] md:grid-cols-[1fr_160px_180px] items-center px-3 md:px-5 py-4 md:py-5 border-b border-primary/10 last:border-0"
+              >
+                <div className="flex items-start gap-3 min-w-0 pr-3">
+                  <span className="flex h-9 w-9 md:h-10 md:w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/30 text-primary">
+                    <Icon className="h-4 w-4 md:h-5 md:w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm md:text-base font-semibold text-foreground leading-tight">
+                      {row.title}
+                    </p>
+                    <p className="mt-0.5 text-[11px] md:text-xs text-muted-foreground leading-snug">
+                      {row.sub}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-center">
+                  {row.free ? (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white shadow-md shadow-primary/30">
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </span>
+                  ) : (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted/40 text-muted-foreground/60 ring-1 ring-muted-foreground/20">
+                      <X className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                  )}
+                </div>
+                <div className="relative z-[1] flex items-center justify-center">
+                  {row.vip ? (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full gradient-vip text-vip-foreground shadow-md shadow-vip/40">
+                      <Check className="h-4 w-4" strokeWidth={3} />
+                    </span>
+                  ) : (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted/40 text-muted-foreground/60 ring-1 ring-muted-foreground/20">
+                      <X className="h-3.5 w-3.5" strokeWidth={3} />
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
