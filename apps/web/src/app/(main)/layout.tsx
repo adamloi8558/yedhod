@@ -3,6 +3,7 @@ import { MobileSidebar } from "@/components/mobile-sidebar";
 import { BannerSlider } from "@/components/banner-slider";
 import { SiteFooter } from "@/components/site-footer";
 import { BottomNav } from "@/components/bottom-nav";
+import { SupportFab } from "@/components/support-fab";
 import { ScrollReset } from "@/components/scroll-reset";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { db } from "@kodhom/db";
@@ -67,6 +68,7 @@ export default async function MainLayout({
           <SiteFooter />
         </main>
         <BottomNav isLoggedIn={!!session?.user} />
+        <SupportFab />
       </div>
     </div>
   );

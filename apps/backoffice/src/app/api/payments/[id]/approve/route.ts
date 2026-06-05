@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@kodhom/db";
 import { payments, pricingPlans, subscriptions, adminAuditLogs } from "@kodhom/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull, or } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth-server";
 import { nanoid } from "@/lib/nanoid";
 
@@ -32,6 +32,25 @@ export async function POST(
       if (!payment) throw new Error("NOT_FOUND");
       if (payment.status === "completed") throw new Error("ALREADY_COMPLETED");
 
+      // Guard: if this user already has an active subscription on the
+      // same plan that's not yet expired, the admin is approving a
+      // duplicate — bail and let them decide explicitly rather than
+      // silently granting double VIP.
+      const now = new Date();
+      const [activeSub] = await tx
+        .select({ id: subscriptions.id })
+        .from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.userId, payment.userId),
+            eq(subscriptions.pricingPlanId, payment.pricingPlanId),
+            eq(subscriptions.status, "active"),
+            or(isNull(subscriptions.endDate), gt(subscriptions.endDate, now))
+          )
+        )
+        .limit(1);
+      if (activeSub) throw new Error("USER_HAS_ACTIVE_SUB");
+
       const [plan] = await tx
         .select()
         .from(pricingPlans)
@@ -39,7 +58,6 @@ export async function POST(
         .limit(1);
       if (!plan) throw new Error("PLAN_NOT_FOUND");
 
-      const now = new Date();
       const endDate =
         plan.durationDays >= 36500
           ? null
@@ -85,6 +103,14 @@ export async function POST(
     if (m === "ALREADY_COMPLETED")
       return NextResponse.json(
         { error: "รายการนี้สำเร็จแล้ว" },
+        { status: 409 }
+      );
+    if (m === "USER_HAS_ACTIVE_SUB")
+      return NextResponse.json(
+        {
+          error:
+            "ลูกค้าคนนี้มี subscription แพ็กเกจนี้ที่ยัง active อยู่แล้ว — อนุมัติซ้ำจะให้ VIP สองรอบ",
+        },
         { status: 409 }
       );
     if (m === "PLAN_NOT_FOUND")

@@ -172,16 +172,31 @@ export async function POST(
     );
   }
 
-  // Run all verification rules
+  // Hard-reject on EasySlip duplicate: the same transfer was already
+  // verified against another payment record (often ours, often a customer
+  // re-uploading after we approved them). Approving twice would grant
+  // double VIP. Mark this payment failed and clear the slip key so the
+  // admin queue isn't polluted.
+  if (result.data.isDuplicate === true) {
+    await db
+      .update(payments)
+      .set({ status: "failed", slipImageR2Key: null })
+      .where(eq(payments.id, paymentId));
+    return NextResponse.json(
+      {
+        error: "สลิปนี้ถูกใช้แล้ว ไม่สามารถใช้ซ้ำได้",
+        code: "DUPLICATE_SLIP",
+      },
+      { status: 409 }
+    );
+  }
+
+  // Run remaining verification rules (amount / bank / account / date)
   const rule = checkSlipRules(result.data, snapshot, {
     expectedAmount,
     paymentCreatedAt: payment.createdAt,
   });
   if (!rule.ok) {
-    // Duplicate is the one rule that benefits most from manual review:
-    // it almost always means the same customer re-uploaded after a
-    // transient error, and the slip is genuinely theirs. Keep the
-    // record in the admin queue instead of slamming them with an error.
     return NextResponse.json(
       { error: rule.message, manualReview: true },
       { status: 400 }
@@ -211,11 +226,16 @@ export async function POST(
           ? null
           : new Date(startDate.getTime() + plan.durationDays * 86_400_000);
 
+      // paidAt = "when we received the money" (now), not slipDate which
+      // can be older due to timezone or older slip uploads. The slip's
+      // own timestamp is preserved on result.data.rawSlip.date if we
+      // ever need to audit it; we don't want subscription windows
+      // starting in the past.
       await tx
         .update(payments)
         .set({
           status: "completed",
-          paidAt: new Date(result.data.rawSlip.date),
+          paidAt: startDate,
           easyslipTransRef: transRef,
         })
         .where(eq(payments.id, paymentId));
@@ -314,10 +334,8 @@ function checkSlipRules(
       message: "บัญชีปลายทางในสลิปไม่ตรงกับบัญชีที่ระบบกำหนด",
     };
   }
-  // Rule 4: not duplicate
-  if (data.isDuplicate === true) {
-    return { ok: false, message: "สลิปนี้ถูกใช้แล้ว" };
-  }
+  // Rule 4 (duplicate) is handled by the caller as a hard-reject path
+  // — we drop it here so this function focuses on data-shape checks.
   // Rule 6: slip date not before payment.createdAt - grace
   const slipDate = new Date(data.rawSlip.date).getTime();
   const earliest =

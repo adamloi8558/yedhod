@@ -72,6 +72,9 @@ export const supportTicketMessages = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     fromAdmin: boolean("from_admin").notNull().default(false),
     body: text("body").notNull(),
+    // Optional image attachment stored in R2. Body can be empty when
+    // the message is image-only.
+    imageR2Key: text("image_r2_key"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (table) => ({

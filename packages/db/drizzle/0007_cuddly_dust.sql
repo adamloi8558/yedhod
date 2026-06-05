@@ -1,0 +1,1 @@
+ALTER TABLE "support_ticket_messages" ADD COLUMN "image_r2_key" text;

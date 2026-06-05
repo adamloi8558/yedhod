@@ -31,6 +31,7 @@ export default async function AdminTicketPage({
     .select({
       id: supportTicketMessages.id,
       body: supportTicketMessages.body,
+      imageR2Key: supportTicketMessages.imageR2Key,
       fromAdmin: supportTicketMessages.fromAdmin,
       createdAt: supportTicketMessages.createdAt,
       authorName: users.name,
@@ -89,7 +90,24 @@ export default async function AdminTicketPage({
               {m.fromAdmin ? `แอดมิน (${m.authorName ?? "-"})` : `ลูกค้า`} ·{" "}
               {new Date(m.createdAt).toLocaleString("th-TH")}
             </p>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</p>
+            {m.body && (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</p>
+            )}
+            {m.imageR2Key && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <a
+                href={`/api/support/messages/${m.id}/image`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-block"
+              >
+                <img
+                  src={`/api/support/messages/${m.id}/image`}
+                  alt="แนบรูป"
+                  className="max-h-64 rounded-lg border border-border/50"
+                />
+              </a>
+            )}
           </li>
         ))}
       </ul>
