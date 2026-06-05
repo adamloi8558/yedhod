@@ -54,9 +54,11 @@ export function PricingCard({
   const redirect = isValidRedirect(redirectParam) ? redirectParam : null;
 
   const priceNumber = Number.parseFloat(plan.priceThb);
+  // Honest per-day price: don't round — show the actual ratio to 2dp so
+  // the math always checks out (e.g. 139 / 15 = 9.27, not 9 even).
   const pricePerDay =
     Number.isFinite(priceNumber) && plan.durationDays > 0
-      ? Math.max(1, Math.round(priceNumber / plan.durationDays))
+      ? priceNumber / plan.durationDays
       : null;
   const tag = valueTag(plan.durationDays);
 
