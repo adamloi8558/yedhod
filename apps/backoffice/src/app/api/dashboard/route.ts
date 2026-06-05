@@ -179,7 +179,11 @@ export async function GET(req: NextRequest) {
       .orderBy(desc(sql`sum(${payments.amount})`)),
 
     // --- C. Needs attention (current, not range) ---
-    // Pending EasySlip verifications, oldest first.
+    // Pending EasySlip verifications WITH a slip uploaded — those are the
+    // ones an admin actually has to look at. Records without a slip are
+    // half-finished attempts and just clutter the queue.
+    // All-time (not bounded by the date range above) so old work doesn't
+    // silently disappear into the past.
     db
       .select({
         id: payments.id,
@@ -191,7 +195,13 @@ export async function GET(req: NextRequest) {
       .from(payments)
       .leftJoin(users, eq(payments.userId, users.id))
       .leftJoin(pricingPlans, eq(payments.pricingPlanId, pricingPlans.id))
-      .where(and(eq(payments.status, "pending"), eq(payments.provider, "easyslip")))
+      .where(
+        and(
+          eq(payments.status, "pending"),
+          eq(payments.provider, "easyslip"),
+          isNotNull(payments.slipImageR2Key)
+        )
+      )
       .orderBy(payments.createdAt)
       .limit(20),
 
@@ -252,10 +262,18 @@ export async function GET(req: NextRequest) {
     // --- D. Catalog health (current) ---
     Promise.all([
       db.select({ c: count() }).from(clips).where(eq(clips.isActive, true)),
-      db
-        .select({ c: count() })
-        .from(clips)
-        .where(and(eq(clips.isActive, true), eq(clips.accessLevel, "vip"))),
+      // VIP count comes from CATEGORY.accessLevel, not clip.accessLevel —
+      // that's how the entire web app gates playback (see
+      // hasCategoryAccess), so the flag on the clip row was misleading
+      // (it gave 77, the category-level definition gives ~7,310).
+      db.execute(sql`
+        select count(*)::int as c
+        from clips cl
+        join categories cat on cat.id = cl.category_id
+        where cl.is_active = true
+          and cat.is_active = true
+          and cat.access_level = 'vip'
+      `),
       db.select({ c: count() }).from(clips).where(eq(clips.isActive, false)),
       // categories with no active clips
       db.execute(sql`
@@ -325,7 +343,7 @@ export async function GET(req: NextRequest) {
     },
     catalog: {
       activeClips: activeClips[0]?.c ?? 0,
-      vipClips: vipClips[0]?.c ?? 0,
+      vipClips: (rows(vipClips)[0] as { c: number })?.c ?? 0,
       inactiveClips: inactiveClips[0]?.c ?? 0,
       emptyCategories: (rows(emptyCats)[0] as { c: number })?.c ?? 0,
     },
