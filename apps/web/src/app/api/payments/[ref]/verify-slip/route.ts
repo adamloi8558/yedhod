@@ -157,8 +157,17 @@ export async function POST(
   });
 
   if (!result.ok) {
+    // Soft-fail: keep the slip + the payment, surface for admin review.
+    // The previous behavior left the user with a rejected slip + a stale
+    // payment record, so they would re-create a new record and re-upload
+    // — duplicating themselves into the queue.
     return NextResponse.json(
-      { error: result.message, code: result.code },
+      {
+        error: result.message,
+        code: result.code,
+        // Signal to the client: don't create a new payment; ask admin.
+        manualReview: true,
+      },
       { status: 400 }
     );
   }
@@ -169,7 +178,14 @@ export async function POST(
     paymentCreatedAt: payment.createdAt,
   });
   if (!rule.ok) {
-    return NextResponse.json({ error: rule.message }, { status: 400 });
+    // Duplicate is the one rule that benefits most from manual review:
+    // it almost always means the same customer re-uploaded after a
+    // transient error, and the slip is genuinely theirs. Keep the
+    // record in the admin queue instead of slamming them with an error.
+    return NextResponse.json(
+      { error: rule.message, manualReview: true },
+      { status: 400 }
+    );
   }
 
   // DB transaction: race-safe completion

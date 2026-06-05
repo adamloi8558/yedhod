@@ -4,6 +4,7 @@ import { and, or, eq, gte, lte, ilike, desc, count, sql } from "drizzle-orm";
 import { Badge } from "@kodhom/ui/components/badge";
 import { formatCurrency, formatThaiDate } from "@kodhom/ui/lib/utils";
 import { PaymentsFilters } from "@/components/payments-filters";
+import { PaymentActions } from "@/components/payment-actions";
 
 const PAGE_SIZE = 50;
 const VALID_STATUSES = ["pending", "completed", "expired", "failed"] as const;
@@ -68,6 +69,7 @@ export default async function PaymentsPage({
         status: payments.status,
         anypayRef: payments.anypayRef,
         easyslipRef: payments.easyslipTransRef,
+        slipKey: payments.slipImageR2Key,
         createdAt: payments.createdAt,
         paidAt: payments.paidAt,
         userName: users.name,
@@ -162,12 +164,13 @@ export default async function PaymentsPage({
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground md:table-cell">อ้างอิง</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">สถานะ</th>
                 <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:table-cell">วันที่</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">การจัดการ</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground">
                     ไม่พบรายการตามเงื่อนไข
                   </td>
                 </tr>
@@ -189,6 +192,14 @@ export default async function PaymentsPage({
                   </td>
                   <td className="hidden px-4 py-3 text-sm tabular-nums text-muted-foreground sm:table-cell">
                     {formatThaiDate(new Date(p.createdAt))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <PaymentActions
+                      paymentId={p.id}
+                      status={p.status}
+                      hasSlip={!!p.slipKey}
+                      slipUrl={p.slipKey ? `/api/payments/${p.id}/slip` : null}
+                    />
                   </td>
                 </tr>
               ))}

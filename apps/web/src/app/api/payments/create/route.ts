@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@kodhom/db";
 import { pricingPlans, payments } from "@kodhom/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { createPaymentSchema } from "@kodhom/validators";
 import { getSession } from "@/lib/auth-server";
 import { nanoid } from "@/lib/nanoid";
@@ -33,6 +33,54 @@ export async function POST(req: NextRequest) {
   if (!plan || !plan.isActive) {
     return NextResponse.json({ error: "ไม่พบแพ็กเกจ" }, { status: 404 });
   }
+
+  const now = new Date();
+  const userId = session.user.id;
+
+  // Reuse: existing pending AnyPay payment for the same plan that still
+  // has a valid QR (expiresAt > now). The QR string itself is what the
+  // user scans, so as long as it's still good we hand it back instead of
+  // burning another AnyPay create call.
+  const [reusable] = await db
+    .select()
+    .from(payments)
+    .where(
+      and(
+        eq(payments.userId, userId),
+        eq(payments.pricingPlanId, pricingPlanId),
+        eq(payments.status, "pending"),
+        eq(payments.provider, "anypay"),
+        gt(payments.expiresAt, now)
+      )
+    )
+    .orderBy(sql`${payments.createdAt} desc`)
+    .limit(1);
+
+  if (reusable) {
+    return NextResponse.json({
+      paymentId: reusable.id,
+      ref: reusable.anypayRef,
+      qrText: reusable.qrText,
+      qrImage: reusable.qrImage,
+      expiresAt: reusable.expiresAt?.toISOString() ?? null,
+      amount: reusable.amount,
+      reused: true,
+    });
+  }
+
+  // Expire any older AnyPay pendings for this user — same cleanup
+  // principle as easyslip, just simpler because there's no slip to
+  // preserve.
+  await db
+    .update(payments)
+    .set({ status: "expired" })
+    .where(
+      and(
+        eq(payments.userId, userId),
+        eq(payments.status, "pending"),
+        eq(payments.provider, "anypay")
+      )
+    );
 
   // Create AnyPay payment
   const apiUrl = process.env.ANYPAY_API_URL!;
