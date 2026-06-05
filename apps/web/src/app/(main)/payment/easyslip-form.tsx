@@ -250,7 +250,13 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
 
           {error && (
             <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-              {error}
+              <p>{error}</p>
+              <a
+                href={`/support?paymentId=${order.paymentId}&subject=${encodeURIComponent("สลิปไม่ผ่านระบบ")}`}
+                className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                แจ้งปัญหากับแอดมิน →
+              </a>
             </div>
           )}
 
