@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   History,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@kodhom/ui/lib/utils";
 import { Button } from "@kodhom/ui/components/button";
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/dashboard/pricing", label: "แพ็กเกจ", icon: Tag },
   { href: "/dashboard/users", label: "ผู้ใช้", icon: Users },
   { href: "/dashboard/payments", label: "การชำระเงิน", icon: CreditCard },
+  { href: "/dashboard/support", label: "ติดต่อลูกค้า", icon: MessageSquare },
   { href: "/dashboard/payment-config", label: "ช่องทางชำระเงิน", icon: Banknote },
   { href: "/dashboard/withdraw", label: "ถอนเงิน", icon: Wallet },
   { href: "/dashboard/audit-logs", label: "Audit log", icon: History },

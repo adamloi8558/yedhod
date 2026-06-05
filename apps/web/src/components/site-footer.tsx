@@ -82,6 +82,11 @@ export async function SiteFooter() {
                   สมัครสมาชิก
                 </Link>
               </li>
+              <li>
+                <Link href="/support" className="text-muted-foreground transition-colors hover:text-foreground" rel="nofollow">
+                  ติดต่อแอดมิน
+                </Link>
+              </li>
             </ul>
           </div>
 

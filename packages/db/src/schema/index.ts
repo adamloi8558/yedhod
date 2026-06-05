@@ -11,4 +11,5 @@ export * from "./telegram-sync";
 export * from "./telegram-posted";
 export * from "./admin-audit";
 export * from "./clip-stats";
+export * from "./support-tickets";
 export * from "./relations";
