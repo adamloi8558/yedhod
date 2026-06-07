@@ -65,7 +65,7 @@ sleep 2
 export DISPLAY=:99
 
 # Final verification: confirm the SOCKS5 proxy is actually serving
-# before we hand off to the worker.
+# before we wrap it.
 for i in $(seq 1 30); do
     if curl --silent --max-time 4 --socks5-hostname 127.0.0.1:40000 https://1.1.1.1/cdn-cgi/trace | grep -q "warp=on"; then
         echo "[entrypoint] SOCKS5 proxy ready (warp=on)"
@@ -74,6 +74,26 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-echo "[entrypoint] Xvfb pid=$XVFB_PID DISPLAY=$DISPLAY"
+# Camoufox-js's launcher feeds Playwright proxy.server = URL.origin,
+# and URL.origin is "null" for socks5:// URLs — Firefox then can't
+# resolve the proxy and throws NS_ERROR_UNKNOWN_PROXY_HOST. Workaround:
+# expose an HTTP-proxy frontend on 127.0.0.1:41000 that forwards to the
+# WARP SOCKS5 backend. gost makes this a one-liner.
+echo "[entrypoint] starting gost http→socks5 bridge on 127.0.0.1:41000"
+gost -L "http://127.0.0.1:41000" -F "socks5://127.0.0.1:40000" &
+GOST_PID=$!
+sleep 2
+
+for i in $(seq 1 10); do
+    if curl --silent --max-time 4 -x http://127.0.0.1:41000 https://1.1.1.1/cdn-cgi/trace | grep -q "warp=on"; then
+        echo "[entrypoint] HTTP proxy ready (warp=on via gost pid=$GOST_PID)"
+        break
+    fi
+    sleep 2
+done
+
+# Override the PROXY env so Camoufox sees the http://... URL.
+export PROXY="http://127.0.0.1:41000"
+echo "[entrypoint] Xvfb pid=$XVFB_PID DISPLAY=$DISPLAY PROXY=$PROXY"
 echo "[entrypoint] launching worker (pnpm start)"
 exec pnpm start

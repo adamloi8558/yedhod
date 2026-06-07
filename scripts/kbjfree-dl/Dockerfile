@@ -69,6 +69,15 @@ RUN curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --dearmor -o /u
     apt-get update && apt-get install -y --no-install-recommends cloudflare-warp && \
     rm -rf /var/lib/apt/lists/*
 
+# 5b) gost: tiny Go proxy that converts SOCKS5 → HTTP so Firefox/Camoufox
+#     can use it (Camoufox-js bug: feeds Playwright proxy.server = URL.origin
+#     which is null for socks5:// URLs).
+RUN curl -fsSL -o /tmp/gost.tar.gz \
+        https://github.com/go-gost/gost/releases/download/v3.0.0/gost_3.0.0_linux_amd64.tar.gz && \
+    tar -xzf /tmp/gost.tar.gz -C /usr/local/bin gost && \
+    rm /tmp/gost.tar.gz && \
+    /usr/local/bin/gost -V
+
 # 6) download the Camoufox Firefox build (~200MB) at build time so the
 #    container is self-contained and starts fast.
 RUN pnpm exec camoufox-js fetch
