@@ -688,11 +688,21 @@ async function main() {
     if (proxyUrl) {
       console.log(`[browser] routing through proxy ${proxyUrl.replace(/^(\w+:\/\/)[^@]*@/, "$1***@")}`);
       const u = new URL(proxyUrl);
+      // Playwright / Camoufox proxy schema: scheme://host:port — but
+      // Firefox-backed Camoufox is happiest with the bare host:port,
+      // and SOCKS proxies must drop the trailing "5" in the protocol
+      // (Playwright treats "socks5://" as "socks://"). We pass both
+      // forms via geoip:false to avoid an IPGeolocation lookup which
+      // requires the local end to reach a public IP API.
+      const isSocks = u.protocol.startsWith("socks");
       opts.proxy = {
-        server: `${u.protocol}//${u.host}`,
+        server: isSocks
+          ? `socks5://${u.host}`
+          : `${u.protocol}//${u.host}`,
         ...(u.username ? { username: decodeURIComponent(u.username) } : {}),
         ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
       };
+      opts.geoip = false;
     }
     const ctx = (await Camoufox(opts)) as BrowserContext;
     return {

@@ -63,6 +63,17 @@ Xvfb :99 -screen 0 1280x800x24 -nolisten tcp &
 XVFB_PID=$!
 sleep 2
 export DISPLAY=:99
+
+# Final verification: confirm the SOCKS5 proxy is actually serving
+# before we hand off to the worker.
+for i in $(seq 1 30); do
+    if curl --silent --max-time 4 --socks5-hostname 127.0.0.1:40000 https://1.1.1.1/cdn-cgi/trace | grep -q "warp=on"; then
+        echo "[entrypoint] SOCKS5 proxy ready (warp=on)"
+        break
+    fi
+    sleep 2
+done
+
 echo "[entrypoint] Xvfb pid=$XVFB_PID DISPLAY=$DISPLAY"
 echo "[entrypoint] launching worker (pnpm start)"
 exec pnpm start
