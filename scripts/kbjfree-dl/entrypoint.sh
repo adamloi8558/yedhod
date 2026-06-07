@@ -58,5 +58,11 @@ if [ -n "$PROXY" ]; then
     fi
 fi
 
-echo "[entrypoint] starting Xvfb + worker"
-exec xvfb-run -a -s '-screen 0 1280x800x24' pnpm start
+echo "[entrypoint] starting Xvfb on :99"
+Xvfb :99 -screen 0 1280x800x24 -nolisten tcp &
+XVFB_PID=$!
+sleep 2
+export DISPLAY=:99
+echo "[entrypoint] Xvfb pid=$XVFB_PID DISPLAY=$DISPLAY"
+echo "[entrypoint] launching worker (pnpm start)"
+exec pnpm start
