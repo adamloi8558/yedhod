@@ -19,7 +19,9 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "sharp",
-      "@next/swc-win32-x64-msvc"
+      "@next/swc-win32-x64-msvc",
+      "better-sqlite3",
+      "impit"
     ]
   }
 }

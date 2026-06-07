@@ -31,11 +31,10 @@ COPY apps/telegram-poster/package.json        apps/telegram-poster/package.json
 COPY apps/telegram-sync/package.json          apps/telegram-sync/package.json
 COPY scripts/kbjfree-dl/package.json          scripts/kbjfree-dl/package.json
 
-# 2) install worker + workspace deps. pnpm 10 skips lifecycle scripts of
-#    packages not in `onlyBuiltDependencies`, so we install first, then
-#    explicitly approve + rebuild the two native packages Camoufox needs.
-RUN pnpm install --filter @kodhom/kbjfree-dl... --frozen-lockfile && \
-    pnpm --filter @kodhom/kbjfree-dl rebuild better-sqlite3 impit
+# 2) install worker + workspace deps. Root package.json has
+#    pnpm.onlyBuiltDependencies including better-sqlite3 + impit, so
+#    their lifecycle scripts run automatically during install.
+RUN pnpm install --filter @kodhom/kbjfree-dl... --frozen-lockfile
 
 # 3) copy actual source for the worker and its deps
 COPY packages/db   packages/db
