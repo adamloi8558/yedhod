@@ -1,5 +1,6 @@
 node_modules/
 .env
+.state/
 state.json
 browser-data/
 *.log
