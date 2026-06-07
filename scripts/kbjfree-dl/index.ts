@@ -19,10 +19,11 @@
  *   - R2 HeadObject on the deterministic key
  */
 
-import { S3Client, HeadObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Readable } from "node:stream";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
@@ -145,6 +146,46 @@ const pg = postgres(DATABASE_URL, { max: 5, idle_timeout: 20 });
 const db = drizzle(pg, { schema });
 const categoriesTable = categories as any;
 const clipsTable = clips as any;
+
+const BOOTSTRAP_KEY = process.env.STATE_BOOTSTRAP_KEY || "internal/kbjfree-state.tar.gz";
+
+/**
+ * On first boot — when /data/state is empty — pull a pre-warmed Camoufox
+ * profile + login cookies + cf_clearance from R2 and extract them. This
+ * lets the container skip the first Cloudflare interstitial (which is
+ * the hardest one) without ever having to interactively solve it on
+ * the VPS's IP.
+ *
+ * The bundle is created locally via `tar -czf - -C .state . | aws s3 cp`
+ * and only needs to be refreshed when the cf_clearance cookie expires
+ * (≈ a couple of weeks). The script never overwrites a non-empty state
+ * dir.
+ */
+async function maybeRestoreState(): Promise<void> {
+  if (existsSync(STATE_PATH)) {
+    console.log("[bootstrap] state.json already present — using cached profile");
+    return;
+  }
+  try {
+    console.log(`[bootstrap] fetching ${BOOTSTRAP_KEY} from R2…`);
+    const res = await s3.send(
+      new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: BOOTSTRAP_KEY }),
+    );
+    if (!res.Body) throw new Error("empty body");
+    const stream = res.Body as Readable;
+    await new Promise<void>((done, fail) => {
+      const tar = spawn("tar", ["xzf", "-", "-C", STATE_DIR], {
+        stdio: ["pipe", "inherit", "inherit"],
+      });
+      tar.on("error", fail);
+      tar.on("exit", (code) => (code === 0 ? done() : fail(new Error(`tar exit ${code}`))));
+      stream.pipe(tar.stdin);
+    });
+    console.log("[bootstrap] state restored");
+  } catch (e: any) {
+    console.warn(`[bootstrap] could not restore state: ${e?.message ?? e} (will solve CF live)`);
+  }
+}
 
 // ─────────────────────────── helpers ─────────────────────────────
 
@@ -619,6 +660,7 @@ async function cycle(ctx: BrowserContext, page: Page): Promise<void> {
 
 async function main() {
   console.log(`[boot] kbjfree-dl worker — interval=${LOOP_INTERVAL_SEC}s`);
+  await maybeRestoreState();
   let ctx: BrowserContext;
   let page: Page;
 
