@@ -42,31 +42,48 @@ COPY scripts/kbjfree-dl scripts/kbjfree-dl
 
 WORKDIR /app/scripts/kbjfree-dl
 
-# 4) Cloudflare's interstitial detects pure-headless Firefox even with
-#    Camoufox's fingerprint patches, so we run a real headed browser
-#    inside Xvfb. Install both, plus dbus for fewer warnings.
+# 4) Camoufox + Xvfb so the browser appears headed (lower CF detection),
+#    plus gosocks5 to route traffic through Cloudflare WARP via
+#    cloudflared.  The combo gives us a CF-friendly egress IP.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
         xvfb \
         dbus-x11 \
         libnss3 \
         libxss1 \
         libgbm1 \
-        libgtk-3-0 && \
+        libgtk-3-0 \
+        iproute2 \
+        iptables \
+        sudo && \
     rm -rf /var/lib/apt/lists/*
 
-# 5) download the Camoufox Firefox build (~200MB) at build time so the
+# 5) install Cloudflare WARP (in proxy mode it exposes a local SOCKS5
+#    on 127.0.0.1:40000 and routes through warp-svc).
+RUN curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ noble main" \
+        > /etc/apt/sources.list.d/cloudflare-client.list && \
+    apt-get update && apt-get install -y --no-install-recommends cloudflare-warp && \
+    rm -rf /var/lib/apt/lists/*
+
+# 6) download the Camoufox Firefox build (~200MB) at build time so the
 #    container is self-contained and starts fast.
 RUN pnpm exec camoufox-js fetch
 
 ENV NODE_ENV=production \
     STATE_DIR=/data/state \
     HEADLESS=0 \
-    DISPLAY=:99
+    DISPLAY=:99 \
+    PROXY=socks5://127.0.0.1:40000
 
 # Coolify persistent volume should be mounted at /data
 VOLUME ["/data"]
 
-# Start a 1280x800x24 Xvfb on :99 and run the worker inside it. The
-# `-a` flag tells xvfb-run to pick a free display if :99 is busy.
-CMD ["sh", "-c", "xvfb-run -a -s '-screen 0 1280x800x24' pnpm start"]
+# Bring up warp-svc + register/connect + enter proxy mode, then start
+# Xvfb and the worker. warp-svc needs to run as root in the background.
+COPY scripts/kbjfree-dl/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+CMD ["/entrypoint.sh"]
