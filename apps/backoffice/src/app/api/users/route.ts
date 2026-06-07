@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@kodhom/db";
-import { users } from "@kodhom/db/schema";
+import { users, subscriptions, pricingPlans } from "@kodhom/db/schema";
 import { roleEnum } from "@kodhom/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth-server";
+import { nanoid } from "@/lib/nanoid";
 
 const PAGE_SIZE = 30;
 const VALID_ROLES = roleEnum.enumValues; // ["member","vip","admin"]
@@ -111,5 +112,49 @@ export async function PUT(req: NextRequest) {
   }
 
   await db.update(users).set({ role }).where(eq(users.id, id));
+
+  // Auto-grant VIP via a lifetime subscription so access control (which
+  // reads `subscriptions`, not `users.role`) sees the user as active.
+  // If the user already has an active subscription, we don't touch it.
+  if (role === "vip") {
+    const now = new Date();
+    const [activeSub] = await db
+      .select({ id: subscriptions.id })
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.userId, id),
+          eq(subscriptions.status, "active"),
+          or(isNull(subscriptions.endDate), gt(subscriptions.endDate, now))
+        )
+      )
+      .limit(1);
+
+    if (!activeSub) {
+      // Pick the cheapest active plan as the carrier for the manual
+      // grant. We only use it to attach the row to *something* in the
+      // pricing table; the lifetime endDate=null means the customer
+      // keeps access regardless of plan duration.
+      const [plan] = await db
+        .select({ id: pricingPlans.id })
+        .from(pricingPlans)
+        .where(eq(pricingPlans.isActive, true))
+        .orderBy(asc(pricingPlans.priceThb))
+        .limit(1);
+      if (plan) {
+        await db.insert(subscriptions).values({
+          id: nanoid(),
+          userId: id,
+          pricingPlanId: plan.id,
+          status: "active",
+          startDate: now,
+          endDate: null, // lifetime
+          amountPaid: "0",
+          paymentRef: `admin-grant-${id}`,
+        });
+      }
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
