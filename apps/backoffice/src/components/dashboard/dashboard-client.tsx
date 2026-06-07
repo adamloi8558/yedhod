@@ -58,8 +58,8 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function DashboardClient() {
-  const [range, setRange] = useState<DateRange>(() => buildPreset("month"));
-  const [activeKey, setActiveKey] = useState("month");
+  const [range, setRange] = useState<DateRange>(() => buildPreset("today"));
+  const [activeKey, setActiveKey] = useState("today");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
