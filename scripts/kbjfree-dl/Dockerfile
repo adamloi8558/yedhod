@@ -42,15 +42,31 @@ COPY scripts/kbjfree-dl scripts/kbjfree-dl
 
 WORKDIR /app/scripts/kbjfree-dl
 
-# 4) download the Camoufox Firefox build (~200MB) at build time so the
+# 4) Cloudflare's interstitial detects pure-headless Firefox even with
+#    Camoufox's fingerprint patches, so we run a real headed browser
+#    inside Xvfb. Install both, plus dbus for fewer warnings.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        xvfb \
+        dbus-x11 \
+        libnss3 \
+        libxss1 \
+        libgbm1 \
+        libgtk-3-0 && \
+    rm -rf /var/lib/apt/lists/*
+
+# 5) download the Camoufox Firefox build (~200MB) at build time so the
 #    container is self-contained and starts fast.
 RUN pnpm exec camoufox-js fetch
 
 ENV NODE_ENV=production \
     STATE_DIR=/data/state \
-    HEADLESS=1
+    HEADLESS=0 \
+    DISPLAY=:99
 
 # Coolify persistent volume should be mounted at /data
 VOLUME ["/data"]
 
-CMD ["pnpm", "start"]
+# Start a 1280x800x24 Xvfb on :99 and run the worker inside it. The
+# `-a` flag tells xvfb-run to pick a free display if :99 is busy.
+CMD ["sh", "-c", "xvfb-run -a -s '-screen 0 1280x800x24' pnpm start"]
