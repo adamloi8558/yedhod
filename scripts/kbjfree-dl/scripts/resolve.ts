@@ -13,7 +13,8 @@
  * clips show up automatically.
  */
 
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { Readable } from "node:stream";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync } from "node:fs";
@@ -40,12 +41,23 @@ const need = (k: string): string => {
 const DATABASE_URL = need("DATABASE_URL");
 const R2_BUCKET_NAME = need("R2_BUCKET_NAME");
 const JOBS_KEY = process.env.JOBS_KEY || "internal/kbjfree-jobs.jsonl";
-// Default 100 pages — enough for a first-time backfill (~2400 clips)
-// without slamming Cloudflare. 0 = unbounded, walk until end-of-list.
-const MAX_PAGES = Math.max(0, Number(process.env.RESOLVE_MAX_PAGES || "100"));
+// We crawl two feeds — newest first, then popular — capping each one at
+// MAX_PAGES_PER_FEED. Default 50 each → 100 pages / ~2400 clips per run.
+const MAX_PAGES_PER_FEED = Math.max(0, Number(process.env.RESOLVE_MAX_PAGES_PER_FEED || "50"));
 // Stop early once we see N pages in a row where every clip is already
 // in the DB. Keeps re-runs cheap on the incremental case.
 const STOP_AFTER_KNOWN_PAGES = Math.max(1, Number(process.env.STOP_AFTER_KNOWN_PAGES || "3"));
+
+// Each entry is a (label, base path, paginated) tuple. The path is what
+// we pass to fetch; ?page=N (or &page=N) is appended for page > 1.
+// `cursorPersist` tells the script to remember the page we got to so the
+// next run can keep walking instead of starting at page 1.
+const FEEDS: Array<{ label: string; basePath: string; cursorPersist: boolean }> = [
+  { label: "latest", basePath: "/videos", cursorPersist: false },
+  { label: "popular", basePath: "/videos?filter=all&sort=popular", cursorPersist: true },
+];
+
+const CURSOR_KEY = process.env.CURSOR_KEY || "internal/kbjfree-cursor.json";
 const ORIGIN = "https://kbjfree.com";
 const CHROME_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
@@ -169,36 +181,85 @@ function parseWatchHtml(id: string, html: string): Job {
   };
 }
 
-async function listingIds(page: number): Promise<string[]> {
-  const path = page === 1 ? "/videos" : `/videos?page=${page}`;
-  const html = await getHtml(path);
+function pagedUrl(basePath: string, page: number): string {
+  if (page === 1) return basePath;
+  return basePath.includes("?") ? `${basePath}&page=${page}` : `${basePath}?page=${page}`;
+}
+
+async function listingIds(basePath: string, page: number): Promise<string[]> {
+  const html = await getHtml(pagedUrl(basePath, page));
   return [...new Set([...html.matchAll(/\/watch\/([A-Za-z0-9_-]+)/g)].map((m) => m[1]))];
 }
 
-async function main() {
-  const cap = MAX_PAGES === 0 ? Number.POSITIVE_INFINITY : MAX_PAGES;
-  console.log(
-    `[resolve] crawling /videos — cap=${MAX_PAGES === 0 ? "∞" : MAX_PAGES} pages, stop after ${STOP_AFTER_KNOWN_PAGES} known-only pages`,
-  );
-  const jobs: Job[] = [];
-  const seenIds = new Set<string>();
-  let knownStreak = 0; // consecutive pages where all clips are already in DB
+// ─────────────────────── cursor (R2-persisted) ───────────────────
 
-  for (let p = 1; p <= cap; p++) {
+// shape: { popular: 51, ... }  — next page to start at
+type CursorState = Record<string, number>;
+
+const s3 = new S3Client({
+  region: "auto",
+  endpoint: `https://${need("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: need("R2_ACCESS_KEY_ID"),
+    secretAccessKey: need("R2_SECRET_ACCESS_KEY"),
+  },
+});
+
+async function loadCursor(): Promise<CursorState> {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: CURSOR_KEY }));
+    if (!res.Body) return {};
+    const chunks: Buffer[] = [];
+    for await (const c of res.Body as Readable) chunks.push(Buffer.from(c));
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch (e: any) {
+    if (e?.$metadata?.httpStatusCode === 404 || e?.name === "NoSuchKey") return {};
+    console.warn(`[cursor] load failed: ${e?.message ?? e}`);
+    return {};
+  }
+}
+
+async function saveCursor(state: CursorState): Promise<void> {
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: CURSOR_KEY,
+      Body: JSON.stringify(state),
+      ContentType: "application/json",
+    }),
+  );
+}
+
+async function crawlFeed(
+  feed: { label: string; basePath: string; cursorPersist: boolean },
+  startPage: number,
+  jobs: Job[],
+  seenIds: Set<string>,
+): Promise<number> {
+  const cap = MAX_PAGES_PER_FEED === 0 ? Number.POSITIVE_INFINITY : MAX_PAGES_PER_FEED;
+  const stopAt = startPage + cap - 1;
+  console.log(
+    `[${feed.label}] crawling pages ${startPage}…${cap === Number.POSITIVE_INFINITY ? "∞" : stopAt}` +
+      (feed.cursorPersist ? " (cursor-persisted)" : ""),
+  );
+  let knownStreak = 0;
+  let lastTouchedPage = startPage - 1;
+
+  for (let p = startPage; p <= stopAt; p++) {
     let ids: string[];
     try {
-      ids = await listingIds(p);
+      ids = await listingIds(feed.basePath, p);
     } catch (e: any) {
-      console.error(`[err] listing page=${p}: ${e?.message ?? e}`);
+      console.error(`[err] [${feed.label}] listing page=${p}: ${e?.message ?? e}`);
       break;
     }
     if (ids.length === 0) {
-      console.log(`[resolve] page=${p} empty → end of list`);
-      break;
+      console.log(`[${feed.label}] page=${p} empty → end of list`);
+      // For a persisted-cursor feed, restart from page 1 next run.
+      if (feed.cursorPersist) return 1;
+      return p;
     }
 
-    // First decide which ids on this page are genuinely new (not yet in DB,
-    // not yet queued in this run).
     const newIds: string[] = [];
     for (const id of ids) {
       if (seenIds.has(id)) continue;
@@ -206,14 +267,17 @@ async function main() {
       const sourceUrl = `${ORIGIN}/watch/${id}`;
       if (!(await clipExists(sourceUrl))) newIds.push(id);
     }
+    lastTouchedPage = p;
 
     if (newIds.length === 0) {
       knownStreak++;
       console.log(
-        `[resolve] page=${p} all-known streak=${knownStreak}/${STOP_AFTER_KNOWN_PAGES}`,
+        `[${feed.label}] page=${p} all-known streak=${knownStreak}/${STOP_AFTER_KNOWN_PAGES}`,
       );
-      if (knownStreak >= STOP_AFTER_KNOWN_PAGES) {
-        console.log(`[resolve] stopping — ${knownStreak} pages of nothing new`);
+      // For latest: every clip in DB → no point going deeper this run.
+      // For popular: keep walking — the user wants to backfill in chunks.
+      if (!feed.cursorPersist && knownStreak >= STOP_AFTER_KNOWN_PAGES) {
+        console.log(`[${feed.label}] stopping — ${knownStreak} pages of nothing new`);
         break;
       }
       continue;
@@ -222,7 +286,7 @@ async function main() {
     knownStreak = 0;
     for (const id of newIds) {
       try {
-        const html = await getHtml(`/watch/${id}`, `${ORIGIN}/videos`);
+        const html = await getHtml(`/watch/${id}`, `${ORIGIN}${feed.basePath}`);
         const job = parseWatchHtml(id, html);
         jobs.push(job);
         console.log(`[ok] ${id} → ${job.categorySlug}/${job.modelSlug}`);
@@ -230,7 +294,24 @@ async function main() {
         console.warn(`[skip] ${id}: ${e?.message}`);
       }
     }
-    console.log(`[resolve] page=${p} +${newIds.length} new (total ${jobs.length})`);
+    console.log(`[${feed.label}] page=${p} +${newIds.length} new (total ${jobs.length})`);
+  }
+  return lastTouchedPage + 1;
+}
+
+async function main() {
+  const cursor = await loadCursor();
+  const jobs: Job[] = [];
+  const seenIds = new Set<string>();
+
+  for (const feed of FEEDS) {
+    const start = feed.cursorPersist ? Math.max(1, cursor[feed.label] || 1) : 1;
+    const next = await crawlFeed(feed, start, jobs, seenIds);
+    if (feed.cursorPersist) {
+      cursor[feed.label] = next;
+      await saveCursor(cursor);
+      console.log(`[${feed.label}] cursor advanced → next run starts at page ${next}`);
+    }
   }
 
   if (jobs.length === 0) {
@@ -240,14 +321,6 @@ async function main() {
   }
 
   const jsonl = jobs.map((j) => JSON.stringify(j)).join("\n") + "\n";
-  const s3 = new S3Client({
-    region: "auto",
-    endpoint: `https://${need("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: need("R2_ACCESS_KEY_ID"),
-      secretAccessKey: need("R2_SECRET_ACCESS_KEY"),
-    },
-  });
   await s3.send(
     new PutObjectCommand({
       Bucket: R2_BUCKET_NAME,
