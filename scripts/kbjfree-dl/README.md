@@ -33,12 +33,11 @@ pnpm install
 
 ## Daily flow
 
-1. **Cookie refresh** (once every couple of days, or whenever the
-   resolver starts returning 403):
+1. **Cookie refresh** (do this when the resolver starts returning 403):
    - log in to kbjfree.com in Chrome
-   - open DevTools → Application → Cookies → `https://kbjfree.com`
-   - copy `cf_clearance`, `kgateway.auth.access`, `kgateway.auth.refresh`
-   - save as `scripts/kbjfree-dl/.state/cookies.json` in this shape:
+   - open DevTools (F12) → Application → Cookies → `https://kbjfree.com`
+   - copy values for `cf_clearance`, `kgateway.auth.access`, `kgateway.auth.refresh`
+   - paste into `scripts/kbjfree-dl/.state/cookies.json` (replace the existing values):
      ```json
      [
        {"name": "cf_clearance", "value": "…"},
@@ -46,6 +45,11 @@ pnpm install
        {"name": "kgateway.auth.refresh", "value": "…"}
      ]
      ```
+
+   Typical cookie lifetimes:
+   - `cf_clearance`: ~30 min (but usually rolls automatically on revisit)
+   - `kgateway.auth.access`: 15 min (short-lived, but `refresh` keeps you in)
+   - `kgateway.auth.refresh`: 7 days — the practical refresh interval
 
 2. **Resolve and push jobs** (run from your machine):
    ```bash

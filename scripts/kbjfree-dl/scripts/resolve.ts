@@ -72,17 +72,37 @@ interface Cookie {
 const COOKIE_PATH = resolve(__dirname, "..", ".state", "cookies.json");
 if (!existsSync(COOKIE_PATH)) {
   console.error(`no cookies at ${COOKIE_PATH}`);
-  console.error(
-    "  → log in to kbjfree.com in Chrome (the host that produced this cookie file)",
-  );
-  console.error(
-    "  → copy cf_clearance + kgateway.auth.access + kgateway.auth.refresh into a JSON array",
-  );
-  console.error(`  → save as ${COOKIE_PATH}`);
-  console.error('  format: [{"name":"cf_clearance","value":"…"}, ...]');
+  console.error("  → log in to kbjfree.com in Chrome and export cookies via your");
+  console.error("    cookie-editor extension; save as the path above");
   process.exit(1);
 }
-const cookies: Cookie[] = JSON.parse(readFileSync(COOKIE_PATH, "utf8"));
+
+// Accept either format:
+//   [{"name":"…","value":"…"}, …]                       — minimal
+//   [{"domain":"…","name":"…","value":"…", …}, …]       — Chrome extension export
+// Keep only cookies whose domain ends in kbjfree.com (if domain is given).
+const rawCookies: Array<Record<string, unknown>> = JSON.parse(
+  readFileSync(COOKIE_PATH, "utf8"),
+);
+const cookies: Cookie[] = rawCookies
+  .filter((c) => {
+    const d = typeof c.domain === "string" ? c.domain : "";
+    return !d || d.endsWith("kbjfree.com") || d.endsWith(".kbjfree.com");
+  })
+  .map((c) => ({ name: String(c.name), value: String(c.value) }))
+  .filter((c) => c.name && c.value);
+
+if (cookies.length === 0) {
+  console.error(`[fatal] no usable cookies in ${COOKIE_PATH}`);
+  process.exit(1);
+}
+
+const required = ["cf_clearance", "kgateway.auth.access", "kgateway.auth.refresh"];
+const haveNames = new Set(cookies.map((c) => c.name));
+const missing = required.filter((n) => !haveNames.has(n));
+if (missing.length) {
+  console.warn(`[warn] missing expected cookies: ${missing.join(", ")} — continuing anyway`);
+}
 const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
 
 const HEADERS: Record<string, string> = {

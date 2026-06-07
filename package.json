@@ -19,10 +19,7 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "sharp",
-      "@next/swc-win32-x64-msvc",
-      "better-sqlite3",
-      "sqlite3",
-      "keytar"
+      "@next/swc-win32-x64-msvc"
     ]
   }
 }
