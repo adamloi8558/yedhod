@@ -666,7 +666,9 @@ async function main() {
 
   const open = async () => {
     const { Camoufox } = await import("camoufox-js");
-    const ctx = (await Camoufox({
+    // PROXY env: e.g.  socks5://warp-proxy:1080  (Coolify-internal hostname)
+    const proxyUrl = process.env.PROXY?.trim();
+    const opts: any = {
       user_data_dir: BROWSER_DATA_DIR,
       headless: BROWSER_HEADLESS,
       os: process.platform === "win32" ? "windows" : "linux",
@@ -682,7 +684,17 @@ async function main() {
         "media.peerconnection.enabled": false,
         "privacy.resistFingerprinting.letterboxing": false,
       },
-    })) as BrowserContext;
+    };
+    if (proxyUrl) {
+      console.log(`[browser] routing through proxy ${proxyUrl.replace(/^(\w+:\/\/)[^@]*@/, "$1***@")}`);
+      const u = new URL(proxyUrl);
+      opts.proxy = {
+        server: `${u.protocol}//${u.host}`,
+        ...(u.username ? { username: decodeURIComponent(u.username) } : {}),
+        ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
+      };
+    }
+    const ctx = (await Camoufox(opts)) as BrowserContext;
     return {
       ctx,
       page: ctx.pages()[0] ?? (await ctx.newPage()),
