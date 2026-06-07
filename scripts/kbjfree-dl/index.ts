@@ -48,6 +48,7 @@ type JsHandle<T = unknown> = {
 type Page = {
   url(): string;
   goto(url: string, options?: { waitUntil?: "domcontentloaded"; timeout?: number }): Promise<unknown>;
+  reload(options?: { waitUntil?: "domcontentloaded"; timeout?: number }): Promise<unknown>;
   title(): Promise<string>;
   content(): Promise<string>;
   waitForFunction<T = unknown>(
@@ -123,6 +124,10 @@ const MAX_DOWNLOADS_PER_CYCLE = Math.max(0, Number(process.env.MAX_DOWNLOADS_PER
 const BROWSER_HEADLESS = process.env.HEADLESS !== "0";
 
 const ORIGIN = "https://kbjfree.com";
+const CF_GOTO_ATTEMPTS = Math.max(1, Number(process.env.CF_GOTO_ATTEMPTS || "3"));
+const CF_CLICK_ROUNDS = Math.max(1, Number(process.env.CF_CLICK_ROUNDS || "8"));
+const CF_SETTLE_MS = Math.max(1_000, Number(process.env.CF_SETTLE_MS || "5_000"));
+const CF_WAIT_PER_ROUND_MS = Math.max(5_000, Number(process.env.CF_WAIT_PER_ROUND_MS || "20_000"));
 const STATE_PATH = resolve(STATE_DIR, "state.json");
 const BROWSER_DATA_DIR = resolve(STATE_DIR, "browser-data");
 mkdirSync(STATE_DIR, { recursive: true });
@@ -229,42 +234,90 @@ async function ensureCategory(args: {
 
 // ─────────────────────────── playwright ──────────────────────────
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const CF_TITLE_RE = /just a moment|attention required|cloudflare|verify you are human/i;
+const CF_HTML_RE =
+  /cf-browser-verification|cf-challenge|__cf_chl_|cf-turnstile|challenges\.cloudflare\.com|verify you are human|checking your browser/i;
+
+async function isCloudflareChallenge(page: Page): Promise<boolean> {
+  const title = await page.title().catch(() => "");
+  const html = await page.content().catch(() => "");
+  return CF_TITLE_RE.test(title) || CF_HTML_RE.test(html);
+}
+
 async function clickCloudflareTurnstile(page: Page): Promise<boolean> {
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     const frame = page.frames().find((f) =>
       f.url().includes("challenges.cloudflare.com") || f.name().startsWith("cf-chl-widget"),
     );
     if (frame) {
-      try {
-        await frame.locator("body").click({ position: { x: 25, y: 35 }, timeout: 5_000 });
-        return true;
-      } catch {}
+      for (const selector of ['input[type="checkbox"]', "body"]) {
+        try {
+          await frame.locator(selector).click({ position: { x: 25, y: 35 }, timeout: 5_000 });
+          return true;
+        } catch {}
+      }
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await sleep(750);
   }
   return false;
 }
 
 async function gotoSafe(page: Page, url: string): Promise<void> {
-  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  // CF interstitial fingerprints
-  const title = await page.title().catch(() => "");
-  const html = await page.content().catch(() => "");
-  if (
-    /just a moment|attention required|cloudflare/i.test(title) ||
-    /cf-browser-verification|cf-challenge|__cf_chl_/i.test(html)
-  ) {
-    console.warn(`[cf] challenge on ${url} — clicking Turnstile and waiting for clearance…`);
-    await clickCloudflareTurnstile(page);
-    await page.waitForFunction(() => !/just a moment|attention required/i.test(document.title), { timeout: 120_000 })
-      .catch(() => {
-        throw new Error(`Cloudflare challenge could not be solved on ${url}`);
+  for (let navAttempt = 1; navAttempt <= CF_GOTO_ATTEMPTS; navAttempt++) {
+    if (navAttempt === 1 || page.url() === "about:blank") {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
+    } else {
+      console.warn(`[cf] reload retry ${navAttempt}/${CF_GOTO_ATTEMPTS} for ${url}`);
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 90_000 }).catch(async () => {
+        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
       });
+    }
+
+    await sleep(CF_SETTLE_MS);
+    if (!(await isCloudflareChallenge(page))) return;
+
+    console.warn(`[cf] challenge on ${url} - attempting Turnstile clearance (${navAttempt}/${CF_GOTO_ATTEMPTS})`);
+    for (let round = 1; round <= CF_CLICK_ROUNDS; round++) {
+      const clicked = await clickCloudflareTurnstile(page);
+      if (clicked) console.log(`[cf] Turnstile click round ${round}/${CF_CLICK_ROUNDS}`);
+
+      await page
+        .waitForFunction(
+          () => {
+            const title = document.title || "";
+            const html = document.documentElement?.innerHTML || "";
+            return (
+              !/just a moment|attention required|cloudflare|verify you are human/i.test(title) &&
+              !/cf-browser-verification|cf-challenge|__cf_chl_|cf-turnstile|challenges\.cloudflare\.com|verify you are human|checking your browser/i.test(
+                html,
+              )
+            );
+          },
+          { timeout: CF_WAIT_PER_ROUND_MS },
+        )
+        .catch(() => undefined);
+
+      await sleep(1_500);
+      if (!(await isCloudflareChallenge(page))) {
+        console.log(`[cf] clearance OK for ${url}`);
+        return;
+      }
+    }
   }
+
+  throw new Error(`Cloudflare challenge could not be solved on ${url}`);
+}
+
+async function warmCloudflare(page: Page): Promise<void> {
+  console.log("[cf] warming Cloudflare session");
+  await gotoSafe(page, ORIGIN);
+  await sleep(3_000);
 }
 
 async function ensureLoggedIn(page: Page): Promise<void> {
-  await gotoSafe(page, ORIGIN);
+  await warmCloudflare(page);
   const accountBtn = page.locator('[aria-label^="Account menu"]').first();
   if (await accountBtn.count()) {
     const label = (await accountBtn.getAttribute("aria-label")) ?? "";
@@ -575,12 +628,18 @@ async function main() {
       user_data_dir: BROWSER_DATA_DIR,
       headless: BROWSER_HEADLESS,
       os: process.platform === "win32" ? "windows" : "linux",
-      window: [1280, 800],
-      screen: { minWidth: 1280, maxWidth: 1280, minHeight: 800, maxHeight: 800 },
+      window: [1366, 900],
+      screen: { minWidth: 1366, maxWidth: 1366, minHeight: 900, maxHeight: 900 },
       locale: "en-US",
-      humanize: true,
+      humanize: 2,
       block_webrtc: true,
+      disable_coop: true,
       enable_cache: true,
+      firefox_user_prefs: {
+        "media.navigator.enabled": false,
+        "media.peerconnection.enabled": false,
+        "privacy.resistFingerprinting.letterboxing": false,
+      },
     })) as BrowserContext;
     return {
       ctx,
