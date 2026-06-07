@@ -1,10 +1,16 @@
 # syntax=docker/dockerfile:1.7
 # Build context = monorepo root.  In Coolify set "base directory" = / and
 # "dockerfile location" = /scripts/kbjfree-dl/Dockerfile
+#
+# Playwright image already ships with system libs needed by Firefox /
+# Chromium and a recent Node. We only add pnpm and the two native deps
+# Camoufox needs (better-sqlite3, impit) which pnpm 10 ignores by default.
 
 FROM mcr.microsoft.com/playwright:v1.60.0-noble
 
-# pnpm via corepack (image already has Node 20)
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH
+
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 
 WORKDIR /app
@@ -25,8 +31,12 @@ COPY apps/telegram-poster/package.json        apps/telegram-poster/package.json
 COPY apps/telegram-sync/package.json          apps/telegram-sync/package.json
 COPY scripts/kbjfree-dl/package.json          scripts/kbjfree-dl/package.json
 
-# 2) install ONLY the worker + its workspace deps
-RUN pnpm install --filter @kodhom/kbjfree-dl... --frozen-lockfile
+# 2) install worker + workspace deps. The --config.* flags tell pnpm 10
+#    to actually run lifecycle scripts for the two packages Camoufox needs,
+#    so better-sqlite3 builds and impit downloads its prebuilds.
+RUN pnpm install --filter @kodhom/kbjfree-dl... --frozen-lockfile \
+        --config.confirmModulesPurge=false \
+        --config.onlyBuiltDependencies=better-sqlite3,impit,esbuild
 
 # 3) copy actual source for the worker and its deps
 COPY packages/db   packages/db
@@ -34,8 +44,9 @@ COPY scripts/kbjfree-dl scripts/kbjfree-dl
 
 WORKDIR /app/scripts/kbjfree-dl
 
-RUN node -e "const cp=require('node:child_process');const path=require('node:path');const cwd=path.dirname(require.resolve('better-sqlite3/package.json'));cp.execFileSync('npm',['run','install'],{cwd,stdio:'inherit'});" \
-    && pnpm exec camoufox-js fetch
+# 4) download the Camoufox Firefox build (~200MB) at build time so the
+#    container is self-contained and starts fast.
+RUN pnpm exec camoufox-js fetch
 
 ENV NODE_ENV=production \
     STATE_DIR=/data/state \
