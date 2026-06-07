@@ -40,7 +40,12 @@ const need = (k: string): string => {
 const DATABASE_URL = need("DATABASE_URL");
 const R2_BUCKET_NAME = need("R2_BUCKET_NAME");
 const JOBS_KEY = process.env.JOBS_KEY || "internal/kbjfree-jobs.jsonl";
-const MAX_PAGES = Math.max(1, Number(process.env.RESOLVE_MAX_PAGES || "3"));
+// Default 100 pages — enough for a first-time backfill (~2400 clips)
+// without slamming Cloudflare. 0 = unbounded, walk until end-of-list.
+const MAX_PAGES = Math.max(0, Number(process.env.RESOLVE_MAX_PAGES || "100"));
+// Stop early once we see N pages in a row where every clip is already
+// in the DB. Keeps re-runs cheap on the incremental case.
+const STOP_AFTER_KNOWN_PAGES = Math.max(1, Number(process.env.STOP_AFTER_KNOWN_PAGES || "3"));
 const ORIGIN = "https://kbjfree.com";
 const CHROME_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36";
@@ -171,11 +176,15 @@ async function listingIds(page: number): Promise<string[]> {
 }
 
 async function main() {
-  console.log(`[resolve] crawling up to ${MAX_PAGES} pages of /videos…`);
+  const cap = MAX_PAGES === 0 ? Number.POSITIVE_INFINITY : MAX_PAGES;
+  console.log(
+    `[resolve] crawling /videos — cap=${MAX_PAGES === 0 ? "∞" : MAX_PAGES} pages, stop after ${STOP_AFTER_KNOWN_PAGES} known-only pages`,
+  );
   const jobs: Job[] = [];
   const seenIds = new Set<string>();
+  let knownStreak = 0; // consecutive pages where all clips are already in DB
 
-  for (let p = 1; p <= MAX_PAGES; p++) {
+  for (let p = 1; p <= cap; p++) {
     let ids: string[];
     try {
       ids = await listingIds(p);
@@ -184,30 +193,44 @@ async function main() {
       break;
     }
     if (ids.length === 0) {
-      console.log(`[resolve] page=${p} empty → stopping`);
+      console.log(`[resolve] page=${p} empty → end of list`);
       break;
     }
-    let pageNew = 0;
+
+    // First decide which ids on this page are genuinely new (not yet in DB,
+    // not yet queued in this run).
+    const newIds: string[] = [];
     for (const id of ids) {
       if (seenIds.has(id)) continue;
       seenIds.add(id);
       const sourceUrl = `${ORIGIN}/watch/${id}`;
-      if (await clipExists(sourceUrl)) continue;
+      if (!(await clipExists(sourceUrl))) newIds.push(id);
+    }
+
+    if (newIds.length === 0) {
+      knownStreak++;
+      console.log(
+        `[resolve] page=${p} all-known streak=${knownStreak}/${STOP_AFTER_KNOWN_PAGES}`,
+      );
+      if (knownStreak >= STOP_AFTER_KNOWN_PAGES) {
+        console.log(`[resolve] stopping — ${knownStreak} pages of nothing new`);
+        break;
+      }
+      continue;
+    }
+
+    knownStreak = 0;
+    for (const id of newIds) {
       try {
         const html = await getHtml(`/watch/${id}`, `${ORIGIN}/videos`);
         const job = parseWatchHtml(id, html);
         jobs.push(job);
-        pageNew++;
         console.log(`[ok] ${id} → ${job.categorySlug}/${job.modelSlug}`);
       } catch (e: any) {
         console.warn(`[skip] ${id}: ${e?.message}`);
       }
     }
-    console.log(`[resolve] page=${p} +${pageNew} new jobs (total ${jobs.length})`);
-    if (pageNew === 0) {
-      console.log(`[resolve] page=${p} no new → stopping early`);
-      break;
-    }
+    console.log(`[resolve] page=${p} +${newIds.length} new (total ${jobs.length})`);
   }
 
   if (jobs.length === 0) {
