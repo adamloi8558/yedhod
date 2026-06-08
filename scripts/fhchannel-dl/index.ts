@@ -354,9 +354,11 @@ async function processOne(job: Job): Promise<"ok" | "skip" | "fail"> {
     }
   }
 
-  // Description = JSON of structured related tags. The frontend can
-  // render the "เกี่ยวกับคลิปนี้" block from this.
-  const description = JSON.stringify({ relatedTags: job.relatedTags });
+  // Description = plain-text labels of every related tag (studio +
+  // pornstars + categories + free-form tags) joined with commas, in
+  // the order they appear on the source page. The frontend renders
+  // this as the "เกี่ยวกับคลิปนี้" block.
+  const description = job.relatedTags.map((t) => t.label).join(", ");
 
   try {
     await db.insert(clipsTable).values({
