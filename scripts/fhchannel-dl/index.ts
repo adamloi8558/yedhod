@@ -20,9 +20,11 @@
 
 import { S3Client, HeadObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
-import { Readable, PassThrough } from "node:stream";
+import { Readable } from "node:stream";
 import { spawn } from "node:child_process";
-import { resolve, dirname } from "node:path";
+import { createReadStream, statSync, mkdirSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -208,45 +210,48 @@ async function loadJobs(): Promise<Job[]> {
 
 // ─────────────────────────── ffmpeg HLS → mp4 ────────────────────
 
+const TMP_ROOT = process.env.TMP_ROOT || join(tmpdir(), "fhchannel-dl");
+mkdirSync(TMP_ROOT, { recursive: true });
+
 /**
- * Spawn ffmpeg to pipe an HLS master/variant URL into a fragmented mp4
- * stream on stdout. We deliberately use `-c copy` so no transcoding
- * happens — the segments are already AVC+AAC, ffmpeg just remuxes.
+ * Remux an HLS master/variant URL into a self-contained mp4 file on
+ * disk. We write to a tempfile (not a pipe) on purpose: `+faststart`
+ * needs to rewrite the moov atom to the beginning of the file after
+ * the mdat is finalised, which a single-pass pipe to stdout cannot do.
+ * The resulting mp4 is a normal progressive-download file — the player
+ * gets metadata in the first few KB and can start rendering / seeking
+ * immediately, instead of waiting for each fragment's moof to arrive.
  *
- * `-movflags +frag_keyframe+empty_moov+default_base_moof` makes the
- * output streamable (no need to seek back to write the moov atom),
- * which is exactly what the R2 multipart Upload needs.
+ * `-c copy` keeps the original AVC+AAC streams (no transcoding), so
+ * the only extra cost compared to the old fragment pipe is one disk
+ * write + read, which is dominated anyway by the HLS download.
  */
-function hlsToMp4Stream(hlsUrl: string): { stream: Readable; done: Promise<void> } {
-  const out = new PassThrough();
-  const proc = spawn(
-    FFMPEG,
-    [
-      "-hide_banner",
-      "-loglevel", "warning",
-      "-headers", `Referer: ${ORIGIN}/\r\nUser-Agent: ${CHROME_UA}\r\n`,
-      "-i", hlsUrl,
-      "-c", "copy",
-      "-bsf:a", "aac_adtstoasc",
-      "-movflags", "+frag_keyframe+empty_moov+default_base_moof",
-      "-f", "mp4",
-      "pipe:1",
-    ],
-    { stdio: ["ignore", "pipe", "pipe"] },
-  );
-
-  proc.stdout.pipe(out);
-  proc.stderr.on("data", (d) => process.stderr.write(`[ffmpeg] ${d.toString()}`));
-
-  const done = new Promise<void>((res, rej) => {
+async function hlsToMp4File(hlsUrl: string, label: string): Promise<string> {
+  const tmpPath = join(TMP_ROOT, `${label.replace(/[^\w-]+/g, "_")}-${Date.now()}.mp4`);
+  await new Promise<void>((res, rej) => {
+    const proc = spawn(
+      FFMPEG,
+      [
+        "-hide_banner",
+        "-loglevel", "warning",
+        "-headers", `Referer: ${ORIGIN}/\r\nUser-Agent: ${CHROME_UA}\r\n`,
+        "-i", hlsUrl,
+        "-c", "copy",
+        "-bsf:a", "aac_adtstoasc",
+        "-movflags", "+faststart",
+        "-y",
+        tmpPath,
+      ],
+      { stdio: ["ignore", "ignore", "pipe"] },
+    );
+    proc.stderr.on("data", (d) => process.stderr.write(`[ffmpeg] ${d.toString()}`));
     proc.on("error", rej);
     proc.on("close", (code) => {
       if (code === 0) res();
       else rej(new Error(`ffmpeg exited ${code}`));
     });
   });
-
-  return { stream: out, done };
+  return tmpPath;
 }
 
 async function streamHlsToR2(args: {
@@ -254,65 +259,54 @@ async function streamHlsToR2(args: {
   key: string;
   label: string;
 }): Promise<number> {
-  console.log(`[${args.label}] starting ffmpeg → R2 ${args.key}`);
-  const { stream, done } = hlsToMp4Stream(args.hlsUrl);
-
-  let bytesUploaded = 0;
-  const upload = new Upload({
-    client: s3,
-    params: {
-      Bucket: R2_BUCKET_NAME,
-      Key: args.key,
-      Body: stream,
-      ContentType: "video/mp4",
-    },
-    queueSize: 4,
-    partSize: 8 * 1024 * 1024,
-  });
-
-  let lastMb = 0;
-  upload.on("httpUploadProgress", (p) => {
-    bytesUploaded = p.loaded ?? 0;
-    const mb = bytesUploaded / 1024 / 1024;
-    if (mb - lastMb >= 50) {
-      lastMb = mb;
-      console.log(`[${args.label}] ${mb.toFixed(0)} MB uploaded`);
-    }
-  });
-
-  // If ffmpeg dies, kill the upload too so we don't get a half-written
-  // (or worse, zero-byte) object sitting in R2.
-  let ffmpegFailure: Error | null = null;
-  done.catch((e) => {
-    ffmpegFailure = e instanceof Error ? e : new Error(String(e));
-    stream.destroy(ffmpegFailure);
-    upload.abort().catch(() => undefined);
-  });
-
+  console.log(`[${args.label}] ffmpeg → tmp mp4`);
+  let tmpPath: string | null = null;
   try {
-    await Promise.all([upload.done(), done]);
-  } catch (e) {
-    // Make sure no zombie object survives a failure.
-    await s3
-      .send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: args.key }))
-      .catch(() => undefined);
-    throw ffmpegFailure ?? e;
-  }
+    tmpPath = await hlsToMp4File(args.hlsUrl, args.label);
+    const size = statSync(tmpPath).size;
+    const MIN_BYTES = 100 * 1024; // 100 KB
+    if (size < MIN_BYTES) {
+      throw new Error(`${args.label} produced only ${size} bytes (probably ffmpeg fail)`);
+    }
+    console.log(`[${args.label}] uploading ${(size / 1024 / 1024).toFixed(1)} MB → R2 ${args.key}`);
 
-  // Sanity-check the resulting object — an "OK" multipart upload that
-  // received zero data still lands as a 0-byte object and breaks the
-  // player (HTTP 416 on Range requests). Treat anything below the
-  // smallest plausible mp4 as a failure.
-  const MIN_BYTES = 100 * 1024; // 100 KB
-  if (bytesUploaded < MIN_BYTES) {
+    const upload = new Upload({
+      client: s3,
+      params: {
+        Bucket: R2_BUCKET_NAME,
+        Key: args.key,
+        Body: createReadStream(tmpPath),
+        ContentType: "video/mp4",
+        ContentLength: size,
+      },
+      queueSize: 4,
+      partSize: 8 * 1024 * 1024,
+    });
+    let lastMb = 0;
+    upload.on("httpUploadProgress", (p) => {
+      const mb = (p.loaded ?? 0) / 1024 / 1024;
+      if (mb - lastMb >= 50) {
+        lastMb = mb;
+        console.log(`[${args.label}] ${mb.toFixed(0)} MB uploaded`);
+      }
+    });
+    await upload.done();
+    return size;
+  } catch (e) {
+    // make sure no zombie object survives a failure
     await s3
       .send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: args.key }))
       .catch(() => undefined);
-    throw new Error(
-      `${args.label} produced only ${bytesUploaded} bytes — deleted from R2`,
-    );
+    throw e;
+  } finally {
+    if (tmpPath) {
+      try {
+        unlinkSync(tmpPath);
+      } catch {
+        /* ignore */
+      }
+    }
   }
-  return bytesUploaded;
 }
 
 async function streamImageToR2(args: {
