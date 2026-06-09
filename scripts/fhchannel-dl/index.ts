@@ -18,7 +18,7 @@
  * the URL is still within its token's expiry window (~5h).
  */
 
-import { S3Client, HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, HeadObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { Readable, PassThrough } from "node:stream";
 import { spawn } from "node:child_process";
@@ -104,6 +104,16 @@ async function objectExists(key: string): Promise<boolean> {
     return true;
   } catch (e: any) {
     if (e?.$metadata?.httpStatusCode === 404 || e?.name === "NotFound") return false;
+    throw e;
+  }
+}
+
+async function objectSize(key: string): Promise<number | null> {
+  try {
+    const r = await s3.send(new HeadObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+    return r.ContentLength ?? null;
+  } catch (e: any) {
+    if (e?.$metadata?.httpStatusCode === 404 || e?.name === "NotFound") return null;
     throw e;
   }
 }
@@ -243,9 +253,11 @@ async function streamHlsToR2(args: {
   hlsUrl: string;
   key: string;
   label: string;
-}): Promise<void> {
+}): Promise<number> {
   console.log(`[${args.label}] starting ffmpeg → R2 ${args.key}`);
   const { stream, done } = hlsToMp4Stream(args.hlsUrl);
+
+  let bytesUploaded = 0;
   const upload = new Upload({
     client: s3,
     params: {
@@ -257,15 +269,50 @@ async function streamHlsToR2(args: {
     queueSize: 4,
     partSize: 8 * 1024 * 1024,
   });
+
   let lastMb = 0;
   upload.on("httpUploadProgress", (p) => {
-    const mb = (p.loaded ?? 0) / 1024 / 1024;
+    bytesUploaded = p.loaded ?? 0;
+    const mb = bytesUploaded / 1024 / 1024;
     if (mb - lastMb >= 50) {
       lastMb = mb;
       console.log(`[${args.label}] ${mb.toFixed(0)} MB uploaded`);
     }
   });
-  await Promise.all([upload.done(), done]);
+
+  // If ffmpeg dies, kill the upload too so we don't get a half-written
+  // (or worse, zero-byte) object sitting in R2.
+  let ffmpegFailure: Error | null = null;
+  done.catch((e) => {
+    ffmpegFailure = e instanceof Error ? e : new Error(String(e));
+    stream.destroy(ffmpegFailure);
+    upload.abort().catch(() => undefined);
+  });
+
+  try {
+    await Promise.all([upload.done(), done]);
+  } catch (e) {
+    // Make sure no zombie object survives a failure.
+    await s3
+      .send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: args.key }))
+      .catch(() => undefined);
+    throw ffmpegFailure ?? e;
+  }
+
+  // Sanity-check the resulting object — an "OK" multipart upload that
+  // received zero data still lands as a 0-byte object and breaks the
+  // player (HTTP 416 on Range requests). Treat anything below the
+  // smallest plausible mp4 as a failure.
+  const MIN_BYTES = 100 * 1024; // 100 KB
+  if (bytesUploaded < MIN_BYTES) {
+    await s3
+      .send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: args.key }))
+      .catch(() => undefined);
+    throw new Error(
+      `${args.label} produced only ${bytesUploaded} bytes — deleted from R2`,
+    );
+  }
+  return bytesUploaded;
 }
 
 async function streamImageToR2(args: {
@@ -313,11 +360,20 @@ async function processOne(job: Job): Promise<"ok" | "skip" | "fail"> {
   });
 
   const r2Key = `${R2_KEY_PREFIX}${job.id}_${safeName(job.title)}.mp4`;
-  if (await objectExists(r2Key)) {
-    console.log(`[r2] mp4 already exists ${r2Key} — reusing`);
+  let videoBytes = 0;
+  const existingSize = await objectSize(r2Key);
+  if (existingSize !== null && existingSize > 100 * 1024) {
+    console.log(`[r2] mp4 already exists ${r2Key} (${(existingSize / 1024 / 1024).toFixed(1)} MB) — reusing`);
+    videoBytes = existingSize;
   } else {
+    if (existingSize !== null) {
+      console.warn(`[r2] mp4 ${r2Key} exists but only ${existingSize} bytes — redownloading`);
+      await s3
+        .send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: r2Key }))
+        .catch(() => undefined);
+    }
     try {
-      await streamHlsToR2({ hlsUrl: job.hlsUrl, key: r2Key, label: `mp4 ${job.id}` });
+      videoBytes = await streamHlsToR2({ hlsUrl: job.hlsUrl, key: r2Key, label: `mp4 ${job.id}` });
     } catch (e: any) {
       console.error(`[err] mp4 ${job.id}: ${e?.message ?? e}`);
       return "fail";
@@ -370,6 +426,7 @@ async function processOne(job: Job): Promise<"ok" | "skip" | "fail"> {
       r2Key,
       thumbnailR2Key: thumbR2Key,
       duration: job.duration ?? undefined,
+      fileSize: videoBytes || undefined,
       mimeType: "video/mp4",
       isActive: true,
       sourceUrl,
