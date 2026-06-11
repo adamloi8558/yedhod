@@ -219,7 +219,7 @@ export function DashboardClient() {
                     </span>
                     <span className="flex items-center gap-1 text-xs text-amber-400">
                       <Clock className="h-3.5 w-3.5" />
-                      {s.endDate ? new Date(s.endDate).toLocaleDateString("th-TH") : "—"}
+                      {s.endDate ? new Date(s.endDate).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"}
                     </span>
                   </li>
                 ))}
@@ -235,7 +235,7 @@ export function DashboardClient() {
               <Row label="โพสต์ล้มเหลว" value={data?.attention.sync.postFailed ?? 0} warn={(data?.attention.sync.postFailed ?? 0) > 0} />
               <div className="flex items-center justify-between text-muted-foreground">
                 <span className="flex items-center gap-1.5"><RefreshCcw className="h-3.5 w-3.5" /> ซิงค์ล่าสุด</span>
-                <span>{data?.attention.sync.lastSyncAt ? new Date(data.attention.sync.lastSyncAt).toLocaleString("th-TH") : "—"}</span>
+                <span>{data?.attention.sync.lastSyncAt ? new Date(data.attention.sync.lastSyncAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" }) : "—"}</span>
               </div>
             </div>
           </Panel>

@@ -14,6 +14,10 @@ RUN pnpm install --frozen-lockfile
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/Asia/Bangkok /etc/localtime \
+    && echo "Asia/Bangkok" > /etc/timezone
+ENV TZ=Asia/Bangkok
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/telegram-poster/node_modules ./apps/telegram-poster/node_modules

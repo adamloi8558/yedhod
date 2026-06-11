@@ -53,6 +53,10 @@ RUN pnpm --filter @kodhom/backoffice build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/Asia/Bangkok /etc/localtime \
+    && echo "Asia/Bangkok" > /etc/timezone
+ENV TZ=Asia/Bangkok
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/apps/backoffice/public ./apps/backoffice/public

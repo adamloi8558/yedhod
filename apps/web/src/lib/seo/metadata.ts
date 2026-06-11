@@ -44,6 +44,7 @@ function formatThaiDateShort(date: Date | string): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Bangkok",
   }).format(d);
 }
 

@@ -143,7 +143,7 @@ export default function DevicesPage() {
                   </p>
                   <p className="text-xs text-muted-foreground/70 mt-0.5">
                     {session.ipAddress ?? "ไม่ทราบ IP"} •{" "}
-                    {new Date(session.createdAt).toLocaleDateString("th-TH")}
+                    {new Date(session.createdAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}
                   </p>
                 </div>
                 <Button

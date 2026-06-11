@@ -253,7 +253,7 @@ function UsersInner() {
                       </Select>
                     </td>
                     <td className="hidden px-4 py-3 text-sm tabular-nums text-muted-foreground sm:table-cell">
-                      {new Date(user.createdAt).toLocaleDateString("th-TH")}
+                      {new Date(user.createdAt).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}
                     </td>
                   </tr>
                 ))}
@@ -286,7 +286,7 @@ function VipCell({ user }: { user: User }) {
         <Crown className="h-3 w-3" />
         {user.vipLifetime
           ? "VIP ตลอดชีพ"
-          : `ถึง ${user.vipUntil ? new Date(user.vipUntil).toLocaleDateString("th-TH") : "-"}`}
+          : `ถึง ${user.vipUntil ? new Date(user.vipUntil).toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" }) : "-"}`}
       </Badge>
     );
   }

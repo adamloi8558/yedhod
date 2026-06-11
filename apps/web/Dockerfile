@@ -53,6 +53,13 @@ RUN pnpm --filter @kodhom/web build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Install tzdata and set the system timezone to Bangkok. Node uses this
+# for `new Date()`, scheduling, and any Intl formatter that doesn't
+# override timeZone — keeping wall-clock dates aligned with Thai users.
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/Asia/Bangkok /etc/localtime \
+    && echo "Asia/Bangkok" > /etc/timezone
+ENV TZ=Asia/Bangkok
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/apps/web/public ./apps/web/public

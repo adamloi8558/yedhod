@@ -88,7 +88,7 @@ export default async function AdminTicketPage({
           >
             <p className="text-xs text-muted-foreground mb-1">
               {m.fromAdmin ? `แอดมิน (${m.authorName ?? "-"})` : `ลูกค้า`} ·{" "}
-              {new Date(m.createdAt).toLocaleString("th-TH")}
+              {new Date(m.createdAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })}
             </p>
             {m.body && (
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</p>
