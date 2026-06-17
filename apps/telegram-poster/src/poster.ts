@@ -4,6 +4,9 @@ import { eq, and, isNull } from "drizzle-orm";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { nanoid, delay } from "./utils.js";
 
+// Telegram Bot API hard limit for sendVideo via multipart upload.
+const MAX_SIZE_BYTES = 50 * 1024 * 1024;
+
 export async function getUnpostedClips(targetGroupId: string) {
   const result = await db
     .select({
@@ -11,6 +14,7 @@ export async function getUnpostedClips(targetGroupId: string) {
       title: clips.title,
       r2Key: clips.r2Key,
       duration: clips.duration,
+      fileSize: clips.fileSize,
       categoryName: categories.name,
     })
     .from(clips)
@@ -38,10 +42,29 @@ export async function getUnpostedClips(targetGroupId: string) {
 
 export async function postClip(
   bot: Bot,
-  clip: { id: string; title: string; r2Key: string; duration: number | null; categoryName: string },
+  clip: { id: string; title: string; r2Key: string; duration: number | null; fileSize: number | null; categoryName: string },
   targetGroupId: string
 ): Promise<void> {
   try {
+    // Cheap pre-flight: file_size is already stored on the clip row.
+    // If the file is over Telegram's 50MB cap we skip BEFORE trying to
+    // download it. Previously the poster pulled the whole file into a
+    // Buffer just to abort — a 3.4 GB KBJ recording would OOM the
+    // container or time out the R2 stream, producing the "terminated"
+    // errors we've been seeing since 7 Jun.
+    if (clip.fileSize && clip.fileSize > MAX_SIZE_BYTES) {
+      const mb = (clip.fileSize / 1024 / 1024).toFixed(1);
+      console.log(`[poster] Skipping clip ${clip.id} (pre-flight): ${mb}MB > 50MB`);
+      await db.insert(telegramPostedClips).values({
+        id: nanoid(),
+        clipId: clip.id,
+        targetGroupId,
+        status: "skipped",
+        errorMessage: `File too large (pre-flight): ${mb}MB`,
+      });
+      return;
+    }
+
     // Get download URL from R2
     const downloadUrl = await getPresignedDownloadUrl(clip.r2Key, 3600);
 
@@ -52,9 +75,8 @@ export async function postClip(
     }
     const buffer = Buffer.from(await response.arrayBuffer());
 
-    // Telegram Bot API limit: 50MB
-    const MAX_SIZE = 50 * 1024 * 1024;
-    if (buffer.length > MAX_SIZE) {
+    // Fallback in case file_size was missing or stale.
+    if (buffer.length > MAX_SIZE_BYTES) {
       console.log(`[poster] Skipping clip ${clip.id}: ${(buffer.length / 1024 / 1024).toFixed(1)}MB exceeds 50MB limit`);
       await db.insert(telegramPostedClips).values({
         id: nanoid(),
