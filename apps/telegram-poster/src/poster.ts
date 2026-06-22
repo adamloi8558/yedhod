@@ -3,12 +3,22 @@ import { db, clips, categories, telegramPostedClips } from "@kodhom/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { nanoid, delay } from "./utils.js";
+import { spawn } from "node:child_process";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // Telegram Bot API hard limit for sendVideo via multipart upload.
 const MAX_SIZE_BYTES = 50 * 1024 * 1024;
-// Public site URL used when a clip is too big to upload — we post a
-// link instead so the customer can watch on the web. Falls back to the
-// production host if the env var isn't set.
+// When a clip is too big to upload, we trim a short preview with
+// ffmpeg and post that instead. The preview targets ≤30s ≤40MB so it
+// stays comfortably under Telegram's cap with room for container
+// overhead. We only need the head of the source file — MP4s in R2 are
+// stored with +faststart so moov sits at byte 0 and 100MB is plenty
+// to seek to second 30.
+const PREVIEW_SEC = 30;
+const PREVIEW_BUDGET_BYTES = 40 * 1024 * 1024;
+const SOURCE_HEAD_BYTES = 100 * 1024 * 1024;
 const SITE_URL =
   process.env.PUBLIC_SITE_URL?.replace(/\/$/, "") ||
   "https://xn--l3ca4bxbygoa7a.com";
@@ -46,20 +56,76 @@ export async function getUnpostedClips(targetGroupId: string) {
   return result;
 }
 
-function buildClipMessage(clip: {
-  id: string;
-  title: string;
-  categoryName: string;
-}, sizeMb: string): string {
-  // Plain text — Telegram autolinks the URL and renders a card preview
-  // from the page's open-graph tags. No HTML/MarkdownV2 escaping
-  // headaches.
+/**
+ * Pull just the head of the source from R2 with an HTTP Range request.
+ * Our MP4s are written with +faststart so moov is at byte 0 — 100 MB
+ * is enough to find the first 30s of any reasonable bitrate.
+ */
+async function fetchHead(url: string, bytes: number): Promise<Buffer> {
+  const res = await fetch(url, {
+    headers: { Range: `bytes=0-${bytes - 1}` },
+  });
+  if (!res.ok && res.status !== 206) {
+    throw new Error(`R2 head fetch failed: ${res.status}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/**
+ * Trim a short, low-bitrate preview from the source MP4. Re-encodes so
+ * the output is guaranteed under the size budget even if the source is
+ * 4K. Returns the preview bytes ready for sendVideo.
+ */
+async function buildPreview(srcMp4: Buffer): Promise<Buffer> {
+  const dir = mkdtempSync(join(tmpdir(), "tgp-"));
+  const inPath = join(dir, "src.mp4");
+  const outPath = join(dir, "preview.mp4");
+  writeFileSync(inPath, srcMp4);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const ff = spawn(
+        "ffmpeg",
+        [
+          "-y",
+          "-ss", "0",
+          "-i", inPath,
+          "-t", String(PREVIEW_SEC),
+          "-vf", "scale='min(720,iw)':-2",
+          "-c:v", "libx264",
+          "-preset", "veryfast",
+          "-crf", "30",
+          "-c:a", "aac",
+          "-b:a", "96k",
+          "-movflags", "+faststart",
+          outPath,
+        ],
+        { stdio: ["ignore", "ignore", "pipe"] }
+      );
+      let stderr = "";
+      ff.stderr.on("data", (d) => { stderr += d.toString(); });
+      ff.on("error", reject);
+      ff.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`ffmpeg exit ${code}: ${stderr.slice(-500)}`));
+      });
+    });
+    const out = readFileSync(outPath);
+    if (out.length > PREVIEW_BUDGET_BYTES) {
+      throw new Error(`preview ${(out.length / 1024 / 1024).toFixed(1)}MB > budget`);
+    }
+    return out;
+  } finally {
+    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+function previewCaption(clip: { id: string; title: string; categoryName: string }, sizeMb: string): string {
   const url = `${SITE_URL}/clip/${clip.id}`;
   return [
     `🎬 ${clip.title}`,
     `📁 ${clip.categoryName}  ·  ${sizeMb} MB`,
     "",
-    `▶️ ดูคลิป: ${url}`,
+    `🔥 พรีวิว ${PREVIEW_SEC} วิ — ดูเต็มที่: ${url}`,
   ].join("\n");
 }
 
@@ -69,23 +135,48 @@ export async function postClip(
   targetGroupId: string
 ): Promise<void> {
   try {
-    // Cheap pre-flight: file_size is already stored on the clip row.
-    // If the file is over Telegram's 50MB cap we DON'T download it —
-    // instead we post a text message with a link to the web player.
-    // The customer still hears about every new clip, the bot doesn't
-    // OOM/timeout on multi-GB uploads, and we get free site traffic.
+    // Big clips: trim a short preview and post that with a link to the
+    // full page on the web. Pre-flight uses clips.file_size so we
+    // never download an entire multi-GB file just to abort.
     if (clip.fileSize && clip.fileSize > MAX_SIZE_BYTES) {
       const mb = (clip.fileSize / 1024 / 1024).toFixed(1);
-      console.log(`[poster] Posting link for clip ${clip.id} (${mb}MB > 50MB)`);
-      const msg = await bot.api.sendMessage(targetGroupId, buildClipMessage(clip, mb));
-      await db.insert(telegramPostedClips).values({
-        id: nanoid(),
-        clipId: clip.id,
-        telegramMessageId: msg.message_id,
-        targetGroupId,
-        status: "posted",
-        errorMessage: `link-only (${mb}MB)`,
-      });
+      console.log(`[poster] Trimming preview for clip ${clip.id} (${mb}MB > 50MB)`);
+      try {
+        const downloadUrl = await getPresignedDownloadUrl(clip.r2Key, 3600);
+        const head = await fetchHead(downloadUrl, SOURCE_HEAD_BYTES);
+        const preview = await buildPreview(head);
+        const msg = await bot.api.sendVideo(
+          targetGroupId,
+          new InputFile(preview, `${clip.id}-preview.mp4`),
+          {
+            caption: previewCaption(clip, mb),
+            duration: PREVIEW_SEC,
+            supports_streaming: true,
+          }
+        );
+        await db.insert(telegramPostedClips).values({
+          id: nanoid(),
+          clipId: clip.id,
+          telegramMessageId: msg.message_id,
+          targetGroupId,
+          status: "posted",
+          errorMessage: `preview-only (${mb}MB source)`,
+        });
+        console.log(`[poster] Posted preview for clip ${clip.id} -> message ${msg.message_id}`);
+      } catch (prevErr) {
+        // Preview build can fail (codec quirks, byte-range short read).
+        // Record as skipped with the reason — the next deploy can
+        // requeue these for retry by deleting the row.
+        const reason = prevErr instanceof Error ? prevErr.message : String(prevErr);
+        console.warn(`[poster] Preview build failed for ${clip.id}: ${reason}`);
+        await db.insert(telegramPostedClips).values({
+          id: nanoid(),
+          clipId: clip.id,
+          targetGroupId,
+          status: "skipped",
+          errorMessage: `preview-build-failed: ${reason.slice(0, 200)}`,
+        });
+      }
       return;
     }
 
@@ -99,20 +190,42 @@ export async function postClip(
     }
     const buffer = Buffer.from(await response.arrayBuffer());
 
-    // Fallback in case file_size was missing or stale: same link-fallback
-    // path as the pre-flight branch above.
+    // Fallback in case file_size was missing or stale — same preview
+    // path as the pre-flight branch above. The buffer we already
+    // downloaded works as the source so no second fetch.
     if (buffer.length > MAX_SIZE_BYTES) {
       const mb = (buffer.length / 1024 / 1024).toFixed(1);
-      console.log(`[poster] Posting link for clip ${clip.id} (${mb}MB > 50MB, post-download)`);
-      const msg = await bot.api.sendMessage(targetGroupId, buildClipMessage(clip, mb));
-      await db.insert(telegramPostedClips).values({
-        id: nanoid(),
-        clipId: clip.id,
-        telegramMessageId: msg.message_id,
-        targetGroupId,
-        status: "posted",
-        errorMessage: `link-only (${mb}MB)`,
-      });
+      console.log(`[poster] Trimming preview for clip ${clip.id} (post-download ${mb}MB)`);
+      try {
+        const preview = await buildPreview(buffer);
+        const msg = await bot.api.sendVideo(
+          targetGroupId,
+          new InputFile(preview, `${clip.id}-preview.mp4`),
+          {
+            caption: previewCaption(clip, mb),
+            duration: PREVIEW_SEC,
+            supports_streaming: true,
+          }
+        );
+        await db.insert(telegramPostedClips).values({
+          id: nanoid(),
+          clipId: clip.id,
+          telegramMessageId: msg.message_id,
+          targetGroupId,
+          status: "posted",
+          errorMessage: `preview-only (${mb}MB source)`,
+        });
+      } catch (prevErr) {
+        const reason = prevErr instanceof Error ? prevErr.message : String(prevErr);
+        console.warn(`[poster] Preview build failed for ${clip.id}: ${reason}`);
+        await db.insert(telegramPostedClips).values({
+          id: nanoid(),
+          clipId: clip.id,
+          targetGroupId,
+          status: "skipped",
+          errorMessage: `preview-build-failed: ${reason.slice(0, 200)}`,
+        });
+      }
       return;
     }
 

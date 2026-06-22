@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache tzdata \
+RUN apk add --no-cache tzdata ffmpeg \
     && cp /usr/share/zoneinfo/Asia/Bangkok /etc/localtime \
     && echo "Asia/Bangkok" > /etc/timezone
 ENV TZ=Asia/Bangkok
