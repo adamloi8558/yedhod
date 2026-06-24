@@ -119,14 +119,33 @@ async function buildPreview(srcMp4: Buffer): Promise<Buffer> {
   }
 }
 
-function previewCaption(clip: { id: string; title: string; categoryName: string }, sizeMb: string): string {
+/**
+ * Caption used on every clip we post — both full uploads (<=50MB) and
+ * trimmed previews. The link drives traffic from the Telegram group
+ * back to the site, which is the whole point of the channel.
+ *
+ * `kind` decides the call-to-action wording:
+ *   - "full"    → for clips we uploaded in full ("ดูบนเว็บ" works as
+ *                 thumbnail/related-clip discovery hook).
+ *   - "preview" → for trimmed previews ("ดูเต็มที่บนเว็บ" matters more).
+ *
+ * Telegram caption hard cap is 1024 chars; titles are short so we
+ * don't bother truncating.
+ */
+function clipCaption(
+  clip: { id: string; title: string; categoryName: string },
+  kind: "full" | "preview",
+  meta?: { sizeMb?: string }
+): string {
   const url = `${SITE_URL}/clip/${clip.id}`;
-  return [
-    `🎬 ${clip.title}`,
-    `📁 ${clip.categoryName}  ·  ${sizeMb} MB`,
-    "",
-    `🔥 พรีวิว ${PREVIEW_SEC} วิ — ดูเต็มที่: ${url}`,
-  ].join("\n");
+  const cta =
+    kind === "preview"
+      ? `🔥 พรีวิว ${PREVIEW_SEC} วิ — ดูเต็มที่บนเว็บ: ${url}`
+      : `👉 ดูบนเว็บ: ${url}`;
+  const sizeLine = meta?.sizeMb
+    ? `📁 ${clip.categoryName}  ·  ${meta.sizeMb} MB`
+    : `📁 ${clip.categoryName}`;
+  return [`🎬 ${clip.title}`, sizeLine, "", cta].join("\n");
 }
 
 export async function postClip(
@@ -149,7 +168,7 @@ export async function postClip(
           targetGroupId,
           new InputFile(preview, `${clip.id}-preview.mp4`),
           {
-            caption: previewCaption(clip, mb),
+            caption: clipCaption(clip, "preview", { sizeMb: mb }),
             duration: PREVIEW_SEC,
             supports_streaming: true,
           }
@@ -202,7 +221,7 @@ export async function postClip(
           targetGroupId,
           new InputFile(preview, `${clip.id}-preview.mp4`),
           {
-            caption: previewCaption(clip, mb),
+            caption: clipCaption(clip, "preview", { sizeMb: mb }),
             duration: PREVIEW_SEC,
             supports_streaming: true,
           }
@@ -229,11 +248,14 @@ export async function postClip(
       return;
     }
 
-    // Send video to Telegram group
+    // Send video to Telegram group, with a caption linking back to the
+    // clip page on the site. Customers in the group can tap through to
+    // the related-clips row, ratings, etc.
     const msg = await bot.api.sendVideo(
       targetGroupId,
       new InputFile(buffer, `${clip.id}.mp4`),
       {
+        caption: clipCaption(clip, "full"),
         duration: clip.duration ? Math.round(clip.duration) : undefined,
       }
     );
