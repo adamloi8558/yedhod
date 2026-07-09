@@ -72,17 +72,41 @@
 
 ```ts
 export const adSlotEnum = pgEnum("ad_slot", [
-  "header",
+  // Top / global
+  "header_top",         // full-width strip เหนือ nav
+  "header_bottom",      // ใต้ nav pills
+  // Sidebar (desktop only)
   "sidebar_top",
+  "sidebar_mid",
   "sidebar_bot",
-  "in_feed",
-  "footer",
+  // In feed (grid)
+  "in_feed_1",          // แทรกหลังแถวแรกของ grid
+  "in_feed_2",          // แทรกกลาง
+  "in_feed_3",          // แทรกล่าง
+  // Video page
   "before_video",
   "after_video",
+  "under_title",        // ระหว่าง title กับ related
+  // Popunder / interstitial (site-wide, ยิงจาก layout)
+  "popunder",
+  // Footer
+  "footer_top",
+  "footer_bottom",
+  // Sticky (mobile)
+  "sticky_bottom",      // sticky bar ล่างจอ (มือถือ)
 ]);
 
-export const adTypeEnum = pgEnum("ad_type", ["embed", "banner"]);
+export const adTypeEnum = pgEnum("ad_type", [
+  "embed",              // raw HTML/JS (universal)
+  "banner",             // uploaded image + link
+  "galaksion",          // preset — Galaksion zone id
+  "aads",               // preset — A-Ads unit id
+]);
 ```
+
+**Why preset types?** เจ้าของเว็บใช้ Galaksion + A-Ads เป็นหลัก การเก็บเป็น preset (แค่ zone/unit id) ทำให้ไม่ต้อง copy-paste embed code ซ้ำๆ ทุก tenant + ทุก slot — ทีเดียวจบ กรอกแค่ id ระบบ inject template ให้อัตโนมัติ ปลอดภัย + สะอาดกว่า
+
+**Universal `embed`** ยังเก็บไว้สำหรับ network อื่นในอนาคต (ExoClick, TrafficStars, ฯลฯ)
 
 ### `tenants` (`packages/db/src/schema/tenants.ts`)
 
@@ -154,6 +178,11 @@ export const tenantAds = pgTable("tenant_ads", {
   linkUrl: text("link_url"),
   altText: text("alt_text"),
 
+  // type = 'galaksion' or 'aads'  (network preset)
+  networkZoneId: text("network_zone_id"),   // Galaksion zone id or A-Ads unit id
+  networkWidth: integer("network_width"),   // optional — for fixed-size banner units
+  networkHeight: integer("network_height"),
+
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -164,6 +193,22 @@ export const tenantAds = pgTable("tenant_ads", {
 ```
 
 **Embed security:** `embedCode` เก็บ raw HTML/JS, inject ผ่าน `dangerouslySetInnerHTML` — **admin-only input**, risk ยอมรับได้
+
+**Preset templates** (rendered server-side, no DB storage):
+
+- `galaksion` (display banner):
+  ```html
+  <script async data-cfasync="false" src="//gaboawa.com/full/tag.min.js" data-zone="{zoneId}"></script>
+  <div id="galaksion-{zoneId}"></div>
+  ```
+- `galaksion` (popunder — slot=`popunder`): same script tag ใน `<head>` ของหน้าเดียว (แค่ zoneId ต่างกัน)
+- `aads` (crypto ad, banner iframe):
+  ```html
+  <iframe data-aa='{zoneId}' src='//acceptable.a-ads.com/{zoneId}/?background_color=transparent'
+    style='border:0;padding:0;width:{width}px;height:{height}px;overflow:hidden;background-color:transparent'></iframe>
+  ```
+
+Template จริงเก็บใน `apps/tenant/src/lib/ad-templates.ts` (constants) — ถ้า network เปลี่ยน tag ในอนาคต แก้ที่เดียว, ทุก tenant อัพเดตพร้อมกัน
 
 ### Relations
 

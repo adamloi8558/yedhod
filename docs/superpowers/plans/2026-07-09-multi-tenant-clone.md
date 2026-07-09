@@ -25,16 +25,29 @@ Append to `packages/db/src/schema/enums.ts`:
 
 ```ts
 export const adSlotEnum = pgEnum("ad_slot", [
-  "header",
+  "header_top",
+  "header_bottom",
   "sidebar_top",
+  "sidebar_mid",
   "sidebar_bot",
-  "in_feed",
-  "footer",
+  "in_feed_1",
+  "in_feed_2",
+  "in_feed_3",
   "before_video",
   "after_video",
+  "under_title",
+  "popunder",
+  "footer_top",
+  "footer_bottom",
+  "sticky_bottom",
 ]);
 
-export const adTypeEnum = pgEnum("ad_type", ["embed", "banner"]);
+export const adTypeEnum = pgEnum("ad_type", [
+  "embed",
+  "banner",
+  "galaksion",
+  "aads",
+]);
 ```
 
 - [ ] **Step 2: Verify types compile**
@@ -222,6 +235,10 @@ export const tenantAds = pgTable(
     linkUrl: text("link_url"),
     altText: text("alt_text"),
 
+    networkZoneId: text("network_zone_id"),
+    networkWidth: integer("network_width"),
+    networkHeight: integer("network_height"),
+
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -342,22 +359,34 @@ export const tenantCategoriesSchema = z.object({
 });
 
 const AD_SLOTS = [
-  "header",
+  "header_top",
+  "header_bottom",
   "sidebar_top",
+  "sidebar_mid",
   "sidebar_bot",
-  "in_feed",
-  "footer",
+  "in_feed_1",
+  "in_feed_2",
+  "in_feed_3",
   "before_video",
   "after_video",
+  "under_title",
+  "popunder",
+  "footer_top",
+  "footer_bottom",
+  "sticky_bottom",
 ] as const;
+
+const baseAd = {
+  sortOrder: z.number().int().default(0),
+  isActive: z.boolean().default(true),
+};
 
 export const tenantAdCreateSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("embed"),
     slot: z.enum(AD_SLOTS),
     embedCode: z.string().min(1, "กรุณาใส่โค้ดโฆษณา"),
-    sortOrder: z.number().int().default(0),
-    isActive: z.boolean().default(true),
+    ...baseAd,
   }),
   z.object({
     type: z.literal("banner"),
@@ -365,8 +394,23 @@ export const tenantAdCreateSchema = z.discriminatedUnion("type", [
     imageR2Key: z.string().min(1, "กรุณาอัปโหลดรูป"),
     linkUrl: z.string().url("ลิงก์ไม่ถูกต้อง").nullable().optional(),
     altText: z.string().nullable().optional(),
-    sortOrder: z.number().int().default(0),
-    isActive: z.boolean().default(true),
+    ...baseAd,
+  }),
+  z.object({
+    type: z.literal("galaksion"),
+    slot: z.enum(AD_SLOTS),
+    networkZoneId: z.string().min(1, "กรุณาใส่ zone id"),
+    networkWidth: z.number().int().positive().nullable().optional(),
+    networkHeight: z.number().int().positive().nullable().optional(),
+    ...baseAd,
+  }),
+  z.object({
+    type: z.literal("aads"),
+    slot: z.enum(AD_SLOTS),
+    networkZoneId: z.string().min(1, "กรุณาใส่ unit id"),
+    networkWidth: z.number().int().positive().default(468),
+    networkHeight: z.number().int().positive().default(60),
+    ...baseAd,
   }),
 ]);
 
@@ -376,6 +420,9 @@ export const tenantAdUpdateSchema = z.object({
   imageR2Key: z.string().nullable().optional(),
   linkUrl: z.string().url().nullable().optional(),
   altText: z.string().nullable().optional(),
+  networkZoneId: z.string().nullable().optional(),
+  networkWidth: z.number().int().positive().nullable().optional(),
+  networkHeight: z.number().int().positive().nullable().optional(),
   sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
 });
@@ -767,17 +814,37 @@ export async function POST(
     type: parsed.data.type,
     sortOrder: parsed.data.sortOrder,
     isActive: parsed.data.isActive,
+    embedCode: null as string | null,
+    imageR2Key: null as string | null,
+    linkUrl: null as string | null,
+    altText: null as string | null,
+    networkZoneId: null as string | null,
+    networkWidth: null as number | null,
+    networkHeight: null as number | null,
   };
-  const record =
-    parsed.data.type === "embed"
-      ? { ...base, embedCode: parsed.data.embedCode, imageR2Key: null, linkUrl: null, altText: null }
-      : {
-          ...base,
-          embedCode: null,
-          imageR2Key: parsed.data.imageR2Key,
-          linkUrl: parsed.data.linkUrl ?? null,
-          altText: parsed.data.altText ?? null,
-        };
+  let record = base;
+  switch (parsed.data.type) {
+    case "embed":
+      record = { ...base, embedCode: parsed.data.embedCode };
+      break;
+    case "banner":
+      record = {
+        ...base,
+        imageR2Key: parsed.data.imageR2Key,
+        linkUrl: parsed.data.linkUrl ?? null,
+        altText: parsed.data.altText ?? null,
+      };
+      break;
+    case "galaksion":
+    case "aads":
+      record = {
+        ...base,
+        networkZoneId: parsed.data.networkZoneId,
+        networkWidth: parsed.data.networkWidth ?? null,
+        networkHeight: parsed.data.networkHeight ?? null,
+      };
+      break;
+  }
 
   const [row] = await db.insert(tenantAds).values(record).returning();
   return NextResponse.json({ ad: row });
@@ -1189,9 +1256,30 @@ type Ad = {
   imageR2Key: string | null;
   linkUrl: string | null;
   altText: string | null;
+  networkZoneId: string | null;
+  networkWidth: number | null;
+  networkHeight: number | null;
   sortOrder: number;
   isActive: boolean;
 };
+
+const AD_SLOT_OPTIONS = [
+  "header_top",
+  "header_bottom",
+  "sidebar_top",
+  "sidebar_mid",
+  "sidebar_bot",
+  "in_feed_1",
+  "in_feed_2",
+  "in_feed_3",
+  "before_video",
+  "after_video",
+  "under_title",
+  "popunder",
+  "footer_top",
+  "footer_bottom",
+  "sticky_bottom",
+];
 
 export default function EditTenantForm({
   tenant,
@@ -1401,27 +1489,37 @@ function AdsTab({
 }) {
   const [ads, setAds] = useState<Ad[]>(initial);
   const [form, setForm] = useState({
-    slot: "header",
-    type: "embed" as "embed" | "banner",
+    slot: "header_top",
+    type: "galaksion" as "embed" | "banner" | "galaksion" | "aads",
     embedCode: "",
     imageR2Key: "",
     linkUrl: "",
     altText: "",
+    networkZoneId: "",
+    networkWidth: "",
+    networkHeight: "",
   });
   const [err, setErr] = useState<string | null>(null);
 
   async function create() {
     setErr(null);
-    const body =
-      form.type === "embed"
-        ? { type: "embed", slot: form.slot, embedCode: form.embedCode }
-        : {
-            type: "banner",
-            slot: form.slot,
-            imageR2Key: form.imageR2Key,
-            linkUrl: form.linkUrl || undefined,
-            altText: form.altText || undefined,
-          };
+    let body: Record<string, unknown> = { type: form.type, slot: form.slot };
+    if (form.type === "embed") body.embedCode = form.embedCode;
+    else if (form.type === "banner")
+      body = {
+        ...body,
+        imageR2Key: form.imageR2Key,
+        linkUrl: form.linkUrl || undefined,
+        altText: form.altText || undefined,
+      };
+    else
+      body = {
+        ...body,
+        networkZoneId: form.networkZoneId,
+        networkWidth: form.networkWidth ? Number(form.networkWidth) : undefined,
+        networkHeight: form.networkHeight ? Number(form.networkHeight) : undefined,
+      };
+
     const res = await fetch(`/api/tenants/${tenantId}/ads`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1436,43 +1534,66 @@ function AdsTab({
     onSaved();
   }
 
+  async function toggle(id: string, next: boolean) {
+    await fetch(`/api/tenants/${tenantId}/ads/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isActive: next }),
+    });
+    setAds(ads.map((a) => (a.id === id ? { ...a, isActive: next } : a)));
+    onSaved();
+  }
+
   async function del(id: string) {
+    if (!confirm("ลบโฆษณานี้?")) return;
     await fetch(`/api/tenants/${tenantId}/ads/${id}`, { method: "DELETE" });
     setAds(ads.filter((a) => a.id !== id));
     onSaved();
   }
 
+  function preview(a: Ad): string {
+    if (a.type === "embed") return (a.embedCode ?? "").slice(0, 60) + "...";
+    if (a.type === "banner") return a.imageR2Key ?? "";
+    return `zone ${a.networkZoneId ?? ""} ${a.networkWidth ?? ""}x${a.networkHeight ?? ""}`;
+  }
+
+  // Group ads by slot for readability
+  const grouped: Record<string, Ad[]> = {};
+  for (const a of ads) (grouped[a.slot] ??= []).push(a);
+
   return (
     <div className="space-y-6">
       <div className="rounded border p-4">
-        <h3 className="mb-3 font-medium">โฆษณาทั้งหมด</h3>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className="text-left">Slot</th>
-              <th className="text-left">Type</th>
-              <th className="text-left">Preview</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {ads.map((a) => (
-              <tr key={a.id} className="border-t">
-                <td className="py-2 font-mono text-xs">{a.slot}</td>
-                <td className="py-2">{a.type}</td>
-                <td className="py-2 text-xs text-muted-foreground">
-                  {a.type === "embed" ? (a.embedCode ?? "").slice(0, 40) + "..." : a.imageR2Key}
-                </td>
-                <td className="py-2 text-right">
-                  <Button variant="outline" size="sm" onClick={() => del(a.id)}>ลบ</Button>
-                </td>
-              </tr>
-            ))}
-            {ads.length === 0 && (
-              <tr><td colSpan={4} className="py-4 text-center text-muted-foreground">ยังไม่มีโฆษณา</td></tr>
-            )}
-          </tbody>
-        </table>
+        <h3 className="mb-3 font-medium">โฆษณาทั้งหมด (จัดกลุ่มตาม Slot)</h3>
+        {AD_SLOT_OPTIONS.map((slot) => (
+          <div key={slot} className="mb-4">
+            <h4 className="mb-1 font-mono text-xs text-muted-foreground">{slot}</h4>
+            <table className="w-full text-sm">
+              <tbody>
+                {(grouped[slot] ?? []).map((a) => (
+                  <tr key={a.id} className="border-t">
+                    <td className="py-2 w-20 text-xs">{a.type}</td>
+                    <td className="py-2 text-xs text-muted-foreground">{preview(a)}</td>
+                    <td className="py-2 w-24 text-right">
+                      <label className="mr-2 inline-flex items-center gap-1 text-xs">
+                        <input type="checkbox" checked={a.isActive} onChange={(e) => toggle(a.id, e.target.checked)} />
+                        on
+                      </label>
+                    </td>
+                    <td className="py-2 w-16 text-right">
+                      <Button variant="outline" size="sm" onClick={() => del(a.id)}>ลบ</Button>
+                    </td>
+                  </tr>
+                ))}
+                {(grouped[slot] ?? []).length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="py-1 text-xs text-muted-foreground">—</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
 
       <div className="rounded border p-4">
@@ -1485,7 +1606,7 @@ function AdsTab({
               value={form.slot}
               onChange={(e) => setForm({ ...form, slot: e.target.value })}
             >
-              {["header", "sidebar_top", "sidebar_bot", "in_feed", "footer", "before_video", "after_video"].map((s) => (
+              {AD_SLOT_OPTIONS.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -1495,13 +1616,15 @@ function AdsTab({
             <select
               className="w-full rounded border bg-background p-2"
               value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as "embed" | "banner" })}
+              onChange={(e) => setForm({ ...form, type: e.target.value as typeof form.type })}
             >
-              <option value="embed">embed (HTML/JS)</option>
-              <option value="banner">banner (image)</option>
+              <option value="galaksion">Galaksion (zone id)</option>
+              <option value="aads">A-Ads (unit id)</option>
+              <option value="banner">Banner รูปของตัวเอง</option>
+              <option value="embed">Embed HTML/JS อื่นๆ</option>
             </select>
           </div>
-          {form.type === "embed" ? (
+          {form.type === "embed" && (
             <div>
               <Label>Embed HTML/JS</Label>
               <textarea
@@ -1511,7 +1634,8 @@ function AdsTab({
                 onChange={(e) => setForm({ ...form, embedCode: e.target.value })}
               />
             </div>
-          ) : (
+          )}
+          {form.type === "banner" && (
             <>
               <div>
                 <Label>รูปโฆษณา</Label>
@@ -1523,6 +1647,23 @@ function AdsTab({
               </div>
               <div><Label>ลิงก์ (optional)</Label><Input value={form.linkUrl} onChange={(e) => setForm({ ...form, linkUrl: e.target.value })} /></div>
               <div><Label>Alt text</Label><Input value={form.altText} onChange={(e) => setForm({ ...form, altText: e.target.value })} /></div>
+            </>
+          )}
+          {(form.type === "galaksion" || form.type === "aads") && (
+            <>
+              <div>
+                <Label>{form.type === "galaksion" ? "Galaksion zone id" : "A-Ads unit id"}</Label>
+                <Input value={form.networkZoneId} onChange={(e) => setForm({ ...form, networkZoneId: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Width (px, optional)</Label><Input value={form.networkWidth} onChange={(e) => setForm({ ...form, networkWidth: e.target.value })} /></div>
+                <div><Label>Height (px, optional)</Label><Input value={form.networkHeight} onChange={(e) => setForm({ ...form, networkHeight: e.target.value })} /></div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {form.type === "galaksion"
+                  ? "แค่ zone id ระบบจะ inject Galaksion tag ให้อัตโนมัติ (ทั้ง banner + popunder ใช้ id คนละ zone)"
+                  : "A-Ads default 468x60 ถ้าไม่ระบุ"}
+              </p>
             </>
           )}
           {err && <p className="text-sm text-red-500">{err}</p>}
@@ -1677,6 +1818,9 @@ html, body {
 
 a { color: var(--tenant-primary); }
 a:hover { color: var(--tenant-accent); }
+
+/* Ad slots — never take space when empty */
+.ad-slot:empty { display: none; }
 ```
 
 - [ ] **Step 8: nanoid**
@@ -2108,26 +2252,57 @@ git commit -m "tenant: generic 404 for unknown domains"
 
 ---
 
-## Task 21: Ad rendering components
+## Task 21: Ad templates + rendering components
 
 **Files:**
+- Create: `apps/tenant/src/lib/ad-templates.ts`
 - Create: `apps/tenant/src/components/ad-render.tsx`
 - Create: `apps/tenant/src/components/ad-slot.tsx`
 
-- [ ] **Step 1: AdRender**
+- [ ] **Step 1: Ad templates**
+
+```ts
+// apps/tenant/src/lib/ad-templates.ts
+
+export function galaksionBanner(zoneId: string): string {
+  const safe = zoneId.replace(/[^a-z0-9_-]/gi, "");
+  return `<script async data-cfasync="false" src="//gaboawa.com/full/tag.min.js" data-zone="${safe}"></script><div id="galaksion-${safe}"></div>`;
+}
+
+export function galaksionPopunder(zoneId: string): string {
+  const safe = zoneId.replace(/[^a-z0-9_-]/gi, "");
+  return `<script async data-cfasync="false" src="//gaboawa.com/full/tag.min.js" data-zone="${safe}"></script>`;
+}
+
+export function aadsBanner(unitId: string, width: number, height: number): string {
+  const safe = unitId.replace(/[^a-z0-9_-]/gi, "");
+  const w = Math.max(1, Math.floor(width));
+  const h = Math.max(1, Math.floor(height));
+  return `<iframe data-aa="${safe}" src="//acceptable.a-ads.com/${safe}/?background_color=transparent" style="border:0;padding:0;width:${w}px;height:${h}px;overflow:hidden;background-color:transparent"></iframe>`;
+}
+```
+
+- [ ] **Step 2: AdRender**
 
 ```tsx
 // apps/tenant/src/components/ad-render.tsx
 import { getPresignedDownloadUrl } from "@kodhom/r2";
+import { galaksionBanner, galaksionPopunder, aadsBanner } from "@/lib/ad-templates";
 
-export async function AdRender({ ad }: { ad: {
+type AdInput = {
   id: string;
+  slot: string;
   type: string;
   embedCode: string | null;
   imageR2Key: string | null;
   linkUrl: string | null;
   altText: string | null;
-} }) {
+  networkZoneId: string | null;
+  networkWidth: number | null;
+  networkHeight: number | null;
+};
+
+export async function AdRender({ ad }: { ad: AdInput }) {
   if (ad.type === "embed" && ad.embedCode) {
     return <div dangerouslySetInnerHTML={{ __html: ad.embedCode }} />;
   }
@@ -2138,11 +2313,21 @@ export async function AdRender({ ad }: { ad: {
       <a href={ad.linkUrl} target="_blank" rel="nofollow noopener">{img}</a>
     ) : img;
   }
+  if (ad.type === "galaksion" && ad.networkZoneId) {
+    const html = ad.slot === "popunder"
+      ? galaksionPopunder(ad.networkZoneId)
+      : galaksionBanner(ad.networkZoneId);
+    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  }
+  if (ad.type === "aads" && ad.networkZoneId) {
+    const html = aadsBanner(ad.networkZoneId, ad.networkWidth ?? 468, ad.networkHeight ?? 60);
+    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  }
   return null;
 }
 ```
 
-- [ ] **Step 2: AdSlot**
+- [ ] **Step 3: AdSlot**
 
 ```tsx
 // apps/tenant/src/components/ad-slot.tsx
@@ -2151,13 +2336,21 @@ import { getTenantAds } from "@/lib/tenant-queries";
 import { AdRender } from "./ad-render";
 
 const VALID_SLOTS = [
-  "header",
+  "header_top",
+  "header_bottom",
   "sidebar_top",
+  "sidebar_mid",
   "sidebar_bot",
-  "in_feed",
-  "footer",
+  "in_feed_1",
+  "in_feed_2",
+  "in_feed_3",
   "before_video",
   "after_video",
+  "under_title",
+  "popunder",
+  "footer_top",
+  "footer_bottom",
+  "sticky_bottom",
 ] as const;
 
 export type AdSlotName = (typeof VALID_SLOTS)[number];
@@ -2167,7 +2360,7 @@ export async function AdSlot({ slot }: { slot: AdSlotName }) {
   const ads = await getTenantAds(tenant.id, slot);
   if (ads.length === 0) return null;
   return (
-    <div data-ad-slot={slot} className="ad-slot my-4 flex flex-col gap-3">
+    <div data-ad-slot={slot} className="ad-slot my-3 flex flex-col items-center gap-3">
       {ads.map((a) => (
         <AdRender key={a.id} ad={a} />
       ))}
@@ -2176,15 +2369,15 @@ export async function AdSlot({ slot }: { slot: AdSlotName }) {
 }
 ```
 
-- [ ] **Step 3: Verify compilation**
+- [ ] **Step 4: Verify compilation**
 
 Run: `npx tsc --noEmit -p apps/tenant/tsconfig.json`
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add apps/tenant/src/components/ad-render.tsx apps/tenant/src/components/ad-slot.tsx
-git commit -m "tenant: ad slot + render components"
+git add apps/tenant/src/lib/ad-templates.ts apps/tenant/src/components/ad-render.tsx apps/tenant/src/components/ad-slot.tsx
+git commit -m "tenant: ad templates (galaksion/aads) + render components"
 ```
 
 ---
@@ -2209,8 +2402,12 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
   const logo = tenant.logoR2Key ? await getPresignedDownloadUrl(tenant.logoR2Key, 7200) : null;
 
   return (
-    <div className="min-h-screen">
-      <AdSlot slot="header" />
+    <div className="min-h-screen pb-16 md:pb-0">
+      {/* Popunder — invisible, script only */}
+      <AdSlot slot="popunder" />
+
+      <AdSlot slot="header_top" />
+
       <header className="sticky top-0 z-30 border-b border-white/10 backdrop-blur" style={{ background: "color-mix(in oklab, var(--tenant-bg) 85%, black)" }}>
         <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
@@ -2243,23 +2440,34 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
         </nav>
       </header>
 
+      <AdSlot slot="header_bottom" />
+
       <main className="mx-auto max-w-6xl px-4 py-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
           <div>{children}</div>
           <aside className="hidden lg:block">
             <AdSlot slot="sidebar_top" />
+            <AdSlot slot="sidebar_mid" />
             <AdSlot slot="sidebar_bot" />
           </aside>
         </div>
       </main>
 
+      <AdSlot slot="footer_top" />
+
       <footer className="mt-12 border-t border-white/10 py-8">
         <div className="mx-auto max-w-6xl px-4 text-sm text-white/60">
-          <AdSlot slot="footer" />
           {tenant.footerText && <p className="mb-2">{tenant.footerText}</p>}
           <p>© {new Date().getFullYear()} {tenant.name}</p>
         </div>
       </footer>
+
+      <AdSlot slot="footer_bottom" />
+
+      {/* Sticky bottom bar — mobile only */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/80 backdrop-blur md:hidden">
+        <AdSlot slot="sticky_bottom" />
+      </div>
     </div>
   );
 }
@@ -2328,10 +2536,11 @@ export async function ClipCard({
 
 ```tsx
 // apps/tenant/src/components/clip-feed.tsx
-import { AdSlot } from "./ad-slot";
+import { AdSlot, type AdSlotName } from "./ad-slot";
 import { ClipCard } from "./clip-card";
 
 const IN_FEED_EVERY = 8;
+const IN_FEED_ROTATION: AdSlotName[] = ["in_feed_1", "in_feed_2", "in_feed_3"];
 
 type FeedClip = { id: string; title: string; thumbnailR2Key: string | null; duration: number | null };
 
@@ -2346,12 +2555,13 @@ export function ClipFeed({ clips }: { clips: FeedClip[] }) {
         <div key={idx}>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
             {group.map((c) => (
-              // ClipCard is async — Next handles server component nesting
               /* @ts-expect-error async server component */
               <ClipCard key={c.id} clip={c} />
             ))}
           </div>
-          {idx < groups.length - 1 && <AdSlot slot="in_feed" />}
+          {idx < groups.length - 1 && (
+            <AdSlot slot={IN_FEED_ROTATION[idx % IN_FEED_ROTATION.length]!} />
+          )}
         </div>
       ))}
     </div>
@@ -2637,6 +2847,7 @@ export default async function ClipDetail({
       <h1 className="mt-4 text-lg font-semibold">{clip.title}</h1>
       {clip.description && <p className="mt-1 text-sm text-white/70">{clip.description}</p>}
       <AdSlot slot="after_video" />
+      <AdSlot slot="under_title" />
       <hr className="my-6 border-white/10" />
       <h2 className="mb-4 text-base font-semibold">คลิปที่เกี่ยวข้อง</h2>
       <ClipFeed clips={related.filter((c) => c.id !== clip.id)} />
