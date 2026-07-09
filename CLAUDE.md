@@ -36,8 +36,8 @@ npx tsc --noEmit -p apps/backoffice/tsconfig.json
 **Monorepo**: Turborepo + pnpm workspaces. Two Next.js 15 apps share code through internal packages.
 
 ### Apps
-- **apps/web** — Customer-facing site (kodhom.com). Telegram-style two-panel layout: sidebar with categories, main panel with chat-style clip feed. The `(main)/layout.tsx` renders an auto-rotating banner slider above every page (data from `system_config`).
-- **apps/backoffice** — Admin dashboard (bo.kodhom.com). CRUD for categories, clips, banners, pricing plans, users, system config, payments, withdrawals. Protected by `requireAdmin()` in dashboard layout.
+- **apps/web** — Customer-facing site (yedhod.com). Telegram-style two-panel layout: sidebar with categories, main panel with chat-style clip feed. The `(main)/layout.tsx` renders an auto-rotating banner slider above every page (data from `system_config`).
+- **apps/backoffice** — Admin dashboard (bo.yedhod.com). CRUD for categories, clips, banners, pricing plans, users, system config, payments, withdrawals. Protected by `requireAdmin()` in dashboard layout.
 
 ### Packages
 - **packages/db** — Drizzle ORM schema (PostgreSQL). All tables defined in `src/schema/`. Key enums: `roleEnum` (member/vip/admin), `accessLevelEnum` (member/vip), `subscriptionStatusEnum`, `paymentStatusEnum`.
