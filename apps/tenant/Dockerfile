@@ -21,20 +21,7 @@ COPY --from=deps /app/apps/tenant/node_modules ./apps/tenant/node_modules
 COPY --from=deps /app/packages/*/node_modules ./packages/
 COPY . .
 
-ARG DATABASE_URL
-ARG R2_ACCOUNT_ID
-ARG R2_ACCESS_KEY_ID
-ARG R2_SECRET_ACCESS_KEY
-ARG R2_BUCKET_NAME
-ARG R2_PUBLIC_URL
-
-ENV DATABASE_URL=$DATABASE_URL
-ENV R2_ACCOUNT_ID=$R2_ACCOUNT_ID
-ENV R2_ACCESS_KEY_ID=$R2_ACCESS_KEY_ID
-ENV R2_SECRET_ACCESS_KEY=$R2_SECRET_ACCESS_KEY
-ENV R2_BUCKET_NAME=$R2_BUCKET_NAME
-ENV R2_PUBLIC_URL=$R2_PUBLIC_URL
-
+# apps/tenant uses dynamic="force-dynamic" everywhere, no DB/R2 access at build.
 RUN pnpm --filter @kodhom/tenant build
 
 # --- Runner ---
