@@ -13,7 +13,7 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
     : null;
 
   return (
-    <div className="min-h-screen pb-16 md:pb-0">
+    <div className="flex min-h-screen flex-col pb-16 md:pb-0">
       <AdSlot slot="popunder" />
       <AdSlot slot="header_top" />
 
@@ -104,7 +104,7 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
       <AdSlot slot="header_bottom" />
 
       {/* Main */}
-      <main className="mx-auto max-w-[1400px] px-4 py-6">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
           <div className="min-w-0">{children}</div>
           <aside className="hidden lg:block">
@@ -120,7 +120,7 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
       <AdSlot slot="footer_top" />
 
       <footer
-        className="mt-16 border-t"
+        className="mt-auto border-t"
         style={{ borderColor: "var(--tenant-border)" }}
       >
         <div className="mx-auto max-w-[1400px] px-4 py-8 text-sm">
