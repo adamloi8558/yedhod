@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Search, Menu } from "lucide-react";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { getCurrentTenant } from "@/lib/tenant";
 import { getTenantCategories } from "@/lib/tenant-queries";
@@ -26,48 +25,20 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
           backdropFilter: "saturate(160%) blur(12px)",
         }}
       >
-        <div className="mx-auto flex h-20 max-w-[1400px] items-center gap-6 px-6">
-          <button
-            aria-label="menu"
-            className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
-          >
-            <Menu size={22} />
-          </button>
-
-          {/* Logo */}
-          <Link href="/" className="flex shrink-0 items-center gap-2">
+        {/* Slim centered top: just the logo. Compact so more of the fold shows the grid. */}
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-center px-6">
+          <Link href="/" className="flex items-center gap-2">
             {logo ? (
-              <img src={logo} alt={tenant.name} className="h-10" />
+              <img src={logo} alt={tenant.name} className="h-8" />
             ) : (
               <span
-                className="text-2xl font-extrabold tracking-tight"
+                className="text-xl font-extrabold tracking-tight"
                 style={{ color: "var(--tenant-primary)" }}
               >
                 {tenant.name}
               </span>
             )}
           </Link>
-
-          {/* Search — takes remaining space, capped max-w */}
-          <form
-            action="/"
-            className="mx-auto hidden h-11 w-full max-w-xl items-center gap-3 rounded-full border px-5 md:flex"
-            style={{
-              background: "var(--tenant-panel)",
-              borderColor: "var(--tenant-border)",
-            }}
-          >
-            <Search size={18} className="text-white/40" />
-            <input
-              type="text"
-              placeholder="ค้นหาคลิป..."
-              className="w-full bg-transparent text-sm text-white placeholder:text-white/40 outline-none"
-              disabled
-            />
-          </form>
-
-          {/* Spacer to balance logo — keeps search visually centered */}
-          <div className="hidden w-[120px] shrink-0 md:block" />
         </div>
 
         {/* Category strip — centered */}
