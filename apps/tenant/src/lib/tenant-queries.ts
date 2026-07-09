@@ -197,6 +197,33 @@ export async function getTenantClips(
   return rows;
 }
 
+export async function countTenantClips(
+  tenantId: string,
+  opts: { categoryId?: string } = {}
+): Promise<number> {
+  let idFilter: SQL;
+  if (opts.categoryId) {
+    const scope = await resolveCategoryFilter(tenantId, opts.categoryId);
+    if (scope.length === 0) return 0;
+    idFilter = inArray(clips.categoryId, scope);
+  } else {
+    const effective = await tenantEffectiveCategoryIds(tenantId);
+    if (effective.length === 0) return 0;
+    idFilter = inArray(clips.categoryId, effective);
+  }
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(clips)
+    .where(
+      and(
+        eq(clips.isActive, true),
+        eq(clips.accessLevel, "member"),
+        idFilter
+      )
+    );
+  return n;
+}
+
 export async function getTenantClipInScope(tenantId: string, clipId: string) {
   const catIds = await tenantEffectiveCategoryIds(tenantId);
   if (catIds.length === 0) return null;

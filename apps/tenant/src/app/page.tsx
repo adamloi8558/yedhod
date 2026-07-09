@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { TenantShell } from "@/components/tenant-shell";
 import { ClipFeed } from "@/components/clip-feed";
 import { getCurrentTenant } from "@/lib/tenant";
-import { getTenantClips } from "@/lib/tenant-queries";
+import { countTenantClips, getTenantClips } from "@/lib/tenant-queries";
 
 export const dynamic = "force-dynamic";
+
+const HOME_LIMIT = 36;
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -27,7 +30,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function Home() {
   const tenant = await getCurrentTenant();
-  const clips = await getTenantClips(tenant.id, { limit: 60 });
+  const [clips, total] = await Promise.all([
+    getTenantClips(tenant.id, { limit: HOME_LIMIT }),
+    countTenantClips(tenant.id),
+  ]);
 
   const website = {
     "@context": "https://schema.org",
@@ -38,6 +44,8 @@ export default async function Home() {
     description: tenant.metaDescription ?? tenant.tagline ?? undefined,
   };
 
+  const hasMore = total > HOME_LIMIT;
+
   return (
     <TenantShell>
       <script
@@ -45,6 +53,18 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }}
       />
       <ClipFeed clips={clips} />
+
+      {hasMore && (
+        <div className="mt-10 flex justify-center">
+          <Link
+            href="/all"
+            className="rounded-full px-8 py-3 text-sm font-bold text-black shadow-lg transition hover:opacity-90"
+            style={{ background: "var(--tenant-primary)" }}
+          >
+            ดูทั้งหมด ({total.toLocaleString()} คลิป) →
+          </Link>
+        </div>
+      )}
     </TenantShell>
   );
 }
