@@ -57,6 +57,13 @@
       "when": 1780696585283,
       "tag": "0007_cuddly_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783588753683,
+      "tag": "0008_unusual_power_man",
+      "breakpoints": true
     }
   ]
 }

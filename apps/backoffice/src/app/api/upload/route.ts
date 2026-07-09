@@ -3,7 +3,15 @@ import { getPresignedUploadUrl } from "@kodhom/r2";
 import { nanoid } from "@/lib/nanoid";
 import { getAdminSession } from "@/lib/auth-server";
 
-const ALLOWED_FOLDERS = ["clips", "thumbnails", "banners", "slips"] as const;
+const ALLOWED_FOLDERS = [
+  "clips",
+  "thumbnails",
+  "banners",
+  "slips",
+  "tenant-logos",
+  "tenant-favicons",
+  "tenant-ads",
+] as const;
 
 export async function POST(req: NextRequest) {
   if (!(await getAdminSession())) {

@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --tenant-primary: #3b82f6;
+  --tenant-accent: #60a5fa;
+  --tenant-bg: #0b0d13;
+  --tenant-fg: #e6e9f2;
+}
+
+html,
+body {
+  background: var(--tenant-bg);
+  color: var(--tenant-fg);
+}
+
+a {
+  color: var(--tenant-primary);
+}
+
+a:hover {
+  color: var(--tenant-accent);
+}
+
+.ad-slot:empty {
+  display: none;
+}

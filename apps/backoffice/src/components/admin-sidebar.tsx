@@ -17,6 +17,7 @@ import {
   History,
   X,
   MessageSquare,
+  Globe,
 } from "lucide-react";
 import { cn } from "@kodhom/ui/lib/utils";
 import { Button } from "@kodhom/ui/components/button";
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/dashboard/categories", label: "หมวดหมู่", icon: FolderOpen },
   { href: "/dashboard/clips", label: "คลิป", icon: Film },
   { href: "/dashboard/banners", label: "Banner", icon: ImageIcon },
+  { href: "/dashboard/tenants", label: "เว็บ Clone", icon: Globe },
   { href: "/dashboard/pricing", label: "แพ็กเกจ", icon: Tag },
   { href: "/dashboard/users", label: "ผู้ใช้", icon: Users },
   { href: "/dashboard/payments", label: "การชำระเงิน", icon: CreditCard },

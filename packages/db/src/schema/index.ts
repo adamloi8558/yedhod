@@ -12,4 +12,7 @@ export * from "./telegram-posted";
 export * from "./admin-audit";
 export * from "./clip-stats";
 export * from "./support-tickets";
+export * from "./tenants";
+export * from "./tenant-categories";
+export * from "./tenant-ads";
 export * from "./relations";
