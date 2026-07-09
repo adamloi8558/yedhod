@@ -9,6 +9,8 @@ type FeedClip = {
   title: string;
   thumbnailR2Key: string | null;
   duration: number | null;
+  categoryName?: string | null;
+  createdAt?: Date | string | null;
 };
 
 export function ClipFeed({ clips }: { clips: FeedClip[] }) {
@@ -18,16 +20,16 @@ export function ClipFeed({ clips }: { clips: FeedClip[] }) {
   }
   return (
     <div className="space-y-8">
-      {groups.map((group, idx) => (
-        <div key={idx}>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-            {group.map((c) => (
-              <ClipCard key={c.id} clip={c} />
+      {groups.map((group, gi) => (
+        <div key={gi}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+            {group.map((c, i) => (
+              <ClipCard key={c.id} clip={c} index={gi * IN_FEED_EVERY + i + 1} />
             ))}
           </div>
-          {idx < groups.length - 1 && (
+          {gi < groups.length - 1 && (
             <div className="my-6">
-              <AdSlot slot={IN_FEED_ROTATION[idx % IN_FEED_ROTATION.length]!} />
+              <AdSlot slot={IN_FEED_ROTATION[gi % IN_FEED_ROTATION.length]!} />
             </div>
           )}
         </div>

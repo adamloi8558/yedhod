@@ -8,14 +8,25 @@ export async function generateMetadata() {
   try {
     const t = await getCurrentTenant();
     return {
-      title: t.metaTitle ?? t.name,
+      metadataBase: new URL(`https://${t.primaryDomain}`),
+      title: {
+        default: t.metaTitle ?? t.name,
+        template: `%s | ${t.name}`,
+      },
       description: t.metaDescription ?? t.tagline ?? undefined,
+      applicationName: t.name,
       icons: t.faviconR2Key
         ? { icon: await getPresignedDownloadUrl(t.faviconR2Key, 3600) }
         : undefined,
+      robots: { index: true, follow: true },
+      openGraph: {
+        siteName: t.name,
+        locale: "th_TH",
+        type: "website",
+      },
     };
   } catch {
-    return { title: "Not found" };
+    return { title: "Not found", robots: { index: false, follow: false } };
   }
 }
 

@@ -179,8 +179,11 @@ export async function getTenantClips(
       thumbnailR2Key: clips.thumbnailR2Key,
       duration: clips.duration,
       categoryId: clips.categoryId,
+      createdAt: clips.createdAt,
+      categoryName: categories.name,
     })
     .from(clips)
+    .innerJoin(categories, eq(categories.id, clips.categoryId))
     .where(
       and(
         eq(clips.isActive, true),

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { db } from "@kodhom/db";
 import { categories } from "@kodhom/db/schema";
@@ -9,25 +10,50 @@ import { getTenantCategories, getTenantClips } from "@/lib/tenant-queries";
 
 export const dynamic = "force-dynamic";
 
+async function loadContext(slug: string) {
+  const tenant = await getCurrentTenant();
+  const [cat] = await db
+    .select({ id: categories.id, name: categories.name, description: categories.description })
+    .from(categories)
+    .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
+    .limit(1);
+  if (!cat) return null;
+  const enabled = await getTenantCategories(tenant.id);
+  if (!enabled.find((c) => c.id === cat.id)) return null;
+  return { tenant, cat };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const ctx = await loadContext(slug);
+  if (!ctx) return { title: "ไม่พบหมวดหมู่" };
+  const { tenant, cat } = ctx;
+  const title = `${cat.name} — คลิปฟรี HD | ${tenant.name}`;
+  const description =
+    cat.description ??
+    `รวมคลิป ${cat.name} ดูฟรี HD อัปเดตล่าสุดที่ ${tenant.name}`;
+  return {
+    title,
+    description,
+    openGraph: { title, description, siteName: tenant.name, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+    alternates: { canonical: `/category/${slug}` },
+  };
+}
+
 export default async function CategoryPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const tenant = await getCurrentTenant();
-
-  // Parents in the tenant nav may not be accessLevel='member' (they're org
-  // buckets). Allow both, and let the clip query enforce member on the leaves.
-  const [cat] = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
-    .limit(1);
-  if (!cat) notFound();
-
-  const enabled = await getTenantCategories(tenant.id);
-  if (!enabled.find((c) => c.id === cat.id)) notFound();
+  const ctx = await loadContext(slug);
+  if (!ctx) notFound();
+  const { tenant, cat } = ctx;
 
   const clips = await getTenantClips(tenant.id, {
     categoryId: cat.id,
