@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Search, Menu } from "lucide-react";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { getCurrentTenant } from "@/lib/tenant";
 import { getTenantCategories } from "@/lib/tenant-queries";
@@ -13,87 +14,141 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen pb-16 md:pb-0">
-<AdSlot slot="popunder" />
-<AdSlot slot="header_top" />
+      <AdSlot slot="popunder" />
+      <AdSlot slot="header_top" />
 
+      {/* Top bar */}
       <header
-        className="sticky top-0 z-30 border-b border-white/10 backdrop-blur"
+        className="sticky top-0 z-30 border-b"
         style={{
-          background: "color-mix(in oklab, var(--tenant-bg) 85%, black)",
+          background: "rgba(13, 13, 15, 0.85)",
+          borderColor: "var(--tenant-border)",
+          backdropFilter: "saturate(140%) blur(8px)",
         }}
       >
-        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-4">
+          <button
+            aria-label="menu"
+            className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white lg:hidden"
+          >
+            <Menu size={20} />
+          </button>
+
           <Link href="/" className="flex items-center gap-2">
             {logo ? (
               <img src={logo} alt={tenant.name} className="h-8" />
             ) : (
               <span
-                className="text-lg font-bold"
+                className="text-xl font-extrabold tracking-tight"
                 style={{ color: "var(--tenant-primary)" }}
               >
                 {tenant.name}
               </span>
             )}
           </Link>
-          {tenant.tagline && (
-            <span className="hidden text-sm text-white/60 md:inline">
-              {tenant.tagline}
-            </span>
-          )}
+
+          {/* Search — non-functional visual placeholder for v1 */}
+          <form
+            action="/"
+            className="ml-4 hidden max-w-2xl flex-1 items-center gap-2 rounded-lg border px-3 py-1.5 md:flex"
+            style={{ background: "var(--tenant-panel)", borderColor: "var(--tenant-border)" }}
+          >
+            <Search size={16} className="text-white/40" />
+            <input
+              type="text"
+              placeholder="ค้นหาคลิป..."
+              className="w-full bg-transparent text-sm text-white placeholder:text-white/40 outline-none"
+              disabled
+            />
+          </form>
+
+          <div className="ml-auto hidden items-center gap-2 md:flex">
+            {tenant.tagline && (
+              <span className="text-xs text-white/50">{tenant.tagline}</span>
+            )}
+          </div>
         </div>
-        <nav className="mx-auto max-w-6xl overflow-x-auto px-4 pb-3">
-          <ul className="flex gap-2 whitespace-nowrap">
-            <li>
-              <Link
-                href="/"
-                className="rounded-full border border-white/15 px-3 py-1 text-sm hover:border-white/40"
-              >
-                ทั้งหมด
-              </Link>
-            </li>
-            {cats.map((c) => (
-              <li key={c.id}>
-                <Link
-                  href={`/category/${c.slug}`}
-                  className="rounded-full border border-white/15 px-3 py-1 text-sm hover:border-white/40"
-                >
-                  {c.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+
+        {/* Category strip */}
+        {cats.length > 0 && (
+          <div className="border-t" style={{ borderColor: "var(--tenant-border)" }}>
+            <div className="mx-auto max-w-[1400px] px-4">
+              <nav className="strip-scroll overflow-x-auto">
+                <ul className="flex items-center gap-1 whitespace-nowrap py-2">
+                  <li>
+                    <Link
+                      href="/"
+                      className="rounded-md px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10"
+                      style={{ background: "var(--tenant-panel)" }}
+                    >
+                      หน้าแรก
+                    </Link>
+                  </li>
+                  {cats.map((c) => (
+                    <li key={c.id}>
+                      <Link
+                        href={`/category/${c.slug}`}
+                        className="rounded-md px-3 py-1.5 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+                      >
+                        {c.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            </div>
+          </div>
+        )}
       </header>
 
-<AdSlot slot="header_bottom" />
+      <AdSlot slot="header_bottom" />
 
-      <main className="mx-auto max-w-6xl px-4 py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-          <div>{children}</div>
+      {/* Main */}
+      <main className="mx-auto max-w-[1400px] px-4 py-6">
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+          <div className="min-w-0">{children}</div>
           <aside className="hidden lg:block">
-            <AdSlot slot="sidebar_top" />
-            <AdSlot slot="sidebar_mid" />
-            <AdSlot slot="sidebar_bot" />
+            <div className="sticky top-[calc(3.5rem+3rem)] space-y-4">
+              <AdSlot slot="sidebar_top" />
+              <AdSlot slot="sidebar_mid" />
+              <AdSlot slot="sidebar_bot" />
+            </div>
           </aside>
         </div>
       </main>
 
-<AdSlot slot="footer_top" />
+      <AdSlot slot="footer_top" />
 
-      <footer className="mt-12 border-t border-white/10 py-8">
-        <div className="mx-auto max-w-6xl px-4 text-sm text-white/60">
-          {tenant.footerText && <p className="mb-2">{tenant.footerText}</p>}
-          <p>
-            © {new Date().getFullYear()} {tenant.name}
-          </p>
+      <footer
+        className="mt-16 border-t"
+        style={{ borderColor: "var(--tenant-border)" }}
+      >
+        <div className="mx-auto max-w-[1400px] px-4 py-8 text-sm">
+          {tenant.footerText && (
+            <p className="mb-3 text-white/60">{tenant.footerText}</p>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-3 text-white/40">
+            <p>
+              © {new Date().getFullYear()}{" "}
+              <span className="text-white/70">{tenant.name}</span>. All rights reserved.
+            </p>
+            <p className="text-xs">🔞 18+ Adults Only</p>
+          </div>
         </div>
       </footer>
 
-<AdSlot slot="footer_bottom" />
+      <AdSlot slot="footer_bottom" />
 
-      {/* Sticky bottom bar — mobile only */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-black/80 backdrop-blur md:hidden">
-    <AdSlot slot="sticky_bottom" />
+      {/* Sticky mobile bottom ad */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
+        style={{
+          background: "rgba(13, 13, 15, 0.9)",
+          borderColor: "var(--tenant-border)",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        <AdSlot slot="sticky_bottom" />
       </div>
     </div>
   );

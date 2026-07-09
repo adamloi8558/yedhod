@@ -10,7 +10,10 @@ export default async function Home() {
   const clips = await getTenantClips(tenant.id, { limit: 60 });
   return (
     <TenantShell>
-      <h1 className="mb-6 text-xl font-semibold">คลิปล่าสุด</h1>
+      <div className="mb-5 flex items-baseline justify-between gap-4">
+        <h1 className="text-2xl font-bold tracking-tight">คลิปล่าสุด</h1>
+        <span className="text-xs text-white/40">อัปเดตทุกวัน</span>
+      </div>
       <ClipFeed clips={clips} />
     </TenantShell>
   );

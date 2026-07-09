@@ -1,26 +1,75 @@
 @import "tailwindcss";
 
 :root {
-  --tenant-primary: #3b82f6;
-  --tenant-accent: #60a5fa;
-  --tenant-bg: #0b0d13;
-  --tenant-fg: #e6e9f2;
+  --tenant-primary: #ff5c00;
+  --tenant-accent: #ff8a3d;
+  --tenant-bg: #0d0d0f;
+  --tenant-fg: #f2f2f4;
+  --tenant-panel: #17171b;
+  --tenant-panel-2: #1f1f24;
+  --tenant-border: rgba(255, 255, 255, 0.08);
+  --tenant-muted: rgba(255, 255, 255, 0.55);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 html,
 body {
   background: var(--tenant-bg);
   color: var(--tenant-fg);
+  font-family:
+    "Inter", "Noto Sans Thai", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
-  color: var(--tenant-primary);
+  color: inherit;
+  text-decoration: none;
 }
 
-a:hover {
-  color: var(--tenant-accent);
+/* Selection */
+::selection {
+  background: var(--tenant-primary);
+  color: #000;
 }
 
+/* Ad slots — never take space when empty */
 .ad-slot:empty {
   display: none;
+}
+
+/* Nicer scrollbar for the category strip */
+.strip-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.strip-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.strip-scroll::-webkit-scrollbar-thumb {
+  background: var(--tenant-border);
+  border-radius: 3px;
+}
+
+/* Thumbnail hover ring */
+.thumb-card {
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+.thumb-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* Utility: line clamp 2 lines */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
