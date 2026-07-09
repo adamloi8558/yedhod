@@ -54,17 +54,16 @@ export default async function AllClipsPage({
 
   return (
     <TenantShell>
-      <section className="mx-auto mb-8 max-w-3xl text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-white/40">
-          คลิปทั้งหมด
-        </p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-          รวมคลิปทั้งหมด
+      <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-white/10 pb-2">
+        <h1 className="text-lg font-bold uppercase tracking-wide">
+          <span className="border-b-2 pb-2" style={{ borderColor: "var(--tenant-primary)" }}>
+            คลิปทั้งหมด
+          </span>
         </h1>
-        <p className="mt-2 text-sm text-white/50">
+        <span className="text-xs text-white/40">
           หน้า {currentPage} / {totalPages} · {total.toLocaleString()} คลิป
-        </p>
-      </section>
+        </span>
+      </div>
 
       <ClipFeed clips={clips} />
 

@@ -16,54 +16,79 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
       <AdSlot slot="popunder" />
       <AdSlot slot="header_top" />
 
-      {/* Top bar */}
+      {/* Top bar — dark, thin, brand-forward like pornhub */}
       <header
         className="sticky top-0 z-30 border-b"
         style={{
-          background: "rgba(11, 11, 13, 0.85)",
+          background: "#000",
           borderColor: "var(--tenant-border)",
-          backdropFilter: "saturate(160%) blur(12px)",
         }}
       >
-        {/* Slim centered top: just the logo. Compact so more of the fold shows the grid. */}
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-center px-6">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-4">
+          <Link href="/" className="flex shrink-0 items-center">
             {logo ? (
-              <img src={logo} alt={tenant.name} className="h-8" />
+              <img src={logo} alt={tenant.name} className="h-7" />
             ) : (
-              <span
-                className="text-xl font-extrabold tracking-tight"
-                style={{ color: "var(--tenant-primary)" }}
-              >
-                {tenant.name}
+              <span className="text-xl font-black tracking-tight">
+                <span className="text-white">{tenant.name.slice(0, Math.ceil(tenant.name.length / 2))}</span>
+                <span
+                  className="rounded px-1 text-black"
+                  style={{ background: "var(--tenant-primary)" }}
+                >
+                  {tenant.name.slice(Math.ceil(tenant.name.length / 2))}
+                </span>
               </span>
             )}
           </Link>
+
+          <nav className="hidden items-center gap-1 md:flex">
+            <Link
+              href="/"
+              className="rounded-md px-3 py-1.5 text-sm font-semibold text-white hover:text-[color:var(--tenant-primary)]"
+            >
+              หน้าแรก
+            </Link>
+            <Link
+              href="/all"
+              className="rounded-md px-3 py-1.5 text-sm font-semibold text-white/70 hover:text-[color:var(--tenant-primary)]"
+            >
+              คลิปทั้งหมด
+            </Link>
+          </nav>
+
+          <div className="flex-1" />
+
+          <span className="hidden text-xs text-white/40 md:inline">
+            🔞 18+ Adults Only
+          </span>
         </div>
 
-        {/* Category strip — centered */}
+        {/* Category strip */}
         {cats.length > 0 && (
           <div
             className="border-t"
-            style={{ borderColor: "var(--tenant-border)" }}
+            style={{
+              borderColor: "var(--tenant-border)",
+              background: "var(--tenant-panel)",
+            }}
           >
-            <div className="mx-auto max-w-[1400px] px-6">
+            <div className="mx-auto max-w-[1400px] px-4">
               <nav className="strip-scroll overflow-x-auto">
-                <ul className="flex items-center justify-center gap-1.5 whitespace-nowrap py-3">
+                <ul className="flex items-center gap-1 whitespace-nowrap py-2">
                   <li>
                     <Link
                       href="/"
-                      className="rounded-full px-4 py-2 text-sm font-semibold text-black shadow-sm transition hover:opacity-90"
+                      className="rounded px-3 py-1.5 text-sm font-semibold text-black"
                       style={{ background: "var(--tenant-primary)" }}
                     >
-                      หน้าแรก
+                      แนะนำ
                     </Link>
                   </li>
                   {cats.map((c) => (
                     <li key={c.id}>
                       <Link
                         href={`/category/${c.slug}`}
-                        className="rounded-full border border-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
+                        className="rounded px-3 py-1.5 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white"
                       >
                         {c.name}
                       </Link>
@@ -78,10 +103,8 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
 
       <AdSlot slot="header_bottom" />
 
-      {/* Main — single centered column, no sidebar so headers/grid land dead-center */}
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-8">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5">
         {children}
-        {/* Ad rail moved below main content so nothing pushes the grid off-center */}
         <div className="mt-10 space-y-4">
           <AdSlot slot="sidebar_top" />
           <AdSlot slot="sidebar_mid" />
@@ -93,30 +116,26 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
 
       <footer
         className="mt-auto border-t"
-        style={{ borderColor: "var(--tenant-border)" }}
+        style={{ borderColor: "var(--tenant-border)", background: "#000" }}
       >
-        <div className="mx-auto max-w-[1400px] px-6 py-10 text-center text-sm">
-          {tenant.footerText && (
-            <p className="mb-4 text-white/60">{tenant.footerText}</p>
-          )}
-          <div className="flex flex-col items-center gap-2 text-white/40">
+        <div className="mx-auto max-w-[1400px] px-4 py-6 text-center text-xs">
+          <div className="flex flex-col items-center gap-1 text-white/40">
             <p>
               © {new Date().getFullYear()}{" "}
               <span className="font-semibold text-white/70">{tenant.name}</span>.
               All rights reserved.
             </p>
-            <p className="text-xs">🔞 18+ Adults Only</p>
+            <p>🔞 18+ Adults Only</p>
           </div>
         </div>
       </footer>
 
       <AdSlot slot="footer_bottom" />
 
-      {/* Sticky mobile bottom ad */}
       <div
         className="fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
         style={{
-          background: "rgba(13, 13, 15, 0.9)",
+          background: "rgba(0, 0, 0, 0.9)",
           borderColor: "var(--tenant-border)",
           backdropFilter: "blur(8px)",
         }}

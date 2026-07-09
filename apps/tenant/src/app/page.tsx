@@ -7,7 +7,7 @@ import { countTenantClips, getTenantClips } from "@/lib/tenant-queries";
 
 export const dynamic = "force-dynamic";
 
-const HOME_LIMIT = 36;
+const HOME_LIMIT = 40;
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -52,16 +52,29 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(website) }}
       />
+
+      {/* Section header — pornhub-style tab row */}
+      <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-white/10 pb-2">
+        <h1 className="text-lg font-bold uppercase tracking-wide">
+          <span className="border-b-2 pb-2" style={{ borderColor: "var(--tenant-primary)" }}>
+            แนะนำ
+          </span>
+        </h1>
+        <span className="text-xs text-white/40">
+          {total.toLocaleString()} คลิป
+        </span>
+      </div>
+
       <ClipFeed clips={clips} />
 
       {hasMore && (
-        <div className="mt-10 flex justify-center">
+        <div className="mt-8 flex justify-center">
           <Link
             href="/all"
-            className="rounded-full px-8 py-3 text-sm font-bold text-black shadow-lg transition hover:opacity-90"
+            className="rounded px-6 py-2.5 text-sm font-bold text-black transition hover:opacity-90"
             style={{ background: "var(--tenant-primary)" }}
           >
-            ดูทั้งหมด ({total.toLocaleString()} คลิป) →
+            ดูทั้งหมด →
           </Link>
         </div>
       )}
