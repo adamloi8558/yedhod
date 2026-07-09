@@ -36,12 +36,10 @@ export default async function CategoryPage({
 
   return (
     <TenantShell>
-      <div className="mb-5 flex items-baseline justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-white/40">หมวดหมู่</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">{cat.name}</h1>
-        </div>
-        <span className="text-xs text-white/40">{clips.length} คลิป</span>
+      <div className="mb-8 text-center">
+        <p className="text-xs uppercase tracking-widest text-white/40">หมวดหมู่</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight">{cat.name}</h1>
+        <p className="mt-2 text-sm text-white/40">{clips.length} คลิป</p>
       </div>
       <ClipFeed clips={clips} />
     </TenantShell>

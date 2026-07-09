@@ -75,9 +75,60 @@ async function tenantCategoryIds(tenantId: string) {
 }
 
 /**
- * Given a category slug, return the set of category ids to filter clips by.
- * If it's a leaf, return [that id]. If it's a parent, return [parent] + all
- * descendant leaves — but only ids that are present in this tenant's picks.
+ * The complete set of category ids a tenant can show clips from. This is
+ * the union of:
+ *   - every tenant-picked category (leaf or parent)
+ *   - every active descendant of each tenant-picked parent
+ *   - every leaf sibling of a tenant-picked leaf (i.e. same parent)
+ *
+ * Rule intent: the tenant nav shows top-level parents, so any clip in ANY
+ * descendant of those parents should be reachable. Picking a single leaf
+ * still surfaces the whole parent bucket (matches user expectation).
+ */
+async function tenantEffectiveCategoryIds(tenantId: string): Promise<string[]> {
+  const picked = await tenantCategoryIds(tenantId);
+  if (picked.length === 0) return [];
+
+  const pickedRows = await db
+    .select({ id: categories.id, parentId: categories.parentId })
+    .from(categories)
+    .where(inArray(categories.id, picked));
+
+  const parentIds = new Set<string>();
+  for (const r of pickedRows) {
+    if (r.parentId) parentIds.add(r.parentId);
+    else parentIds.add(r.id); // itself is a top-level parent
+  }
+
+  if (parentIds.size === 0) return picked;
+
+  const descendants = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(
+      and(
+        inArray(categories.parentId, Array.from(parentIds)),
+        eq(categories.isActive, true)
+      )
+    );
+
+  const set = new Set<string>(picked);
+  for (const p of parentIds) set.add(p);
+  for (const d of descendants) set.add(d.id);
+  return Array.from(set);
+}
+
+/**
+ * Given a category id from the nav (which is a parent), return every clip's
+ * bucket to look in.
+ *
+ * When the tenant has picked ANY descendant leaf under this parent, we
+ * expand to ALL active member-level descendants — the tenant intent is
+ * "show the whole parent bucket". This makes the nav dead-simple (parents
+ * only) while surfacing content from every child the parent contains.
+ *
+ * If the parent is directly picked (rare, since leaves are what the admin
+ * usually selects), we still fall back to all its descendants.
  */
 async function resolveCategoryFilter(
   tenantId: string,
@@ -86,18 +137,23 @@ async function resolveCategoryFilter(
   const tenantIds = await tenantCategoryIds(tenantId);
   if (tenantIds.length === 0) return [];
 
-  // If categoryId is itself in the tenant picks, include it
-  const scope = new Set<string>();
-  if (tenantIds.includes(categoryId)) scope.add(categoryId);
-
-  // Add any tenant-picked leaves whose parentId == categoryId
+  // Fetch all active descendants of this categoryId
   const kids = await db
-    .select({ id: categories.id })
+    .select({ id: categories.id, parentId: categories.parentId })
     .from(categories)
     .where(and(eq(categories.parentId, categoryId), eq(categories.isActive, true)));
-  const tenantSet = new Set(tenantIds);
-  for (const k of kids) if (tenantSet.has(k.id)) scope.add(k.id);
 
+  const tenantSet = new Set(tenantIds);
+  const anyDescendantPicked = kids.some((k) => tenantSet.has(k.id));
+  const parentDirectlyPicked = tenantSet.has(categoryId);
+
+  if (!anyDescendantPicked && !parentDirectlyPicked) return [];
+
+  const scope = new Set<string>();
+  if (parentDirectlyPicked) scope.add(categoryId);
+  // Broaden: include ALL descendants (not just picked leaves) so parent
+  // pages show the full bucket the parent represents.
+  for (const k of kids) scope.add(k.id);
   return Array.from(scope);
 }
 
@@ -105,18 +161,15 @@ export async function getTenantClips(
   tenantId: string,
   opts: { categoryId?: string; limit?: number; offset?: number } = {}
 ) {
-  const catIds = await tenantCategoryIds(tenantId);
-  if (catIds.length === 0) return [];
-
-  // If a categoryId is given, expand it to include tenant-picked descendants
-  // (so a parent category page shows clips from all its enabled leaves too).
   let idFilter: SQL;
   if (opts.categoryId) {
     const scope = await resolveCategoryFilter(tenantId, opts.categoryId);
     if (scope.length === 0) return [];
     idFilter = inArray(clips.categoryId, scope);
   } else {
-    idFilter = inArray(clips.categoryId, catIds);
+    const effective = await tenantEffectiveCategoryIds(tenantId);
+    if (effective.length === 0) return [];
+    idFilter = inArray(clips.categoryId, effective);
   }
 
   const rows = await db
@@ -142,7 +195,7 @@ export async function getTenantClips(
 }
 
 export async function getTenantClipInScope(tenantId: string, clipId: string) {
-  const catIds = await tenantCategoryIds(tenantId);
+  const catIds = await tenantEffectiveCategoryIds(tenantId);
   if (catIds.length === 0) return null;
   const [row] = await db
     .select()
