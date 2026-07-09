@@ -1,8 +1,10 @@
 import { AdSlot, type AdSlotName } from "./ad-slot";
 import { ClipCard } from "./clip-card";
 
-const IN_FEED_EVERY = 12;
 const IN_FEED_ROTATION: AdSlotName[] = ["in_feed_1", "in_feed_2", "in_feed_3"];
+// 60 is the LCM of the column counts we use (2 / 3 / 4 / 5) so every ad
+// break lands on a completed row — no ragged tails mid-feed.
+const AD_EVERY = 60;
 
 type FeedClip = {
   id: string;
@@ -22,27 +24,31 @@ export function ClipFeed({ clips }: { clips: FeedClip[] }) {
     );
   }
 
-  const groups: FeedClip[][] = [];
-  for (let i = 0; i < clips.length; i += IN_FEED_EVERY) {
-    groups.push(clips.slice(i, i + IN_FEED_EVERY));
+  // Ads are absolutely NOT inside the grid — they render as full-width
+  // separators between segments. Each segment is still a single grid whose
+  // last row may or may not fill; that's fine because it's the tail of the
+  // feed, not a mid-feed cut like the old design.
+  const segments: FeedClip[][] = [];
+  for (let i = 0; i < clips.length; i += AD_EVERY) {
+    segments.push(clips.slice(i, i + AD_EVERY));
   }
 
   return (
-    <div className="space-y-10">
-      {groups.map((group, gi) => (
-        <div key={gi}>
+    <div>
+      {segments.map((seg, si) => (
+        <div key={si} className={si > 0 ? "mt-6" : ""}>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:gap-5 lg:grid-cols-4 xl:grid-cols-5">
-            {group.map((c, i) => (
+            {seg.map((c, i) => (
               <ClipCard
                 key={c.id}
                 clip={c}
-                index={gi * IN_FEED_EVERY + i + 1}
+                index={si * AD_EVERY + i + 1}
               />
             ))}
           </div>
-          {gi < groups.length - 1 && (
+          {si < segments.length - 1 && (
             <div className="my-8 flex justify-center">
-              <AdSlot slot={IN_FEED_ROTATION[gi % IN_FEED_ROTATION.length]!} />
+              <AdSlot slot={IN_FEED_ROTATION[si % IN_FEED_ROTATION.length]!} />
             </div>
           )}
         </div>
