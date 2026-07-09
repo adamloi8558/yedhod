@@ -115,47 +115,55 @@ export default async function ClipDetail({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(videoObject) }}
       />
-      <AdSlot slot="before_video" />
 
-      <div className="overflow-hidden rounded-xl bg-black">
-        <VideoPlayer clipId={clip.id} />
-      </div>
+      <div className="mx-auto max-w-5xl">
+        <AdSlot slot="before_video" />
 
-      <div className="mt-5 space-y-3">
-        <h1 className="text-xl font-extrabold leading-tight tracking-tight md:text-2xl">
-          {title}
-        </h1>
-        <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+        <div
+          className="overflow-hidden rounded-2xl shadow-2xl"
+          style={{ background: "#000" }}
+        >
+          <VideoPlayer clipId={clip.id} />
+        </div>
+
+        <div className="mt-6 text-center">
           {cat && (
-            <Link
-              href={`/category/${cat.slug}`}
-              className="rounded-md px-2.5 py-1 font-medium text-white/80 hover:text-white"
-              style={{ background: "var(--tenant-panel)" }}
-            >
-              {cat.name}
-            </Link>
+            <p className="mb-2 text-xs uppercase tracking-[0.3em] text-white/40">
+              <Link
+                href={`/category/${cat.slug}`}
+                className="hover:text-white/70"
+              >
+                {cat.name}
+              </Link>
+            </p>
           )}
+          <h1 className="text-2xl font-extrabold leading-tight tracking-tight md:text-3xl">
+            {title}
+          </h1>
           {clip.duration ? (
-            <span className="tabular-nums text-white/50">
-              {Math.floor(clip.duration / 60)}:
+            <p className="mt-2 text-xs tabular-nums text-white/40">
+              ระยะเวลา · {Math.floor(clip.duration / 60)}:
               {String(Math.floor(clip.duration % 60)).padStart(2, "0")}
-            </span>
+            </p>
           ) : null}
         </div>
+
         {clip.description && (
-          <p className="rounded-lg border border-white/5 p-3 text-sm leading-relaxed text-white/70">
+          <p className="mx-auto mt-6 max-w-3xl rounded-xl border border-white/5 bg-white/5 p-4 text-center text-sm leading-relaxed text-white/70">
             {clip.description}
           </p>
         )}
+
+        <AdSlot slot="after_video" />
+        <AdSlot slot="under_title" />
       </div>
 
-      <AdSlot slot="after_video" />
-      <AdSlot slot="under_title" />
-
-      <div className="mt-12">
-        <h2 className="mb-5 text-center text-sm font-semibold uppercase tracking-widest text-white/50">
-          คลิปที่เกี่ยวข้อง
-        </h2>
+      <div className="mt-14">
+        <div className="mb-6 flex items-baseline justify-center gap-3">
+          <h2 className="text-xl font-bold uppercase tracking-widest text-white/80">
+            คลิปที่เกี่ยวข้อง
+          </h2>
+        </div>
         <ClipFeed clips={related.filter((c) => c.id !== clip.id)} />
       </div>
     </TenantShell>

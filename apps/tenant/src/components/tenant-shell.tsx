@@ -21,9 +21,9 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
       <header
         className="sticky top-0 z-30 border-b"
         style={{
-          background: "rgba(13, 13, 15, 0.88)",
+          background: "rgba(11, 11, 13, 0.85)",
           borderColor: "var(--tenant-border)",
-          backdropFilter: "saturate(140%) blur(10px)",
+          backdropFilter: "saturate(160%) blur(12px)",
         }}
       >
         <div className="mx-auto flex h-20 max-w-[1400px] items-center gap-6 px-6">
@@ -34,8 +34,8 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
             <Menu size={22} />
           </button>
 
-          {/* Logo — centered on mobile */}
-          <Link href="/" className="flex items-center gap-2">
+          {/* Logo */}
+          <Link href="/" className="flex shrink-0 items-center gap-2">
             {logo ? (
               <img src={logo} alt={tenant.name} className="h-10" />
             ) : (
@@ -48,11 +48,14 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
             )}
           </Link>
 
-          {/* Search — centered flex-1 */}
+          {/* Search — takes remaining space, capped max-w */}
           <form
             action="/"
-            className="mx-auto hidden h-11 w-full max-w-xl items-center gap-2 rounded-full border px-5 md:flex"
-            style={{ background: "var(--tenant-panel)", borderColor: "var(--tenant-border)" }}
+            className="mx-auto hidden h-11 w-full max-w-xl items-center gap-3 rounded-full border px-5 md:flex"
+            style={{
+              background: "var(--tenant-panel)",
+              borderColor: "var(--tenant-border)",
+            }}
           >
             <Search size={18} className="text-white/40" />
             <input
@@ -63,23 +66,23 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
             />
           </form>
 
-          <div className="hidden shrink-0 items-center gap-2 md:flex">
-            {tenant.tagline && (
-              <span className="text-xs text-white/50">{tenant.tagline}</span>
-            )}
-          </div>
+          {/* Spacer to balance logo — keeps search visually centered */}
+          <div className="hidden w-[120px] shrink-0 md:block" />
         </div>
 
         {/* Category strip — centered */}
         {cats.length > 0 && (
-          <div className="border-t" style={{ borderColor: "var(--tenant-border)" }}>
+          <div
+            className="border-t"
+            style={{ borderColor: "var(--tenant-border)" }}
+          >
             <div className="mx-auto max-w-[1400px] px-6">
               <nav className="strip-scroll overflow-x-auto">
-                <ul className="flex items-center justify-center gap-1 whitespace-nowrap py-3">
+                <ul className="flex items-center justify-center gap-1.5 whitespace-nowrap py-3">
                   <li>
                     <Link
                       href="/"
-                      className="rounded-full px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+                      className="rounded-full px-4 py-2 text-sm font-semibold text-black shadow-sm transition hover:opacity-90"
                       style={{ background: "var(--tenant-primary)" }}
                     >
                       หน้าแรก
@@ -89,7 +92,7 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
                     <li key={c.id}>
                       <Link
                         href={`/category/${c.slug}`}
-                        className="rounded-full px-4 py-2 text-sm font-medium text-white/75 hover:bg-white/10 hover:text-white"
+                        className="rounded-full border border-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/20 hover:bg-white/5 hover:text-white"
                       >
                         {c.name}
                       </Link>
@@ -104,17 +107,14 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
 
       <AdSlot slot="header_bottom" />
 
-      {/* Main */}
+      {/* Main — single centered column, no sidebar so headers/grid land dead-center */}
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-8">
-        <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
-          <div className="min-w-0">{children}</div>
-          <aside className="hidden lg:block">
-            <div className="sticky top-[calc(5rem+3.5rem)] space-y-4">
-              <AdSlot slot="sidebar_top" />
-              <AdSlot slot="sidebar_mid" />
-              <AdSlot slot="sidebar_bot" />
-            </div>
-          </aside>
+        {children}
+        {/* Ad rail moved below main content so nothing pushes the grid off-center */}
+        <div className="mt-10 space-y-4">
+          <AdSlot slot="sidebar_top" />
+          <AdSlot slot="sidebar_mid" />
+          <AdSlot slot="sidebar_bot" />
         </div>
       </main>
 

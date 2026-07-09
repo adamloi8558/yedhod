@@ -13,7 +13,11 @@ export const dynamic = "force-dynamic";
 async function loadContext(slug: string) {
   const tenant = await getCurrentTenant();
   const [cat] = await db
-    .select({ id: categories.id, name: categories.name, description: categories.description })
+    .select({
+      id: categories.id,
+      name: categories.name,
+      description: categories.description,
+    })
     .from(categories)
     .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
     .limit(1);
@@ -62,11 +66,15 @@ export default async function CategoryPage({
 
   return (
     <TenantShell>
-      <div className="mb-8 text-center">
-        <p className="text-xs uppercase tracking-widest text-white/40">หมวดหมู่</p>
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight">{cat.name}</h1>
-        <p className="mt-2 text-sm text-white/40">{clips.length} คลิป</p>
-      </div>
+      <section className="mx-auto mb-10 max-w-3xl text-center">
+        <p className="text-xs uppercase tracking-[0.3em] text-white/40">
+          หมวดหมู่
+        </p>
+        <h1 className="mt-2 text-4xl font-extrabold tracking-tight md:text-5xl">
+          {cat.name}
+        </h1>
+        <p className="mt-3 text-sm text-white/50">{clips.length} คลิป</p>
+      </section>
       <ClipFeed clips={clips} />
     </TenantShell>
   );

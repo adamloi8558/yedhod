@@ -3,8 +3,8 @@
 :root {
   --tenant-primary: #ff5c00;
   --tenant-accent: #ff8a3d;
-  --tenant-bg: #0d0d0f;
-  --tenant-fg: #f2f2f4;
+  --tenant-bg: #0b0b0d;
+  --tenant-fg: #f4f4f6;
   --tenant-panel: #17171b;
   --tenant-panel-2: #1f1f24;
   --tenant-border: rgba(255, 255, 255, 0.08);
@@ -17,7 +17,10 @@
 
 html,
 body {
-  background: var(--tenant-bg);
+  background:
+    radial-gradient(1200px 600px at 50% -200px, color-mix(in oklab, var(--tenant-primary) 18%, transparent), transparent 70%),
+    var(--tenant-bg);
+  background-attachment: fixed;
   color: var(--tenant-fg);
   font-family:
     "Inter", "Noto Sans Thai", ui-sans-serif, system-ui, -apple-system,
@@ -32,18 +35,15 @@ a {
   text-decoration: none;
 }
 
-/* Selection */
 ::selection {
   background: var(--tenant-primary);
   color: #000;
 }
 
-/* Ad slots — never take space when empty */
 .ad-slot:empty {
   display: none;
 }
 
-/* Nicer scrollbar for the category strip */
 .strip-scroll::-webkit-scrollbar {
   height: 6px;
 }
@@ -55,18 +55,20 @@ a {
   border-radius: 3px;
 }
 
-/* Thumbnail hover ring */
 .thumb-card {
   transition:
-    transform 200ms ease,
-    box-shadow 200ms ease;
+    transform 220ms cubic-bezier(0.2, 0.7, 0.3, 1),
+    box-shadow 220ms ease;
 }
 .thumb-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  transform: translateY(-3px);
+}
+.thumb-card:hover .thumb-media {
+  box-shadow:
+    0 12px 40px -12px rgba(0, 0, 0, 0.7),
+    0 0 0 2px color-mix(in oklab, var(--tenant-primary) 60%, transparent);
 }
 
-/* Utility: line clamp 2 lines */
 .clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;

@@ -39,14 +39,21 @@ export async function ClipCard({
   });
 
   return (
-    <Link href={`/clip/${clip.id}`} className="thumb-card group block" title={title}>
-      <div className="relative aspect-video overflow-hidden rounded-xl bg-white/5">
+    <Link
+      href={`/clip/${clip.id}`}
+      className="thumb-card group block"
+      title={title}
+    >
+      <div
+        className="thumb-media relative aspect-video overflow-hidden rounded-xl"
+        style={{ background: "var(--tenant-panel)" }}
+      >
         {thumb ? (
           <img
             src={thumb}
             alt={title}
             loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.08]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-white/30">
@@ -54,16 +61,26 @@ export async function ClipCard({
           </div>
         )}
 
-        {/* Bottom gradient for badges */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/85 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/0" />
+
+        {/* Play overlay on hover */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <span
+            className="flex h-14 w-14 items-center justify-center rounded-full shadow-lg backdrop-blur-sm"
+            style={{ background: "color-mix(in oklab, var(--tenant-primary) 90%, black)" }}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </span>
+        </div>
 
         {clip.duration ? (
-          <span className="absolute bottom-2 right-2 rounded-md bg-black/85 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+          <span className="absolute bottom-2 right-2 rounded-md bg-black/90 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white shadow-sm">
             {fmtDur(clip.duration)}
           </span>
         ) : null}
 
-        {/* HD badge */}
         <span
           className="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-black shadow-sm"
           style={{ background: "var(--tenant-primary)" }}
@@ -72,12 +89,14 @@ export async function ClipCard({
         </span>
       </div>
 
-      <div className="mt-2.5 space-y-1 px-0.5">
+      <div className="mt-2.5 space-y-0.5">
         <h3 className="clamp-2 text-[13px] font-semibold leading-snug text-white/90 transition-colors group-hover:text-white">
           {title}
         </h3>
         {clip.categoryName && (
-          <p className="truncate text-xs text-white/45">{clip.categoryName}</p>
+          <p className="truncate text-[11px] text-white/45">
+            {clip.categoryName}
+          </p>
         )}
       </div>
     </Link>
