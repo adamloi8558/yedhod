@@ -33,18 +33,28 @@ export function prettyTitle(input: {
 function cleanRaw(raw: string, categoryName: string): string {
   let s = (raw || "").trim();
   if (!s) return "";
+  // strip file extension
+  s = s.replace(/\.(mp4|m4v|mkv|mov|webm|avi|flv|wmv|ts|m3u8)$/i, "");
+  // strip pure-digit filenames (telegram etc): >= 8 digits with optional dashes
+  if (/^\d{8,}(?:[-_]\d+)*$/.test(s.trim())) return "";
   // strip timestamp patterns like _2026_06_07_04_45_30 or -2026-06-07
   s = s.replace(/[-_](19|20)\d{2}[-_](0?\d|1[0-2])[-_].*$/g, "");
   // strip trailing hash-like ids: 1710, 32chars hex etc.
   s = s.replace(/[-_][a-f0-9]{8,}$/i, "");
+  // strip long numeric run at start/end (>=8 digits)
+  s = s.replace(/^\d{8,}[-_ ]?/, "").replace(/[-_ ]?\d{8,}$/, "");
   // strip repeating category prefix if scraper embedded it (e.g. AngelLeeen_...)
   const catAlpha = categoryName.replace(/\s+/g, "").toLowerCase();
   if (catAlpha.length > 3 && s.replace(/\s+/g, "").toLowerCase().startsWith(catAlpha)) {
     s = s.slice(catAlpha.length).replace(/^[_\- ]+/, "");
   }
   // replace underscores with spaces
-  s = s.replace(/_/g, " ").trim();
-  if (!s) return categoryName;
+  s = s.replace(/[_]+/g, " ").trim();
+  // collapse whitespace
+  s = s.replace(/\s{2,}/g, " ");
+  if (!s) return "";
+  // If result is only digits or noise, drop
+  if (/^[\d\s.-]+$/.test(s)) return "";
   // Title-case first word
   s = s.charAt(0).toUpperCase() + s.slice(1);
   return s.length > 80 ? s.slice(0, 77) + "…" : s;
