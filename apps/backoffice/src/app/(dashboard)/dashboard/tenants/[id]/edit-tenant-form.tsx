@@ -350,17 +350,63 @@ function CategoriesTab({
     onSaved();
   }
 
+  function selectAll() {
+    setItems(memberCategories.map((c, i) => ({ categoryId: c.id, sortOrder: i })));
+  }
+  function clearAll() {
+    setItems([]);
+  }
+  function invert() {
+    const chosen = new Set(items.map((i) => i.categoryId));
+    const next = memberCategories
+      .filter((c) => !chosen.has(c.id))
+      .map((c, i) => ({ categoryId: c.id, sortOrder: i }));
+    setItems(next);
+  }
+
+  const [filter, setFilter] = useState("");
+  const visible = filter
+    ? memberCategories.filter((c) =>
+        (c.name + " " + c.slug).toLowerCase().includes(filter.toLowerCase())
+      )
+    : memberCategories;
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">เลือกได้เฉพาะหมวดหมู่ระดับ member (คลิปฟรี)</p>
+      <p className="text-sm text-muted-foreground">
+        เลือกได้เฉพาะหมวดหมู่ระดับ member (คลิปฟรี) — เลือกลูกที่ไหน parent ของลูกนั้นจะโชว์บนเว็บ
+      </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder="ค้นหาหมวด..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="max-w-xs"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={selectAll}>
+          เลือกทั้งหมด ({memberCategories.length})
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={clearAll}>
+          ล้าง
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={invert}>
+          กลับด้าน
+        </Button>
+        <span className="ml-auto text-xs text-muted-foreground">
+          เลือกอยู่: {items.length} / {memberCategories.length}
+        </span>
+      </div>
+
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-        {memberCategories.map((c) => (
+        {visible.map((c) => (
           <label key={c.id} className="flex items-center gap-2 rounded border p-2 text-sm">
             <input type="checkbox" checked={chosenSet.has(c.id)} onChange={() => toggle(c.id)} />
             {c.name}
           </label>
         ))}
       </div>
+
       {msg && <p className="text-sm text-green-500">{msg}</p>}
       <Button onClick={save} disabled={busy}>{busy ? "กำลังบันทึก..." : "บันทึก"}</Button>
     </div>

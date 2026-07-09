@@ -60,9 +60,6 @@ export async function ClipCard({
         </span>
       </div>
 
-      <h3 className="clamp-2 mt-2 text-sm font-medium leading-snug text-white/90 group-hover:text-white">
-        {clip.title}
-      </h3>
     </Link>
   );
 }

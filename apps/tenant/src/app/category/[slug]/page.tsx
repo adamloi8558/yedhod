@@ -17,16 +17,12 @@ export default async function CategoryPage({
   const { slug } = await params;
   const tenant = await getCurrentTenant();
 
+  // Parents in the tenant nav may not be accessLevel='member' (they're org
+  // buckets). Allow both, and let the clip query enforce member on the leaves.
   const [cat] = await db
     .select({ id: categories.id, name: categories.name })
     .from(categories)
-    .where(
-      and(
-        eq(categories.slug, slug),
-        eq(categories.isActive, true),
-        eq(categories.accessLevel, "member")
-      )
-    )
+    .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
     .limit(1);
   if (!cat) notFound();
 
