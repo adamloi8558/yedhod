@@ -218,6 +218,53 @@ function GeneralTab({ tenant, onSaved }: { tenant: Tenant; onSaved: () => void }
         <Button onClick={save} disabled={busy}>{busy ? "กำลังบันทึก..." : "บันทึก"}</Button>
         <Button variant="destructive" onClick={del}>ลบเว็บนี้</Button>
       </div>
+
+      <SyncCoolifyBox tenantId={tenant.id} domain={form.primaryDomain} />
+    </div>
+  );
+}
+
+function SyncCoolifyBox({ tenantId, domain }: { tenantId: string; domain: string }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function sync() {
+    setBusy(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/tenants/${tenantId}/sync-coolify`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error ?? "sync failed");
+      } else if (json.alreadyPresent) {
+        setMsg(`โดเมน ${domain} แนบกับ Coolify อยู่แล้ว — ไม่ต้อง redeploy`);
+      } else if (json.attached) {
+        setMsg(
+          `แนบ ${domain} เข้า Coolify แล้ว + trigger redeploy (deployment ${json.deploymentUuid?.slice(0, 8) ?? "?"})`
+        );
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "sync failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-8 rounded border border-dashed border-primary/40 p-4">
+      <h3 className="mb-2 font-medium">Sync to Coolify</h3>
+      <p className="mb-3 text-sm text-muted-foreground">
+        แนบโดเมนเข้า container Yedhod-Tenant ใน Coolify + สั่ง redeploy (ออก SSL cert อัตโนมัติ).<br />
+        ก่อนกด ต้องตั้ง DNS A record ของ <code className="font-mono">{domain}</code> ชี้ IP{" "}
+        <code className="font-mono">168.144.46.120</code> และปิด Cloudflare proxy (grey cloud) ให้เรียบร้อยก่อน.
+      </p>
+      {err && <p className="mb-2 text-sm text-red-500">{err}</p>}
+      {msg && <p className="mb-2 text-sm text-green-500">{msg}</p>}
+      <Button onClick={sync} disabled={busy} variant="secondary">
+        {busy ? "กำลัง sync..." : "🔗 Sync to Coolify"}
+      </Button>
     </div>
   );
 }
