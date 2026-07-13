@@ -41,23 +41,42 @@ type Ad = {
   isActive: boolean;
 };
 
-const AD_SLOT_OPTIONS = [
-  "header_top",
-  "header_bottom",
-  "sidebar_top",
-  "sidebar_mid",
-  "sidebar_bot",
-  "in_feed_1",
-  "in_feed_2",
-  "in_feed_3",
-  "before_video",
-  "after_video",
-  "under_title",
-  "popunder",
-  "footer_top",
-  "footer_bottom",
-  "sticky_bottom",
+// Ad slots — each object explains where the slot renders on the tenant
+// site so admins don't have to open the site to guess. Keep this list in
+// sync with the <AdSlot slot=…/> usages in apps/tenant.
+type AdSlotDef = {
+  key: string;
+  label: string;
+  group: "หัวเว็บ" | "กลางเว็บ" | "หน้าคลิป" | "แถบข้าง" | "ท้ายเว็บ" | "พิเศษ";
+  where: string;
+};
+
+const AD_SLOT_DEFS: AdSlotDef[] = [
+  // Header
+  { key: "header_top",     label: "บนสุดของหน้า (เหนือ header)",  group: "หัวเว็บ",   where: "แถบบางๆ ก่อนโลโก้ — เห็นทันทีที่โหลดหน้า ทุกหน้า" },
+  { key: "header_bottom",  label: "ใต้ header (เหนือเนื้อหา)",     group: "หัวเว็บ",   where: "อยู่ระหว่าง navigation กับ content หลัก ทุกหน้า" },
+  // Sidebar (จริงๆ อยู่ใต้เนื้อหาหลักท้ายๆ ของ main col ไม่ได้อยู่ข้าง)
+  { key: "sidebar_top",    label: "แถบข้าง — บน",                  group: "แถบข้าง",  where: "ใต้เนื้อหาหน้าหลัก (main column) — ตำแหน่งแรก" },
+  { key: "sidebar_mid",    label: "แถบข้าง — กลาง",                group: "แถบข้าง",  where: "ใต้ sidebar_top" },
+  { key: "sidebar_bot",    label: "แถบข้าง — ล่าง",                group: "แถบข้าง",  where: "ใต้ sidebar_mid" },
+  // In-feed (feed grid rotates 1→2→3)
+  { key: "in_feed_1",      label: "แทรกในฟีด — ช่วงที่ 1",         group: "กลางเว็บ", where: "แทรกกลาง grid คลิป ทุก 60 clips (ช่วงที่ 1)" },
+  { key: "in_feed_2",      label: "แทรกในฟีด — ช่วงที่ 2",         group: "กลางเว็บ", where: "แทรกกลาง grid คลิป ทุก 60 clips (ช่วงที่ 2)" },
+  { key: "in_feed_3",      label: "แทรกในฟีด — ช่วงที่ 3",         group: "กลางเว็บ", where: "แทรกกลาง grid คลิป ทุก 60 clips (ช่วงที่ 3)" },
+  // Clip page only
+  { key: "before_video",   label: "เหนือ video player",            group: "หน้าคลิป", where: "เฉพาะหน้าดูคลิป — เหนือกรอบ video" },
+  { key: "after_video",    label: "ใต้ video player",              group: "หน้าคลิป", where: "เฉพาะหน้าดูคลิป — ใต้ video, เหนือ title" },
+  { key: "under_title",    label: "ใต้ title/คำอธิบายคลิป",        group: "หน้าคลิป", where: "เฉพาะหน้าดูคลิป — ใต้ชื่อคลิป เหนือส่วน 'คลิปที่เกี่ยวข้อง'" },
+  // Footer
+  { key: "footer_top",     label: "เหนือ footer",                  group: "ท้ายเว็บ", where: "อยู่ก่อนแถบ copyright ทุกหน้า" },
+  { key: "footer_bottom",  label: "ใต้ footer",                    group: "ท้ายเว็บ", where: "อยู่ใต้แถบ copyright ทุกหน้า" },
+  // Special
+  { key: "popunder",       label: "Pop-under (เด้งเบื้องหลัง)",    group: "พิเศษ",    where: "เปิด window ใหม่เมื่อ user คลิก — ทุกหน้า (Galaksion popunder etc.)" },
+  { key: "sticky_bottom",  label: "แถบล่าง sticky (มือถือ)",       group: "พิเศษ",    where: "แถบตรึงล่างจอ เห็นเฉพาะมือถือ (md-)" },
 ];
+
+const AD_SLOT_OPTIONS = AD_SLOT_DEFS.map((s) => s.key);
+const AD_SLOT_BY_KEY = new Map(AD_SLOT_DEFS.map((s) => [s.key, s]));
 
 export default function EditTenantForm({
   tenant,
@@ -498,42 +517,63 @@ function AdsTab({
   return (
     <div className="space-y-6">
       <div className="rounded border p-4">
-        <h3 className="mb-3 font-medium">โฆษณาทั้งหมด (จัดกลุ่มตาม Slot)</h3>
-        {AD_SLOT_OPTIONS.map((slot) => (
-          <div key={slot} className="mb-4">
-            <h4 className="mb-1 font-mono text-xs text-muted-foreground">{slot}</h4>
-            <table className="w-full text-sm">
-              <tbody>
-                {(grouped[slot] ?? []).map((a) => (
-                  <tr key={a.id} className="border-t">
-                    <td className="py-2 w-20 text-xs">{a.type}</td>
-                    <td className="py-2 text-xs text-muted-foreground">{preview(a)}</td>
-                    <td className="py-2 w-24 text-right">
-                      <label className="mr-2 inline-flex items-center gap-1 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={a.isActive}
-                          onChange={(e) => toggle(a.id, e.target.checked)}
-                        />
-                        on
-                      </label>
-                    </td>
-                    <td className="py-2 w-16 text-right">
-                      <Button variant="outline" size="sm" onClick={() => del(a.id)}>
-                        ลบ
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-                {(grouped[slot] ?? []).length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="py-1 text-xs text-muted-foreground">
-                      —
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        <h3 className="mb-1 font-medium">โฆษณาทั้งหมด (จัดกลุ่มตาม Slot)</h3>
+        <p className="mb-4 text-xs text-muted-foreground">
+          คำอธิบายบอกว่าสล็อตนั้นจะแสดงตรงไหนบนเว็บลูกค้า — อ่านก่อนเลือกจะได้ไม่ต้องเปิดเว็บดู
+        </p>
+        {(["หัวเว็บ", "กลางเว็บ", "หน้าคลิป", "แถบข้าง", "ท้ายเว็บ", "พิเศษ"] as const).map((group) => (
+          <div key={group} className="mb-6">
+            <h4 className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/70">
+              {group}
+            </h4>
+            {AD_SLOT_DEFS.filter((s) => s.group === group).map((def) => {
+              const list = grouped[def.key] ?? [];
+              return (
+                <div key={def.key} className="mb-3 rounded border border-border/60 bg-muted/20 p-3">
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold">{def.label}</div>
+                      <div className="text-xs text-muted-foreground">{def.where}</div>
+                    </div>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">
+                      {def.key}
+                    </span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {list.map((a) => (
+                        <tr key={a.id} className="border-t">
+                          <td className="py-2 w-20 text-xs">{a.type}</td>
+                          <td className="py-2 text-xs text-muted-foreground">{preview(a)}</td>
+                          <td className="py-2 w-24 text-right">
+                            <label className="mr-2 inline-flex items-center gap-1 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={a.isActive}
+                                onChange={(e) => toggle(a.id, e.target.checked)}
+                              />
+                              on
+                            </label>
+                          </td>
+                          <td className="py-2 w-16 text-right">
+                            <Button variant="outline" size="sm" onClick={() => del(a.id)}>
+                              ลบ
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                      {list.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-1 text-xs text-muted-foreground">
+                            — ยังไม่มีโฆษณา
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
@@ -542,16 +582,30 @@ function AdsTab({
         <h3 className="mb-3 font-medium">เพิ่มโฆษณาใหม่</h3>
         <div className="space-y-3">
           <div>
-            <Label>Slot</Label>
+            <Label>Slot (ตำแหน่งบนเว็บ)</Label>
             <select
               className="w-full rounded border bg-background p-2"
               value={form.slot}
               onChange={(e) => setForm({ ...form, slot: e.target.value })}
             >
-              {AD_SLOT_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
+              {(["หัวเว็บ", "กลางเว็บ", "หน้าคลิป", "แถบข้าง", "ท้ายเว็บ", "พิเศษ"] as const).map((group) => (
+                <optgroup key={group} label={group}>
+                  {AD_SLOT_DEFS.filter((d) => d.group === group).map((d) => (
+                    <option key={d.key} value={d.key}>
+                      {d.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
+            {(() => {
+              const def = AD_SLOT_BY_KEY.get(form.slot);
+              return def ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {def.where}
+                </p>
+              ) : null;
+            })()}
           </div>
           <div>
             <Label>Type</Label>
