@@ -158,6 +158,18 @@ export const tenantCreateSchema = z.object({
     .default("#e6e9f2"),
   metaTitle: z.string().nullable().optional(),
   metaDescription: z.string().nullable().optional(),
+  // GA4 measurement id. Empty string coerces to null so the form can
+  // clear the value without a special "unset" path.
+  googleAnalyticsId: z
+    .string()
+    .transform((v) => v.trim())
+    .transform((v) => (v === "" ? null : v))
+    .nullable()
+    .refine(
+      (v) => v === null || /^G-[A-Z0-9]{6,}$/.test(v),
+      "GA4 ID ต้องขึ้นต้นด้วย G- และเป็นตัวอักษรภาษาอังกฤษพิมพ์ใหญ่/ตัวเลข"
+    )
+    .optional(),
   isActive: z.boolean().default(true),
 });
 

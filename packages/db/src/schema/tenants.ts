@@ -20,6 +20,11 @@ export const tenants = pgTable(
     metaTitle: text("meta_title"),
     metaDescription: text("meta_description"),
 
+    // Google Analytics 4 measurement id (e.g. "G-XXXXXXXXXX"). When set,
+    // the tenant layout injects gtag.js so pageviews land in this tenant's
+    // own GA property — each cloned site has its own analytics.
+    googleAnalyticsId: text("google_analytics_id"),
+
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

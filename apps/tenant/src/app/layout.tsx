@@ -1,5 +1,6 @@
 import "@/styles/globals.css";
 import type { Viewport } from "next";
+import Script from "next/script";
 import { getCurrentTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
@@ -47,9 +48,16 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   let themeCss = "";
+  let gaId: string | null = null;
   try {
     const t = await getCurrentTenant();
     themeCss = `:root{--tenant-primary:${t.primaryColor};--tenant-accent:${t.accentColor};--tenant-bg:${t.backgroundColor};--tenant-fg:${t.fgColor};}`;
+    // Only inject if it looks like a valid GA4 measurement id — the
+    // validator on the backoffice side enforces the same shape, but we
+    // re-check here so a hand-edited DB row can't inject arbitrary text.
+    if (t.googleAnalyticsId && /^G-[A-Z0-9]{6,}$/.test(t.googleAnalyticsId)) {
+      gaId = t.googleAnalyticsId;
+    }
   } catch {
     // ignored — notFound is handled by Next.js
   }
@@ -69,7 +77,20 @@ export default async function RootLayout({
         />
         {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {gaId && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${gaId}');`}
+            </Script>
+          </>
+        )}
+      </body>
     </html>
   );
 }

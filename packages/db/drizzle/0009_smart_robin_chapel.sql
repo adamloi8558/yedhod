@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "google_analytics_id" text;

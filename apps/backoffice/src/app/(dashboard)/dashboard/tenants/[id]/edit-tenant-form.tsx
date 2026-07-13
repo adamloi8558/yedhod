@@ -19,6 +19,7 @@ type Tenant = {
   fgColor: string;
   metaTitle: string | null;
   metaDescription: string | null;
+  googleAnalyticsId: string | null;
   isActive: boolean;
   logoR2Key: string | null;
   faviconR2Key: string | null;
@@ -188,6 +189,17 @@ function GeneralTab({ tenant, onSaved }: { tenant: Tenant; onSaved: () => void }
           value={form.metaDescription ?? ""}
           onChange={(e) => setForm({ ...form, metaDescription: e.target.value })}
         />
+      </div>
+      <div>
+        <Label>Google Analytics 4 ID</Label>
+        <Input
+          placeholder="G-XXXXXXXXXX"
+          value={form.googleAnalyticsId ?? ""}
+          onChange={(e) => setForm({ ...form, googleAnalyticsId: e.target.value })}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          ใส่ Measurement ID จาก GA4 (ขึ้นต้นด้วย G-) เว้นว่างเพื่อปิด analytics
+        </p>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
