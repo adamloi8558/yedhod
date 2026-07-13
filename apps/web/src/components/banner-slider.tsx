@@ -33,12 +33,12 @@ export function BannerSlider({ banners }: { banners: Banner[] }) {
   if (banners.length === 0) return null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-6">
+    <div className="mx-auto max-w-7xl px-4 pt-4 md:px-6 md:pt-6 lg:px-8">
       <div
         role="region"
         aria-roledescription="carousel"
         aria-label="แบนเนอร์โปรโมชัน"
-        className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/30 shadow-lg"
+        className="relative overflow-hidden rounded-2xl ring-1 ring-white/5 bg-card/40 glow-soft"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onFocus={() => setPaused(true)}

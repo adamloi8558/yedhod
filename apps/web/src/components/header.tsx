@@ -61,10 +61,10 @@ export function Header({ session }: HeaderProps) {
 
   return (
     <header
-      className="sticky top-0 z-30 border-b border-border/50 glass-strong"
+      className="sticky top-0 z-30 border-b border-white/5 glass-strong"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
-      <div className="flex h-14 items-center gap-2 px-3 sm:gap-3 sm:px-4">
+      <div className="flex h-16 items-center gap-2 px-3 sm:gap-3 sm:px-4 md:px-6">
         {!isAuthPage && (
           <Button
             variant="ghost"
@@ -77,15 +77,15 @@ export function Header({ session }: HeaderProps) {
           </Button>
         )}
 
-        <Link href="/" className="flex-shrink-0">
-          <img src="/logo.png" alt="เย็ดโหด.com" className="h-8 w-auto sm:h-9" />
+        <Link href="/" className="flex-shrink-0 group inline-flex items-center gap-2">
+          <img src="/logo.png" alt="เย็ดโหด.com" className="h-8 w-auto sm:h-9 transition-smooth group-hover:scale-105" />
         </Link>
 
         <form onSubmit={handleSearch} className="relative ml-2 hidden flex-1 max-w-md md:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60" />
           <Input
-            placeholder="ค้นหาคลิป..."
-            className="pl-9 bg-accent/50 border-border/50 focus:bg-accent focus:border-primary/40 focus:ring-primary/20 transition-smooth rounded-xl"
+            placeholder="ค้นหาคลิป, หมวด…"
+            className="pl-10 h-10 bg-white/[0.04] border-white/[0.06] focus:bg-white/[0.06] focus:border-primary/40 focus:ring-primary/20 transition-smooth rounded-full text-sm placeholder:text-muted-foreground/50"
             value={searchQuery}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
           />

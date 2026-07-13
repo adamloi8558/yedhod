@@ -103,8 +103,6 @@ export default async function ClipPage({
 
   const displayTitle = clipDisplayTitle(clip, category);
 
-  // Stats — view count + like count from clip_stats, plus whether this
-  // user has already hearted the clip (only when logged in).
   const [stats] = await db
     .select({
       viewCount: clipStats.viewCount,
@@ -140,7 +138,7 @@ export default async function ClipPage({
   });
 
   return (
-    <div className="mx-auto max-w-5xl p-4 md:p-6 animate-fade-in">
+    <div className="mx-auto max-w-7xl p-4 md:p-6 lg:p-8 animate-fade-in">
       <VideoObjectJsonLd clip={clip} category={category} />
 
       <Breadcrumb
@@ -151,129 +149,227 @@ export default async function ClipPage({
         ]}
       />
 
-      {/* Player */}
-      <div className="-mx-4 md:mx-0 md:rounded-2xl overflow-hidden md:ring-1 md:ring-border/40 md:shadow-[0_8px_40px_-8px] md:shadow-black/50 bg-black">
-        <ClipPlayer
-          clipId={clip.id}
-          hasAccess={hasAccess}
-          isVip={isVip}
-          isLoggedIn={!!session?.user}
-        />
-      </div>
-
-      {/* Meta chips */}
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        {isVip && (
-          <Badge variant="vip" className="gap-1 flex-shrink-0 animate-pulse-glow">
-            <Crown className="h-3 w-3" />
-            VIP
-          </Badge>
-        )}
-        <Link
-          href={`/category/${category.slug}`}
-          className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 border border-border/30 px-3 py-1 text-xs font-medium transition-smooth hover:bg-muted"
-        >
-          <Tag className="h-3 w-3" />
-          {category.name}
-        </Link>
-        {clip.duration && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/30 border border-border/30 px-3 py-1 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {formatDuration(clip.duration)}
-          </span>
-        )}
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/30 border border-border/30 px-3 py-1 text-xs text-muted-foreground">
-          <Calendar className="h-3 w-3" />
-          {formatThaiDate(new Date(clip.createdAt))}
-        </span>
-        {viewCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/30 border border-border/30 px-3 py-1 text-xs text-muted-foreground tabular-nums">
-            <Eye className="h-3 w-3" />
-            {viewCount.toLocaleString("th-TH")} ครั้ง
-          </span>
-        )}
-      </div>
-
-      {/* H1 — generated title */}
-      <h1 className="mt-4 mb-5 text-2xl md:text-3xl font-bold tracking-tight leading-tight text-balance">
-        {displayTitle}
-      </h1>
-
-      {/* Like + Share row + VIP upgrade CTA */}
-      <div className="mb-4">
-        <LikeButton
-          clipId={clip.id}
-          initialLiked={userLiked}
-          initialCount={likeCount}
-          isLoggedIn={!!session?.user}
-        />
-      </div>
-      <div className="grid md:grid-cols-[1fr_auto] gap-4 items-start">
-        <ShareRow
-          url={absoluteUrl(`/clip/${clip.id}`)}
-          title={displayTitle}
-        />
-        {!hasAccess && isVip && (
-          <Link
-            href={`/pricing?redirect=${encodeURIComponent(`/clip/${clip.id}`)}`}
-            className="inline-flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-3 pr-4 transition-smooth hover:bg-primary/10"
-          >
-            <Crown className="h-5 w-5 text-amber-400 flex-shrink-0" />
-            <div className="min-w-0">
-              <div className="text-sm font-semibold">ดูแบบเต็มด้วย VIP</div>
-              <div className="text-xs text-muted-foreground">สมัครสมาชิกเพื่อรับชม</div>
-            </div>
-          </Link>
-        )}
-      </div>
-
-      {/* Description */}
-      {clip.description && (
-        <section aria-labelledby="clip-about-heading" className="mt-10">
-          <h2 id="clip-about-heading" className="text-lg md:text-xl font-semibold tracking-tight mb-3">
-            เกี่ยวกับคลิปนี้
-          </h2>
-          <article className="max-w-3xl text-sm md:text-base text-foreground/90 leading-relaxed whitespace-pre-wrap">
-            {clip.description}
-          </article>
-        </section>
-      )}
-
-      {/* Divider */}
-      <div className="my-10 md:my-14 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-      {/* Related clips */}
-      {relatedWithAccess.length > 0 && (
-        <section aria-labelledby="related-heading">
-          <div className="mb-5 flex items-end justify-between">
-            <div>
-              <h2 id="related-heading" className="text-lg md:text-xl font-semibold tracking-tight">
-                คลิปที่เกี่ยวข้อง
-              </h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                ในหมวด {category.name}
-              </p>
-            </div>
-            <Link
-              href={`/category/${category.slug}`}
-              className="text-xs font-medium text-primary hover:underline"
-            >
-              ดูทั้งหมด →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-            {relatedWithAccess.map(({ clip: c, hasAccess: ha }: typeof relatedWithAccess[number]) => (
-              <ClipCard
-                key={c.id}
-                clip={c}
-                categoryName={c.categoryName}
-                hasAccess={ha}
+      {/* -------- 2-column layout on lg+ (video left, related right) -------- */}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+        <div className="min-w-0">
+          {/* Player — cinematic frame with soft outer glow */}
+          <div className="relative">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-4 md:-inset-6 rounded-3xl bg-gradient-to-br from-primary/20 via-transparent to-vip/10 blur-2xl opacity-70"
+            />
+            <div className="relative -mx-4 md:mx-0 md:rounded-3xl overflow-hidden md:ring-1 md:ring-white/10 md:shadow-[0_25px_60px_-15px_oklch(0_0_0/0.8)] bg-black">
+              <ClipPlayer
+                clipId={clip.id}
+                hasAccess={hasAccess}
+                isVip={isVip}
                 isLoggedIn={!!session?.user}
               />
-            ))}
+            </div>
           </div>
-        </section>
-      )}
+
+          {/* Chips */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {isVip && (
+              <Badge variant="vip" className="gap-1 flex-shrink-0 animate-pulse-glow">
+                <Crown className="h-3 w-3" />
+                VIP
+              </Badge>
+            )}
+            <Link
+              href={`/category/${category.slug}`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] px-3 py-1 text-xs font-medium transition-smooth hover:bg-white/[0.08]"
+            >
+              <Tag className="h-3 w-3" />
+              {category.name}
+            </Link>
+            {clip.duration && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] border border-white/[0.05] px-3 py-1 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                {formatDuration(clip.duration)}
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] border border-white/[0.05] px-3 py-1 text-xs text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              {formatThaiDate(new Date(clip.createdAt))}
+            </span>
+            {viewCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.03] border border-white/[0.05] px-3 py-1 text-xs text-muted-foreground tabular-nums">
+                <Eye className="h-3 w-3" />
+                {viewCount.toLocaleString("th-TH")} ครั้ง
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          <h1 className="font-display mt-5 mb-6 text-3xl md:text-4xl font-black tracking-tight leading-[1.15] text-balance">
+            {displayTitle}
+          </h1>
+
+          {/* Actions row */}
+          <div className="mb-6">
+            <LikeButton
+              clipId={clip.id}
+              initialLiked={userLiked}
+              initialCount={likeCount}
+              isLoggedIn={!!session?.user}
+            />
+          </div>
+          <div className="grid md:grid-cols-[1fr_auto] gap-4 items-start">
+            <ShareRow url={absoluteUrl(`/clip/${clip.id}`)} title={displayTitle} />
+            {!hasAccess && isVip && (
+              <Link
+                href={`/pricing?redirect=${encodeURIComponent(`/clip/${clip.id}`)}`}
+                className="inline-flex items-center gap-3 rounded-xl border border-vip/40 bg-vip/5 p-3 pr-4 transition-smooth hover:bg-vip/10 glow-vip"
+              >
+                <Crown className="h-5 w-5 text-vip flex-shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-bold">ดูเต็มด้วย VIP</div>
+                  <div className="text-xs text-muted-foreground">สมัครสมาชิกเพื่อรับชม</div>
+                </div>
+              </Link>
+            )}
+          </div>
+
+          {/* Description */}
+          {clip.description && (
+            <section aria-labelledby="clip-about-heading" className="mt-10 md:mt-14">
+              <h2
+                id="clip-about-heading"
+                className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80 mb-3"
+              >
+                เกี่ยวกับคลิปนี้
+              </h2>
+              <article className="max-w-3xl text-sm md:text-base text-foreground/85 leading-relaxed whitespace-pre-wrap">
+                {clip.description}
+              </article>
+            </section>
+          )}
+        </div>
+
+        {/* -------- Related — right column on lg+, below player on mobile -------- */}
+        {relatedWithAccess.length > 0 && (
+          <aside aria-labelledby="related-heading" className="min-w-0">
+            <div className="flex items-baseline justify-between mb-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                  ต่อไป & แนะนำ
+                </p>
+                <h2 id="related-heading" className="font-display text-xl md:text-2xl font-black mt-0.5">
+                  คลิปที่เกี่ยวข้อง
+                </h2>
+              </div>
+              <Link
+                href={`/category/${category.slug}`}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                ดูทั้งหมด →
+              </Link>
+            </div>
+
+            {/* On lg+ this is a vertical stack of "list-tile" cards.
+                On mobile / md the ClipCard grid gives 2-3 per row. */}
+            <div className="lg:hidden grid grid-cols-2 md:grid-cols-3 gap-4">
+              {relatedWithAccess.map(({ clip: c, hasAccess: ha }) => (
+                <ClipCard
+                  key={c.id}
+                  clip={c}
+                  categoryName={c.categoryName}
+                  hasAccess={ha}
+                  isLoggedIn={!!session?.user}
+                />
+              ))}
+            </div>
+            <div className="hidden lg:flex flex-col gap-3">
+              {relatedWithAccess.map(({ clip: c, hasAccess: ha }) => (
+                <RelatedListTile
+                  key={c.id}
+                  clip={c}
+                  hasAccess={ha}
+                  isLoggedIn={!!session?.user}
+                />
+              ))}
+            </div>
+          </aside>
+        )}
+      </div>
     </div>
+  );
+}
+
+// Compact horizontal tile used in the right rail on the player page.
+function RelatedListTile({
+  clip,
+  hasAccess,
+  isLoggedIn,
+}: {
+  clip: {
+    id: string;
+    title: string;
+    description?: string | null;
+    thumbnailR2Key?: string | null;
+    duration?: number | null;
+    accessLevel: "member" | "vip";
+    categoryName?: string;
+    createdAt: Date;
+    viewCount?: number | null;
+  };
+  hasAccess: boolean;
+  isLoggedIn: boolean;
+}) {
+  const targetHref = hasAccess
+    ? `/clip/${clip.id}`
+    : !isLoggedIn
+      ? `/login?redirect=${encodeURIComponent(`/clip/${clip.id}`)}`
+      : "/pricing";
+
+  const displayTitle = clipDisplayTitle(clip, { name: clip.categoryName ?? "" });
+  const durationText = clip.duration ? formatDuration(clip.duration) : null;
+  const resolvedThumb = clip.thumbnailR2Key
+    ? `/api/thumbnail/${clip.id}`
+    : undefined;
+
+  return (
+    <Link
+      href={targetHref}
+      className="group relative flex gap-3 rounded-xl p-2 transition-smooth hover:bg-white/[0.04]"
+    >
+      <div className="relative flex-shrink-0 w-40 aspect-video rounded-lg overflow-hidden ring-1 ring-white/5 group-hover:ring-primary/40 transition-smooth bg-card">
+        {resolvedThumb ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={resolvedThumb}
+            alt=""
+            className="h-full w-full object-cover transition-smooth-lg group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="h-full w-full gradient-primary" />
+        )}
+        {durationText && (
+          <span className="absolute bottom-1 right-1 rounded-md bg-black/70 px-1 py-0.5 text-[10px] font-semibold text-white">
+            {durationText}
+          </span>
+        )}
+        {clip.accessLevel === "vip" && (
+          <span className="absolute top-1 left-1 inline-flex items-center rounded-full gradient-vip px-1.5 py-0.5 text-[9px] font-bold text-black/80">
+            VIP
+          </span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1 py-1">
+        <h4 className="line-clamp-2 text-sm font-semibold leading-tight group-hover:text-primary transition-smooth">
+          {displayTitle}
+        </h4>
+        <p className="mt-1 text-[11px] text-muted-foreground truncate">
+          {clip.categoryName}
+        </p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground/70">
+          {clip.viewCount != null && clip.viewCount > 0
+            ? `${clip.viewCount.toLocaleString("th-TH")} ครั้ง`
+            : formatThaiDate(new Date(clip.createdAt))}
+        </p>
+      </div>
+    </Link>
   );
 }

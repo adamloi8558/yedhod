@@ -2,66 +2,94 @@
 
 @source "../../../../packages/ui/src/**/*.{ts,tsx}";
 
+/* --------------------------------------------------------------------------
+   Synctoon-style palette — dark cinematic base with warm gradient accents
+   (red → orange → magenta → violet). Fallback light theme kept minimal
+   because the site defaults to dark and the concept is dark-first.
+-------------------------------------------------------------------------- */
 @theme {
-  --color-background: oklch(0.98 0.005 260);
-  --color-foreground: oklch(0.145 0.015 260);
+  --color-background: oklch(0.98 0.005 30);
+  --color-foreground: oklch(0.145 0.02 30);
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0.015 260);
+  --color-card-foreground: oklch(0.145 0.02 30);
   --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0.015 260);
-  --color-primary: oklch(0.62 0.19 254);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.95 0.01 260);
-  --color-secondary-foreground: oklch(0.205 0.015 260);
-  --color-muted: oklch(0.96 0.005 260);
-  --color-muted-foreground: oklch(0.50 0.01 260);
-  --color-accent: oklch(0.95 0.015 260);
-  --color-accent-foreground: oklch(0.205 0.015 260);
+  --color-popover-foreground: oklch(0.145 0.02 30);
+  --color-primary: oklch(0.65 0.22 22);            /* warm red */
+  --color-primary-foreground: oklch(0.99 0 0);
+  --color-secondary: oklch(0.95 0.015 30);
+  --color-secondary-foreground: oklch(0.20 0.02 30);
+  --color-muted: oklch(0.96 0.008 30);
+  --color-muted-foreground: oklch(0.50 0.015 30);
+  --color-accent: oklch(0.95 0.02 30);
+  --color-accent-foreground: oklch(0.20 0.02 30);
   --color-destructive: oklch(0.577 0.245 27.325);
   --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border: oklch(0.90 0.01 260);
-  --color-input: oklch(0.90 0.01 260);
-  --color-ring: oklch(0.62 0.19 254);
-  --color-vip: oklch(0.75 0.15 75);
-  --color-vip-foreground: oklch(0.25 0.05 75);
-  --radius: 0.75rem;
-  --font-sans: "Kanit", "Geist", "Inter", system-ui, sans-serif;
+  --color-border: oklch(0.90 0.01 30);
+  --color-input: oklch(0.90 0.01 30);
+  --color-ring: oklch(0.65 0.22 22);
+  --color-vip: oklch(0.78 0.16 60);                /* amber-gold */
+  --color-vip-foreground: oklch(0.20 0.05 60);
+  --radius: 1rem;
+  --font-sans: "Prompt", "Kanit", "Geist", system-ui, sans-serif;
+  --font-display: "Playfair Display", "Prompt", serif;
 }
 
+/* --------------------------------------------------------------------------
+   Dark theme — the actual home. Deep blue-black background (#0a0a1a-ish)
+   with slightly warmer card surfaces so gradients pop.
+-------------------------------------------------------------------------- */
 .dark {
-  --color-background: oklch(0.13 0.02 260);
-  --color-foreground: oklch(0.95 0.005 260);
-  --color-card: oklch(0.16 0.02 260);
-  --color-card-foreground: oklch(0.95 0.005 260);
-  --color-popover: oklch(0.16 0.02 260);
-  --color-popover-foreground: oklch(0.95 0.005 260);
-  --color-primary: oklch(0.68 0.17 254);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.20 0.025 260);
-  --color-secondary-foreground: oklch(0.90 0.005 260);
-  --color-muted: oklch(0.20 0.025 260);
-  --color-muted-foreground: oklch(0.65 0.01 260);
-  --color-accent: oklch(0.22 0.03 260);
-  --color-accent-foreground: oklch(0.95 0.005 260);
+  --color-background: oklch(0.10 0.02 275);        /* near-black w/ violet hint */
+  --color-foreground: oklch(0.96 0.005 260);
+  --color-card: oklch(0.14 0.025 275);
+  --color-card-foreground: oklch(0.96 0.005 260);
+  --color-popover: oklch(0.14 0.025 275);
+  --color-popover-foreground: oklch(0.96 0.005 260);
+  --color-primary: oklch(0.68 0.24 20);            /* vivid coral-red */
+  --color-primary-foreground: oklch(1 0 0);
+  --color-secondary: oklch(0.18 0.025 275);
+  --color-secondary-foreground: oklch(0.92 0.005 260);
+  --color-muted: oklch(0.18 0.025 275);
+  --color-muted-foreground: oklch(0.68 0.01 260);
+  --color-accent: oklch(0.20 0.03 275);
+  --color-accent-foreground: oklch(0.96 0.005 260);
   --color-destructive: oklch(0.60 0.22 27);
   --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border: oklch(0.25 0.025 260);
-  --color-input: oklch(0.25 0.025 260);
-  --color-ring: oklch(0.68 0.17 254);
-  --color-vip: oklch(0.78 0.14 75);
-  --color-vip-foreground: oklch(0.15 0.03 75);
+  --color-border: oklch(0.24 0.03 275);
+  --color-input: oklch(0.22 0.03 275);
+  --color-ring: oklch(0.68 0.24 20);
+  --color-vip: oklch(0.82 0.16 65);
+  --color-vip-foreground: oklch(0.15 0.05 60);
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+  html {
+    background: var(--color-background);
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    letter-spacing: -0.005em;
   }
 
-  /* Prevent autofill from changing input colors */
+  /* Ambient noise texture behind the whole app in dark mode.
+     Very subtle — adds cinematic grain without hurting perf. */
+  .dark body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1200px 800px at 12% -10%, oklch(0.55 0.25 20 / 0.14), transparent 60%),
+      radial-gradient(1000px 700px at 90% 8%, oklch(0.55 0.22 320 / 0.12), transparent 60%),
+      radial-gradient(900px 700px at 50% 110%, oklch(0.60 0.20 280 / 0.10), transparent 60%);
+  }
+
+  /* Autofill fix */
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
@@ -74,121 +102,239 @@
     box-shadow: inset 0 0 20px 20px transparent;
   }
 
-  /* Custom scrollbar */
+  /* Scrollbar */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: oklch(0.5 0.02 260 / 0.3);
-    border-radius: 3px;
+    background: oklch(0.5 0.02 275 / 0.35);
+    border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.5 0.02 260 / 0.5);
+    background: oklch(0.55 0.04 275 / 0.55);
   }
   .dark ::-webkit-scrollbar-thumb {
-    background: oklch(0.6 0.02 260 / 0.2);
+    background: oklch(0.7 0.05 20 / 0.22);
   }
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.6 0.02 260 / 0.4);
+    background: oklch(0.7 0.10 20 / 0.4);
   }
 }
 
 @layer utilities {
+  /* ---------------- Glass surfaces ---------------- */
   .glass {
-    background: oklch(1 0 0 / 0.7);
-    backdrop-filter: blur(16px) saturate(1.8);
-    -webkit-backdrop-filter: blur(16px) saturate(1.8);
+    background: oklch(1 0 0 / 0.65);
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
   }
   .dark .glass {
-    background: oklch(0.16 0.02 260 / 0.75);
+    background: oklch(0.14 0.025 275 / 0.55);
   }
 
   .glass-strong {
     background: oklch(1 0 0 / 0.85);
-    backdrop-filter: blur(24px) saturate(1.8);
-    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    backdrop-filter: blur(24px) saturate(1.6);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
   }
   .dark .glass-strong {
-    background: oklch(0.16 0.02 260 / 0.88);
+    background: oklch(0.10 0.02 275 / 0.78);
   }
 
+  /* ---------------- Glow effects ---------------- */
   .glow-vip {
-    box-shadow: 0 0 20px oklch(0.78 0.14 75 / 0.25),
-                0 0 40px oklch(0.78 0.14 75 / 0.1);
+    box-shadow:
+      0 0 24px oklch(0.82 0.16 65 / 0.35),
+      0 0 60px oklch(0.82 0.16 65 / 0.15);
   }
-
   .glow-primary {
-    box-shadow: 0 0 20px oklch(0.68 0.17 254 / 0.2),
-                0 0 40px oklch(0.68 0.17 254 / 0.08);
+    box-shadow:
+      0 0 24px oklch(0.68 0.24 20 / 0.30),
+      0 0 60px oklch(0.68 0.24 20 / 0.15);
+  }
+  .glow-soft {
+    box-shadow: 0 12px 40px -12px oklch(0 0 0 / 0.5);
   }
 
+  /* ---------------- Text gradients ---------------- */
   .gradient-text {
-    background: linear-gradient(135deg, oklch(0.68 0.17 254), oklch(0.72 0.15 280));
+    background: linear-gradient(
+      100deg,
+      oklch(0.78 0.20 30) 0%,
+      oklch(0.72 0.24 15) 40%,
+      oklch(0.68 0.22 350) 70%,
+      oklch(0.65 0.22 305) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .gradient-text-vip {
+    background: linear-gradient(100deg, oklch(0.90 0.15 80), oklch(0.72 0.17 45));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  .gradient-vip {
-    background: linear-gradient(135deg, oklch(0.78 0.14 75), oklch(0.72 0.16 50));
-  }
-
+  /* ---------------- Surface gradients ---------------- */
   .gradient-primary {
-    background: linear-gradient(135deg, oklch(0.62 0.19 254), oklch(0.58 0.2 280));
+    background: linear-gradient(
+      120deg,
+      oklch(0.72 0.24 25) 0%,
+      oklch(0.65 0.24 12) 45%,
+      oklch(0.58 0.22 340) 100%
+    );
+  }
+  .gradient-vip {
+    background: linear-gradient(120deg, oklch(0.82 0.16 70), oklch(0.72 0.18 40));
+  }
+  .gradient-hero {
+    background:
+      radial-gradient(120% 100% at 0% 0%, oklch(0.55 0.24 25 / 0.55), transparent 55%),
+      radial-gradient(120% 100% at 100% 100%, oklch(0.45 0.22 305 / 0.55), transparent 55%),
+      linear-gradient(140deg, oklch(0.20 0.05 20) 0%, oklch(0.14 0.06 320) 100%);
   }
 
+  /* Deterministic "cinematic gradient" thumbnails.
+     `data-hue` (0-360) drives the base color; component pairs it with a
+     magenta accent that always looks warm and film-like.
+     Used as a fallback when there's no real thumbnail yet. */
+  .gradient-thumb {
+    --_h: 22;
+    background:
+      radial-gradient(90% 80% at 20% 15%, oklch(0.78 0.20 var(--_h) / 0.85), transparent 60%),
+      radial-gradient(90% 80% at 85% 90%, oklch(0.55 0.22 calc(var(--_h) + 280) / 0.85), transparent 60%),
+      linear-gradient(135deg, oklch(0.42 0.18 var(--_h)) 0%, oklch(0.28 0.10 calc(var(--_h) + 300)) 100%);
+  }
+
+  /* Bottom-to-top scrim used everywhere text sits on top of an image */
+  .scrim-bottom {
+    background: linear-gradient(
+      to top,
+      oklch(0 0 0 / 0.85) 0%,
+      oklch(0 0 0 / 0.55) 30%,
+      transparent 70%
+    );
+  }
+  .scrim-top {
+    background: linear-gradient(to bottom, oklch(0 0 0 / 0.55), transparent 60%);
+  }
+
+  /* ---------------- Motion ---------------- */
   .transition-smooth {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
+  .transition-smooth-lg {
+    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* ---------------- Typography helpers ---------------- */
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Manga-app style ranking mark — clean white digit sitting at the
+     bottom-left of the poster with a soft shadow that keeps it readable on
+     both bright and dark thumbnails. Moderate size (not the Netflix
+     outside-of-poster giant). */
+  .rank-number {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 3rem;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: oklch(1 0 0);
+    text-shadow:
+      0 2px 8px oklch(0 0 0 / 0.7),
+      0 0 2px oklch(0 0 0 / 0.9);
+  }
+  @media (min-width: 768px) {
+    .rank-number {
+      font-size: 3.75rem;
+    }
+  }
+
+  /* Hide scrollbar on horizontally-scrolling pill rows without losing scroll */
+  .scrollbar-hide {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  /* Small pill used for tab-bar buttons ("ทั้งหมด / โรแมนซ์ / …") */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    border: 1px solid oklch(1 0 0 / 0.08);
+    padding: 0.375rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: oklch(1 0 0 / 0.04);
+    color: var(--color-muted-foreground);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .pill:hover {
+    color: var(--color-foreground);
+    background: oklch(1 0 0 / 0.08);
+  }
+  .pill-active,
+  .pill.pill-active {
+    background: oklch(1 0 0 / 1);
+    color: oklch(0.14 0.02 275);
+    border-color: transparent;
+  }
 }
 
+/* ---------------- Keyframes ---------------- */
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes slide-in-left {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
 }
-
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 12px oklch(0.78 0.14 75 / 0.3); }
-  50% { box-shadow: 0 0 24px oklch(0.78 0.14 75 / 0.5); }
+  0%, 100% { box-shadow: 0 0 16px oklch(0.82 0.16 65 / 0.35); }
+  50%      { box-shadow: 0 0 32px oklch(0.82 0.16 65 / 0.6); }
 }
-
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+@keyframes float-glow {
+  0%, 100% { transform: translateY(0); opacity: 0.35; }
+  50%      { transform: translateY(-8px); opacity: 0.6; }
 }
 
-.animate-fade-in {
-  animation: fade-in 0.4s ease-out;
-}
-
-.animate-slide-up {
-  animation: slide-up 0.5s ease-out;
-}
-
-.animate-slide-in-left {
-  animation: slide-in-left 0.3s ease-out;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 2s ease-in-out infinite;
-}
+.animate-fade-in       { animation: fade-in 0.5s ease-out; }
+.animate-slide-up      { animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-slide-in-left { animation: slide-in-left 0.3s ease-out; }
+.animate-pulse-glow    { animation: pulse-glow 2.4s ease-in-out infinite; }
+.animate-float-glow    { animation: float-glow 6s ease-in-out infinite; }
 
 .skeleton-shimmer {
-  background: linear-gradient(90deg, transparent 0%, oklch(0.5 0 0 / 0.08) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.06) 50%,
+    transparent 100%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 1.6s ease-in-out infinite;
 }

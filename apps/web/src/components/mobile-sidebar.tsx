@@ -12,6 +12,7 @@ interface MobileSidebarProps {
     slug: string;
     description: string | null;
     coverImage: string | null;
+    childCount?: number;
   }[];
 }
 
@@ -28,9 +29,9 @@ export function MobileSidebar({ categories }: MobileSidebarProps) {
         onClick={close}
       />
       {/* Panel */}
-      <div className="fixed inset-y-0 left-0 z-50 w-80 border-r border-border/50 glass-strong md:hidden animate-slide-in-left shadow-2xl">
-        <div className="flex h-14 items-center justify-between border-b border-border/50 px-4">
-          <span className="font-semibold text-lg gradient-text">หมวดหมู่</span>
+      <div className="fixed inset-y-0 left-0 z-50 w-80 border-r border-white/5 glass-strong md:hidden animate-slide-in-left shadow-[0_0_60px_-10px_oklch(0_0_0/0.8)]">
+        <div className="flex h-14 items-center justify-between border-b border-white/5 px-4">
+          <span className="font-display font-black text-xl gradient-text tracking-tight">เมนู</span>
           <Button
             variant="ghost"
             size="icon"
