@@ -1,7 +1,19 @@
 import "@/styles/globals.css";
+import type { Viewport } from "next";
 import { getCurrentTenant } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
+
+// Without this, mobile browsers pretend the layout is 980px wide and
+// scale the page to fit — that's what makes the site look "zoomed out"
+// on phones. Setting initial-scale=1 pins the CSS pixel to a device
+// pixel so responsive utilities behave as designed. Zoom stays enabled
+// on purpose (accessibility + WCAG + iOS ignores user-scalable anyway).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export async function generateMetadata() {
   try {
