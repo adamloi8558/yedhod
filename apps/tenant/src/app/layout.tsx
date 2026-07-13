@@ -1,6 +1,5 @@
 import "@/styles/globals.css";
 import { getCurrentTenant } from "@/lib/tenant";
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +14,9 @@ export async function generateMetadata() {
       },
       description: t.metaDescription ?? t.tagline ?? undefined,
       applicationName: t.name,
-      icons: t.faviconR2Key
-        ? { icon: await getPresignedDownloadUrl(t.faviconR2Key, 3600) }
-        : undefined,
+      // Favicon proxied through the tenant's own domain — the URL crawlers
+      // and browsers see stays entirely on-brand.
+      icons: t.faviconR2Key ? { icon: "/api/tenant/favicon" } : undefined,
       robots: { index: true, follow: true },
       openGraph: {
         siteName: t.name,

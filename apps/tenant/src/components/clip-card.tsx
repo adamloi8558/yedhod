@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { prettyTitle } from "@/lib/pretty-title";
 
 function fmtDur(d: number | null): string {
@@ -33,7 +32,7 @@ function fakeRating(id: string): number {
   return 70 + (seed(id) % 30); // 70–99%
 }
 
-export async function ClipCard({
+export function ClipCard({
   clip,
   index,
 }: {
@@ -47,9 +46,9 @@ export async function ClipCard({
   };
   index?: number;
 }) {
-  const thumb = clip.thumbnailR2Key
-    ? await getPresignedDownloadUrl(clip.thumbnailR2Key, 7200)
-    : null;
+  // Thumbnail comes from the tenant-scoped proxy route so <img src> stays
+  // on the tenant's own domain. The route returns 404 when there's no key.
+  const thumb = clip.thumbnailR2Key ? `/api/clips/${clip.id}/thumbnail` : null;
 
   const title = prettyTitle({
     rawTitle: clip.title,

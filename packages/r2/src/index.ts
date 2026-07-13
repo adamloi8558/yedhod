@@ -74,3 +74,25 @@ export async function uploadBuffer(
 export function getPublicUrl(key: string) {
   return `${process.env.R2_PUBLIC_URL}/${key}`;
 }
+
+/**
+ * Fetch an object directly from R2 as a native fetch Response.
+ *
+ * Used by tenant apps to proxy media through their own domain so the
+ * browser never sees the R2 hostname (which contains the bucket name).
+ * Preserves Range so browsers can seek within video, and passes through
+ * ETag/Last-Modified so caches work.
+ */
+export async function fetchObject(
+  key: string,
+  init?: { range?: string; ifNoneMatch?: string; ifModifiedSince?: string }
+): Promise<Response> {
+  // Presign a short-lived GET, then fetch it — Node's undici streams the
+  // body without buffering, so proxying to the client is O(1) memory.
+  const url = await getPresignedDownloadUrl(key, 300);
+  const headers: Record<string, string> = {};
+  if (init?.range) headers["range"] = init.range;
+  if (init?.ifNoneMatch) headers["if-none-match"] = init.ifNoneMatch;
+  if (init?.ifModifiedSince) headers["if-modified-since"] = init.ifModifiedSince;
+  return fetch(url, { headers, cache: "no-store" });
+}

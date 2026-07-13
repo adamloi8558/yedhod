@@ -4,7 +4,6 @@ import Link from "next/link";
 import { db } from "@kodhom/db";
 import { categories } from "@kodhom/db/schema";
 import { eq } from "drizzle-orm";
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { TenantShell } from "@/components/tenant-shell";
 import { AdSlot } from "@/components/ad-slot";
 import { ClipFeed } from "@/components/clip-feed";
@@ -45,8 +44,10 @@ export async function generateMetadata({
   const description =
     clip.description?.slice(0, 160) ||
     `${title}${cat ? ` — หมวด${cat.name}` : ""} ดูคลิปฟรี HD ที่ ${tenant.name}`;
+  // Absolute proxy URL on the tenant's own domain — keeps og:image /
+  // twitter:image on-brand and out of the R2 hostname.
   const image = clip.thumbnailR2Key
-    ? await getPresignedDownloadUrl(clip.thumbnailR2Key, 7200).catch(() => undefined)
+    ? `https://${tenant.primaryDomain}/api/clips/${clip.id}/thumbnail`
     : undefined;
   return {
     title: fullTitle,
@@ -92,7 +93,7 @@ export default async function ClipDetail({
   });
 
   const thumb = clip.thumbnailR2Key
-    ? await getPresignedDownloadUrl(clip.thumbnailR2Key, 7200).catch(() => null)
+    ? `https://${tenant.primaryDomain}/api/clips/${clip.id}/thumbnail`
     : null;
 
   const videoObject = {

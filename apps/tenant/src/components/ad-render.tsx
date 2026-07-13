@@ -1,4 +1,3 @@
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 import {
   galaksionBanner,
   galaksionPopunder,
@@ -18,12 +17,15 @@ type AdInput = {
   networkHeight: number | null;
 };
 
-export async function AdRender({ ad }: { ad: AdInput }) {
+export function AdRender({ ad }: { ad: AdInput }) {
   if (ad.type === "embed" && ad.embedCode) {
     return <div dangerouslySetInnerHTML={{ __html: ad.embedCode }} />;
   }
   if (ad.type === "banner" && ad.imageR2Key) {
-    const src = await getPresignedDownloadUrl(ad.imageR2Key, 7200);
+    // Ad image goes through /api/ads/[id]/image so <img src> stays on the
+    // tenant domain. The route enforces tenant scope, so cross-tenant
+    // hotlinking is blocked.
+    const src = `/api/ads/${ad.id}/image`;
     const img = (
       <img
         src={src}

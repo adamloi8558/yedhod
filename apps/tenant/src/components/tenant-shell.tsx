@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { getCurrentTenant } from "@/lib/tenant";
 import { getTenantCategories } from "@/lib/tenant-queries";
 import { AdSlot } from "./ad-slot";
@@ -7,9 +6,8 @@ import { AdSlot } from "./ad-slot";
 export async function TenantShell({ children }: { children: React.ReactNode }) {
   const tenant = await getCurrentTenant();
   const cats = await getTenantCategories(tenant.id);
-  const logo = tenant.logoR2Key
-    ? await getPresignedDownloadUrl(tenant.logoR2Key, 7200)
-    : null;
+  // Logo goes through /api/tenant/logo so <img src> stays on this domain.
+  const logo = tenant.logoR2Key ? "/api/tenant/logo" : null;
 
   return (
     <div className="flex min-h-screen flex-col pb-16 md:pb-0">
