@@ -170,6 +170,34 @@ export const tenantCreateSchema = z.object({
       "GA4 ID ต้องขึ้นต้นด้วย G- และเป็นตัวอักษรภาษาอังกฤษพิมพ์ใหญ่/ตัวเลข"
     )
     .optional(),
+  // Verification meta tags rendered into <head> of the tenant site.
+  // The name/content restrictions block angle-brackets and quotes so a
+  // hand-edited row can't break out of the attribute or inject <script>.
+  verificationMetas: z
+    .array(
+      z.object({
+        name: z
+          .string()
+          .trim()
+          .min(1, "ต้องกรอกชื่อ meta")
+          .max(120)
+          .regex(
+            /^[a-zA-Z0-9._:-]+$/,
+            "ชื่อ meta ใช้ได้เฉพาะตัวอักษร ตัวเลข . _ : -"
+          ),
+        content: z
+          .string()
+          .trim()
+          .min(1, "ต้องกรอก content")
+          .max(500)
+          .refine(
+            (v) => !/["'<>]/.test(v),
+            "content ห้ามมี < > \" '"
+          ),
+      })
+    )
+    .max(20, "ใส่ verification ได้สูงสุด 20 รายการ")
+    .optional(),
   isActive: z.boolean().default(true),
 });
 
@@ -189,17 +217,23 @@ export const tenantCategoriesSchema = z.object({
 const AD_SLOTS = [
   "header_top",
   "header_bottom",
+  "catbar_below",
+  "hero_below",
   "sidebar_top",
   "sidebar_mid",
   "sidebar_bot",
   "in_feed_1",
   "in_feed_2",
   "in_feed_3",
+  "native_row",
+  "between_sections",
   "before_video",
   "after_video",
   "under_title",
+  "related_below",
   "popunder",
   "footer_top",
+  "above_footer",
   "footer_bottom",
   "sticky_bottom",
 ] as const;

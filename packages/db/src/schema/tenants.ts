@@ -1,4 +1,6 @@
-import { pgTable, text, boolean, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+
+export type TenantVerificationMeta = { name: string; content: string };
 
 export const tenants = pgTable(
   "tenants",
@@ -24,6 +26,15 @@ export const tenants = pgTable(
     // the tenant layout injects gtag.js so pageviews land in this tenant's
     // own GA property — each cloned site has its own analytics.
     googleAnalyticsId: text("google_analytics_id"),
+
+    // Ad-network / search-console verification meta tags rendered into
+    // <head>. Stored as an array so a single tenant can hold verifications
+    // for Galaksion, A-Ads, Google Search Console, etc. without needing a
+    // new column per network. Shape: { name, content }[].
+    verificationMetas: jsonb("verification_metas")
+      .$type<TenantVerificationMeta[]>()
+      .notNull()
+      .default([]),
 
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),

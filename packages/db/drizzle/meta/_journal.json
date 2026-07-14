@@ -71,6 +71,20 @@
       "when": 1783973745732,
       "tag": "0009_smart_robin_chapel",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784013927553,
+      "tag": "0010_normal_speedball",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1784014580347,
+      "tag": "0011_cheerful_morbius",
+      "breakpoints": true
     }
   ]
 }

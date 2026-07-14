@@ -1,0 +1,1 @@
+ALTER TABLE "tenants" ADD COLUMN "verification_metas" jsonb DEFAULT '[]'::jsonb NOT NULL;

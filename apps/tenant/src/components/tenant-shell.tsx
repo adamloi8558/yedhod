@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getCurrentTenant } from "@/lib/tenant";
-import { getTenantCategories } from "@/lib/tenant-queries";
+import { getTenantCategories, getTenantAds } from "@/lib/tenant-queries";
 import { AdSlot } from "./ad-slot";
 
 export async function TenantShell({ children }: { children: React.ReactNode }) {
@@ -12,7 +12,9 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col pb-16 md:pb-0">
       <AdSlot slot="popunder" />
-      <AdSlot slot="header_top" />
+      <div className="mx-auto w-full max-w-[1400px] px-4">
+        <AdSlot slot="header_top" />
+      </div>
 
       {/* Top bar — dark, thin, brand-forward like pornhub */}
       <header
@@ -99,18 +101,41 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      <AdSlot slot="header_bottom" />
+      <div className="mx-auto w-full max-w-[1400px] px-4">
+        <AdSlot slot="catbar_below" />
+        <AdSlot slot="header_bottom" />
+        <AdSlot slot="hero_below" />
+      </div>
 
+      {/* 2-column shell on lg+: content on the left, sticky ad rail on
+       * the right. On smaller screens the aside collapses and sidebar
+       * ads fall to the end of the page (same as before). The rail is
+       * fixed-width (300px) so 300x250 / 300x600 zones land flush. */}
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5">
-        {children}
-        <div className="mt-10 space-y-4">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_312px] lg:gap-6">
+          <div className="min-w-0">{children}</div>
+          <aside className="mt-10 hidden lg:mt-0 lg:block">
+            <div className="sticky top-24 space-y-4">
+              <AdSlot slot="sidebar_top" />
+              <AdSlot slot="sidebar_mid" />
+              <AdSlot slot="sidebar_bot" />
+            </div>
+          </aside>
+        </div>
+
+        {/* Below lg the aside is hidden; render the same ads inline at
+         * the end of main so mobile visitors still see them. */}
+        <div className="mt-10 space-y-4 lg:hidden">
           <AdSlot slot="sidebar_top" />
           <AdSlot slot="sidebar_mid" />
           <AdSlot slot="sidebar_bot" />
         </div>
       </main>
 
-      <AdSlot slot="footer_top" />
+      <div className="mx-auto w-full max-w-[1400px] px-4">
+        <AdSlot slot="above_footer" />
+        <AdSlot slot="footer_top" />
+      </div>
 
       <footer
         className="mt-auto border-t"
@@ -128,18 +153,33 @@ export async function TenantShell({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
 
-      <AdSlot slot="footer_bottom" />
-
-      <div
-        className="fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
-        style={{
-          background: "rgba(0, 0, 0, 0.9)",
-          borderColor: "var(--tenant-border)",
-          backdropFilter: "blur(8px)",
-        }}
-      >
-        <AdSlot slot="sticky_bottom" />
+      <div className="mx-auto w-full max-w-[1400px] px-4">
+        <AdSlot slot="footer_bottom" />
       </div>
+
+      {/* Sticky mobile ad bar. The AdSlot itself returns null when no
+       * ad is configured, so the outer wrapper only reserves space when
+       * there's something to show — otherwise the whole strip collapses
+       * and mobile users don't see an empty black bar. */}
+      <MobileStickyBar />
+    </div>
+  );
+}
+
+async function MobileStickyBar() {
+  const tenant = await getCurrentTenant();
+  const ads = await getTenantAds(tenant.id, "sticky_bottom");
+  if (ads.length === 0) return null;
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
+      style={{
+        background: "rgba(0, 0, 0, 0.9)",
+        borderColor: "var(--tenant-border)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <AdSlot slot="sticky_bottom" />
     </div>
   );
 }

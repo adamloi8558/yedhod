@@ -49,6 +49,7 @@ export default async function RootLayout({
 }) {
   let themeCss = "";
   let gaId: string | null = null;
+  let verificationMetas: { name: string; content: string }[] = [];
   try {
     const t = await getCurrentTenant();
     themeCss = `:root{--tenant-primary:${t.primaryColor};--tenant-accent:${t.accentColor};--tenant-bg:${t.backgroundColor};--tenant-fg:${t.fgColor};}`;
@@ -57,6 +58,19 @@ export default async function RootLayout({
     // re-check here so a hand-edited DB row can't inject arbitrary text.
     if (t.googleAnalyticsId && /^G-[A-Z0-9]{6,}$/.test(t.googleAnalyticsId)) {
       gaId = t.googleAnalyticsId;
+    }
+    // Re-validate the shape server-side — a hand-edited DB row could
+    // otherwise put angle-brackets or quotes into the attribute and
+    // escape the meta tag.
+    if (Array.isArray(t.verificationMetas)) {
+      verificationMetas = t.verificationMetas.filter(
+        (m): m is { name: string; content: string } =>
+          !!m &&
+          typeof m.name === "string" &&
+          typeof m.content === "string" &&
+          /^[a-zA-Z0-9._:-]+$/.test(m.name) &&
+          !/["'<>]/.test(m.content)
+      );
     }
   } catch {
     // ignored — notFound is handled by Next.js
@@ -76,6 +90,9 @@ export default async function RootLayout({
           rel="stylesheet"
         />
         {themeCss && <style dangerouslySetInnerHTML={{ __html: themeCss }} />}
+        {verificationMetas.map((m, i) => (
+          <meta key={`${m.name}-${i}`} name={m.name} content={m.content} />
+        ))}
       </head>
       <body>
         {children}

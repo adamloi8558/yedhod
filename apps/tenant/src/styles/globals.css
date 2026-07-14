@@ -40,8 +40,112 @@ a {
   color: #000;
 }
 
+/* Server components can return null which produces no wrapper, but if a
+ * network script fails to insert its iframe the outer div will render
+ * empty. Hide it so we never show a hollow "โฆษณา" frame. */
 .ad-slot:empty {
   display: none;
+}
+.ad-slot--invisible {
+  display: contents;
+}
+.ad-slot__inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.5rem auto;
+  padding: 1.35rem 1.1rem 1.1rem;
+  border: 1px solid var(--tenant-border);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--tenant-panel-2) 90%, transparent) 0%, color-mix(in oklab, var(--tenant-panel) 90%, transparent) 100%);
+  backdrop-filter: blur(2px);
+  max-width: 100%;
+  width: fit-content;
+  box-shadow: 0 8px 30px -12px rgba(0, 0, 0, 0.5);
+}
+/* Subtle brand-tinted top border — sits on top of the frame border so
+ * every ad slot inherits a shared accent line without adding markup. */
+.ad-slot__inner::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--tenant-primary) 45%, transparent),
+    transparent
+  );
+}
+.ad-slot__label {
+  position: absolute;
+  top: -0.6rem;
+  left: 1rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--tenant-muted);
+  background: var(--tenant-bg);
+  border: 1px solid var(--tenant-border);
+  border-radius: 999px;
+}
+.ad-slot__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 60px;
+  min-width: 300px;
+}
+.ad-slot__body img {
+  border-radius: 6px;
+}
+/* Sidebar ads sit in a narrow column — let them shrink to card width so
+ * the label frame doesn't overflow the aside. */
+aside .ad-slot__inner,
+aside .ad-slot__body {
+  min-width: 0;
+  width: 100%;
+}
+/* Native-in-grid ad: no double frame — the outer .ad-slot--native card
+ * already has border + aspect-ratio, so drop the inner label/frame and
+ * let the ad fill the tile. */
+.ad-slot--native .ad-slot__inner {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+.ad-slot--native .ad-slot__inner::before {
+  display: none;
+}
+.ad-slot--native .ad-slot__label {
+  top: 0.35rem;
+  left: 0.35rem;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  background: rgba(0, 0, 0, 0.7);
+}
+.ad-slot--native .ad-slot__body {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+}
+.ad-slot--native .ad-slot__body img {
+  max-height: 100%;
+  object-fit: cover;
 }
 
 .strip-scroll::-webkit-scrollbar {

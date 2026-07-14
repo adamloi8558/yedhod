@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { TenantShell } from "@/components/tenant-shell";
 import { ClipFeed } from "@/components/clip-feed";
+import { AdSlot } from "@/components/ad-slot";
 import { getCurrentTenant } from "@/lib/tenant";
 import { countTenantClips, getTenantClips } from "@/lib/tenant-queries";
 
@@ -66,6 +67,8 @@ export default async function Home() {
       </div>
 
       <ClipFeed clips={clips} />
+
+      <AdSlot slot="between_sections" />
 
       {hasMore && (
         <div className="mt-8 flex justify-center">

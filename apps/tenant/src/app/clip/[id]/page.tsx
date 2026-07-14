@@ -167,6 +167,8 @@ export default async function ClipDetail({
         </div>
         <ClipFeed clips={related.filter((c) => c.id !== clip.id)} />
       </div>
+
+      <AdSlot slot="related_below" />
     </TenantShell>
   );
 }
