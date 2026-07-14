@@ -64,6 +64,7 @@ a {
   backdrop-filter: blur(2px);
   max-width: 100%;
   width: fit-content;
+  overflow: hidden;
   box-shadow: 0 8px 30px -12px rgba(0, 0, 0, 0.5);
 }
 /* Subtle brand-tinted top border — sits on top of the frame border so
@@ -102,9 +103,16 @@ a {
   align-items: center;
   gap: 0.5rem;
   min-height: 60px;
-  min-width: 300px;
+  max-width: 100%;
+  overflow: hidden;
 }
-.ad-slot__body img {
+.ad-slot__body > * {
+  max-width: 100%;
+}
+.ad-slot__body img,
+.ad-slot__body iframe {
+  max-width: 100%;
+  height: auto;
   border-radius: 6px;
 }
 /* Sidebar ads sit in a narrow column — let them shrink to card width so
