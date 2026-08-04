@@ -1,5 +1,5 @@
 import { db, clips, telegramSyncMessages } from "@kodhom/db";
-import { eq, and, max } from "drizzle-orm";
+import { eq, and, max, ne } from "drizzle-orm";
 import { nanoid } from "./utils.js";
 
 export async function createClipRecord(params: {
@@ -39,17 +39,33 @@ export async function recordSyncedMessage(params: {
   errorMessage?: string;
 }): Promise<void> {
   const id = nanoid();
-  await db.insert(telegramSyncMessages).values({
-    id,
-    telegramMessageId: params.telegramMessageId,
-    telegramTopicId: params.telegramTopicId,
-    telegramGroupId: params.telegramGroupId,
-    clipId: params.clipId,
-    categoryId: params.categoryId,
-    mediaType: params.mediaType,
-    status: params.status,
-    errorMessage: params.errorMessage,
-  });
+  await db
+    .insert(telegramSyncMessages)
+    .values({
+      id,
+      telegramMessageId: params.telegramMessageId,
+      telegramTopicId: params.telegramTopicId,
+      telegramGroupId: params.telegramGroupId,
+      clipId: params.clipId,
+      categoryId: params.categoryId,
+      mediaType: params.mediaType,
+      status: params.status,
+      errorMessage: params.errorMessage,
+    })
+    .onConflictDoUpdate({
+      target: [
+        telegramSyncMessages.telegramGroupId,
+        telegramSyncMessages.telegramTopicId,
+        telegramSyncMessages.telegramMessageId,
+      ],
+      set: {
+        clipId: params.clipId,
+        categoryId: params.categoryId,
+        mediaType: params.mediaType,
+        status: params.status,
+        errorMessage: params.errorMessage,
+      },
+    });
 }
 
 export async function isMessageSynced(
@@ -64,7 +80,7 @@ export async function isMessageSynced(
       eq(telegramSyncMessages.telegramMessageId, messageId)
     ),
   });
-  return !!existing;
+  return !!existing && existing.status !== "failed";
 }
 
 export async function getLastSyncedMessageId(
@@ -77,7 +93,8 @@ export async function getLastSyncedMessageId(
     .where(
       and(
         eq(telegramSyncMessages.telegramGroupId, groupId),
-        eq(telegramSyncMessages.telegramTopicId, topicId)
+        eq(telegramSyncMessages.telegramTopicId, topicId),
+        ne(telegramSyncMessages.status, "failed")
       )
     );
 

@@ -30,12 +30,18 @@ export async function getTelegramGroupIds(): Promise<string[]> {
     );
   }
 
+  const normalize = (value: unknown) =>
+    String(value).trim().replace(/^@\s+/, "@");
+
   // Support both single string and array
   if (Array.isArray(config.value)) {
-    return config.value.map(String);
+    return config.value.map(normalize).filter(Boolean);
   }
 
-  return [String(config.value)];
+  return String(config.value)
+    .split(",")
+    .map(normalize)
+    .filter(Boolean);
 }
 
 export async function getTopicAccessLevels(): Promise<Record<string, "member" | "vip">> {

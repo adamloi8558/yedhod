@@ -17,13 +17,13 @@ async function main() {
 
   for (const groupId of groupIds) {
     console.log(`[main] Processing group: ${groupId}`);
-    const group = await client.getEntity(groupId);
-
-    // Phase 1: Backfill historical messages
-    await backfill(client, group, groupId);
-
-    // Phase 2: Listen for new messages in realtime
-    await startRealtimeListener(client, group, groupId);
+    try {
+      const group = await client.getEntity(groupId);
+      await backfill(client, group, groupId);
+      await startRealtimeListener(client, group, groupId);
+    } catch (err) {
+      console.error(`[main] Skipping group ${groupId}:`, err);
+    }
   }
 
   console.log("[main] Service running. Press Ctrl+C to stop.");

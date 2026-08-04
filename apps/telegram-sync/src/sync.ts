@@ -11,6 +11,11 @@ import { isForumGroup, getGroupTitle, getForumTopics, getOrCreateCategory } from
 import { getTopicAccessLevels, getAccessLevelForTopic } from "./config.js";
 import { delay } from "./utils.js";
 
+function getMessageTopicId(message: Api.Message): number {
+  const reply = message.replyTo;
+  return reply?.replyToTopId ?? (reply?.forumTopic ? reply.replyToMsgId : 0) ?? 0;
+}
+
 async function processMessage(
   client: TelegramClient,
   message: Api.Message,
@@ -226,7 +231,7 @@ export async function startRealtimeListener(
 
     if (isForum) {
       // Forum group: get topic from reply
-      topicId = message.replyTo?.replyToTopId ?? 0;
+      topicId = getMessageTopicId(message);
       if (topicId === 0) return;
 
       const alreadySynced = await isMessageSynced(groupId, topicId, message.id);
