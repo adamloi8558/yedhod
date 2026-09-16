@@ -9,10 +9,16 @@ interface Props {
   status: string;
   hasSlip: boolean;
   slipUrl?: string | null;
+  provider?: string;
 }
 
-export function PaymentActions({ paymentId, status, hasSlip, slipUrl }: Props) {
+export function PaymentActions({ paymentId, status, hasSlip, slipUrl, provider }: Props) {
   const router = useRouter();
+  const [transRef, setTransRef] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [linkId, setLinkId] = useState("");
+  const [suggestedLink, setSuggestedLink] = useState<string | null>(null);
+  const [approveOpen, setApproveOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmingReject, setConfirmingReject] = useState(false);
@@ -54,15 +60,19 @@ export function PaymentActions({ paymentId, status, hasSlip, slipUrl }: Props) {
   }
 
   async function approve() {
+    if (!approveOpen) { setApproveOpen(true); return; }
     setError(null);
     startTransition(async () => {
       try {
         const res = await fetch(`/api/payments/${paymentId}/approve`, {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transRef, confirmed, existingSubscriptionId: linkId || undefined }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           setError(j.error ?? "อนุมัติไม่สำเร็จ");
+          setSuggestedLink(j.existingSubscriptionId ?? null);
           return;
         }
         router.refresh();
@@ -103,14 +113,23 @@ export function PaymentActions({ paymentId, status, hasSlip, slipUrl }: Props) {
           ดูสลิป
         </button>
       )}
+      {approveOpen && <div className="w-full space-y-2 rounded border border-border p-3 text-xs">
+        {provider === "easyslip" && <>
+          <input aria-label="เลขธุรกรรมธนาคาร" placeholder="เลขธุรกรรมจากสลิป/ธนาคาร" value={transRef} onChange={(e) => setTransRef(e.target.value)} className="w-full rounded border bg-background p-2" />
+          <label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />ตรวจยอดเงิน บัญชีรับ และยืนยันเงินเข้าแล้ว</label>
+        </>}
+        <input aria-label="รหัสสิทธิ์เดิม" placeholder="รหัสสิทธิ์ที่เคยเพิ่มให้ยอดนี้ (ถ้ามี)" value={linkId} onChange={(e) => setLinkId(e.target.value)} className="w-full rounded border bg-background p-2" />
+        <p>หากเคยเพิ่ม VIP สำหรับยอดนี้ ให้ผูกสิทธิ์เดิมเพื่อปิดรายการโดยไม่เพิ่มวันซ้ำ</p>
+        {suggestedLink && <button type="button" className="underline" onClick={() => setLinkId(suggestedLink)}>ใช้สิทธิ์เดิม {suggestedLink}</button>}
+      </div>}
       <button
         type="button"
         onClick={approve}
-        disabled={pending}
+        disabled={pending || (approveOpen && provider === "easyslip" && (!hasSlip || !confirmed || !transRef.trim()))}
         className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[11px] font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/25 disabled:opacity-60"
       >
         <Check className="h-3 w-3" />
-        อนุมัติ
+        {approveOpen ? "ยืนยันอนุมัติ" : "อนุมัติ"}
       </button>
       {confirmingReject ? (
         <>

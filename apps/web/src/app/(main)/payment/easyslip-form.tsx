@@ -18,6 +18,7 @@ interface CreateRes {
   account: AccountSnapshot;
   amount: string;
   expiresAt: string;
+  hasSlip?: boolean;
 }
 
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -34,6 +35,8 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
   const [submitting, setSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [review, setReview] = useState(false);
+  const [closed, setClosed] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -46,13 +49,33 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
     return () => clearInterval(id);
   }, []);
 
-  async function create() {
+  useEffect(() => {
+    if (!order || phase === "success") return;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const res = await fetch(`/api/payments/${order!.paymentId}/status`, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (!stopped && data.status === "completed") { setPhase("success"); router.refresh(); return; }
+          if (!stopped && data.status === "failed") { setClosed(true); setError("รายการนี้ถูกปฏิเสธ กรุณาติดต่อแอดมินเพื่อตรวจสอบ"); return; }
+          if (!stopped && data.hasSlip) setReview(true);
+        }
+      } catch { /* A polling failure must not encourage a second transfer. */ }
+      if (!stopped) timer = setTimeout(poll, 10_000);
+    }
+    timer = setTimeout(poll, 1000);
+    return () => { stopped = true; clearTimeout(timer); };
+  }, [order, phase, router]);
+
+  async function create(newOrder = false) {
     setCreateError("");
     try {
       const res = await fetch("/api/payments/create-easyslip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pricingPlanId: planId }),
+        body: JSON.stringify({ pricingPlanId: planId, newOrder }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -61,6 +84,9 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
         return;
       }
       setOrder(data);
+      setReview(!!data.hasSlip);
+      setClosed(false);
+      setError("");
       setPhase("ready");
     } catch {
       setCreateError("ไม่สามารถสร้างรายการได้ กรุณาลองใหม่");
@@ -77,20 +103,16 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError("");
-    const file = e.target.files?.[0];
+    let file = e.target.files?.[0];
+    e.target.value = "";
     if (!file || !order) return;
-    if (file.size > MAX_BYTES) {
-      setError("ไฟล์สลิปต้องไม่เกิน 4 MB");
-      return;
-    }
-    if (!ALLOWED.includes(file.type)) {
-      setError("รองรับเฉพาะไฟล์ภาพ JPG / PNG / GIF / WEBP");
-      return;
-    }
     setSubmitting(true);
+    let sending = false;
     try {
+      file = await prepareSlip(file);
       const form = new FormData();
       form.append("slip", file);
+      sending = true;
       const res = await fetch(`/api/payments/${order.paymentId}/verify-slip`, {
         method: "POST",
         body: form,
@@ -98,13 +120,14 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "ตรวจสลิปไม่สำเร็จ");
+        if (data.manualReview) setReview(true);
         if (fileRef.current) fileRef.current.value = "";
         return;
       }
       setPhase("success");
       router.refresh();
-    } catch {
-      setError("ตรวจสลิปไม่สำเร็จ กรุณาลองใหม่");
+    } catch (err) {
+      setError(!sending && err instanceof Error ? err.message : "ยังยืนยันผลไม่ได้ กรุณารอตรวจสถานะหรือติดต่อแอดมิน ไม่ต้องโอนซ้ำ");
     } finally {
       setSubmitting(false);
     }
@@ -152,8 +175,8 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
             <p className="mt-2 text-sm text-muted-foreground">
               {createError || "กรุณาลองใหม่"}
             </p>
-            <Button className="mt-5" onClick={() => router.push("/pricing")}>
-              เลือกแพ็กเกจอีกครั้ง
+            <Button className="mt-5" onClick={() => void create()}>
+              ลองเปิดรายการอีกครั้ง
             </Button>
           </CardContent>
         </Card>
@@ -168,23 +191,6 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
     .toString()
     .padStart(2, "0");
 
-  if (expired) {
-    return (
-      <div className="mx-auto max-w-md p-4 text-center">
-        <Card className="rounded-2xl border-border/50">
-          <CardContent className="py-10">
-            <p className="text-base font-semibold">หมดเวลาชำระเงิน</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              กรุณาทำรายการใหม่อีกครั้ง
-            </p>
-            <Button className="mt-5" onClick={() => router.push("/pricing")}>
-              เลือกแพ็กเกจอีกครั้ง
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-md p-4 animate-slide-up">
@@ -194,7 +200,16 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
           <CardTitle className="text-lg">โอนเงินและอัปโหลดสลิป</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5 pb-8">
-          <div className="rounded-2xl border border-border/60 bg-accent/30 p-4 space-y-3">
+          {(review || expired || closed) && (
+            <div role="status" className="rounded-xl border border-primary/30 p-4 text-sm space-y-2">
+              <p className="font-semibold">{closed ? "รายการถูกปฏิเสธ" : review ? "บันทึกสลิปแล้ว กำลังรอผลตรวจสอบ" : "หมดเวลาโอนสำหรับรายการนี้"}</p>
+              <p>หากโอนแล้ว ไม่ต้องโอนซ้ำ คุณส่งสลิปของรายการนี้หรือติดต่อแอดมินได้ ระบบจะแสดงผลเมื่ออนุมัติ</p>
+              <a className="block text-primary underline" href={`/support?paymentId=${order.paymentId}&subject=${encodeURIComponent("ตรวจสอบรายการชำระเงิน")}`}>ติดต่อแอดมินพร้อมเลขรายการ</a>
+              {expired && !review && !closed && <Button variant="outline" onClick={() => void create(true)}>ยังไม่ได้โอน — สร้างรายการใหม่</Button>}
+              {closed && <Button variant="outline" onClick={() => void create(true)}>เปิดรายการชำระเงิน</Button>}
+            </div>
+          )}
+          {!review && !expired && !closed && <div className="rounded-2xl border border-border/60 bg-accent/30 p-4 space-y-3">
             <div>
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
                 ธนาคาร
@@ -246,8 +261,9 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
             <div className="rounded-lg bg-background/50 px-3 py-2 text-center text-xs text-muted-foreground">
               เหลือเวลา {mm}:{ss} นาที
             </div>
-          </div>
+          </div>}
 
+          <p className="text-xs text-muted-foreground">เลขรายการ: {order.paymentId} · ยอด {order.amount} บาท</p>
           {error && (
             <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
               <p>{error}</p>
@@ -264,11 +280,11 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/gif,image/webp"
+              accept="image/*,.heic,.heif"
               onChange={handleFile}
               className="hidden"
               id="slip-upload"
-              disabled={submitting}
+              disabled={submitting || closed}
             />
             <label
               htmlFor="slip-upload"
@@ -287,16 +303,38 @@ export function EasySlipForm({ planId, redirect }: { planId: string; redirect?: 
               ) : (
                 <>
                   <Upload className="h-5 w-5" />
-                  อัปโหลดสลิปการโอน
+                  {review ? "ส่งสลิปเพื่อตรวจอีกครั้ง" : "อัปโหลดสลิปการโอน"}
                 </>
               )}
             </label>
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
-              รองรับไฟล์ JPG / PNG / GIF / WEBP ขนาดไม่เกิน 4 MB
+              รับภาพไม่เกิน 20 MB และย่อภาพก่อนส่ง หากเปิดรูปไม่ได้ให้ใช้ภาพหน้าจอสลิปที่เห็น QR ชัดเจน
             </p>
           </div>
         </CardContent>
       </Card>
     </div>
   );
+}
+
+async function prepareSlip(file: File): Promise<File> {
+  if (!file.size) throw new Error("ไฟล์ว่าง กรุณาเลือกรูปสลิปใหม่");
+  if (file.size > 20 * 1024 * 1024) throw new Error("รูปใหญ่เกิน 20 MB กรุณาใช้ภาพหน้าจอสลิป");
+  if (file.size <= MAX_BYTES && (ALLOWED.includes(file.type) || (!file.type && /\.(jpe?g|png|gif|webp)$/i.test(file.name)))) return file;
+  let bitmap: ImageBitmap;
+  try { bitmap = await createImageBitmap(file); }
+  catch { throw new Error("อุปกรณ์นี้เปิดรูปไม่ได้ กรุณาใช้ภาพหน้าจอสลิปหรือบันทึกเป็น JPG/PNG"); }
+  try {
+    const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("เตรียมรูปไม่ได้ กรุณาใช้ภาพหน้าจอสลิป");
+    ctx.fillStyle = "white"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    if (!blob || blob.size > MAX_BYTES) throw new Error("ย่อรูปไม่ได้ กรุณาใช้ภาพหน้าจอสลิปที่เห็น QR ชัดเจน");
+    return new File([blob], "slip.jpg", { type: "image/jpeg" });
+  } finally { bitmap.close(); }
 }

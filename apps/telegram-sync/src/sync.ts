@@ -52,7 +52,7 @@ async function processMessage(
       status: "failed",
       errorMessage: "Failed to download/upload media",
     });
-    return;
+    throw new Error("Failed to download/upload media");
   }
 
   // Determine title: caption -> filename -> empty
@@ -94,24 +94,26 @@ async function syncTopic(
 ): Promise<number> {
   const lastSyncedId = await getLastSyncedMessageId(groupId, topicId);
   let synced = 0;
-  let offsetId = 0;
+  const startedAt = Date.now();
 
   console.log(
     `[sync] Syncing topic ${topicId}, last synced message: ${lastSyncedId ?? "none"}`
   );
 
-  while (true) {
+  // Bounded work per group prevents a large historical import starving others.
+  {
     const messages = await client.getMessages(group, {
       limit: 100,
-      offsetId,
+      offsetId: 0,
       ...(topicId > 0 ? { replyTo: topicId } : {}),
-      minId: lastSyncedId ?? undefined,
+      minId: lastSyncedId ?? 0,
+      reverse: true,
     });
 
-    if (messages.length === 0) break;
+    if (messages.length === 0) return 0;
 
     // Process oldest first
-    const sorted = [...messages].reverse();
+    const sorted = [...messages].sort((a, b) => a.id - b.id);
 
     for (const message of sorted) {
       if (!(message instanceof Api.Message)) continue;
@@ -141,14 +143,16 @@ async function syncTopic(
           status: "failed",
           errorMessage: err instanceof Error ? err.message : String(err),
         });
+        // Retry from the failed message next cycle; don't jump the cursor over it.
+        throw err;
       }
 
       // Rate limit protection
       await delay(500);
+      if (Date.now() - startedAt > 60_000) break;
     }
 
-    // Move offset to oldest message for next batch
-    offsetId = messages[messages.length - 1]!.id;
+
   }
 
   return synced;

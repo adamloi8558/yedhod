@@ -14,27 +14,15 @@ export async function isForumGroup(
   client: TelegramClient,
   group: Api.TypeEntityLike
 ): Promise<boolean> {
-  try {
-    const result = await client.invoke(
-      new Api.channels.GetForumTopics({
-        channel: group,
-        limit: 1,
-        offsetDate: 0,
-        offsetId: 0,
-        offsetTopic: 0,
-      })
-    );
-    return result instanceof Api.messages.ForumTopics;
-  } catch {
-    return false;
-  }
+  const entity = group instanceof Api.Channel || group instanceof Api.Chat ? group : await client.getEntity(group);
+  return entity instanceof Api.Channel && entity.forum === true;
 }
 
 export async function getGroupTitle(
   client: TelegramClient,
   group: Api.TypeEntityLike
 ): Promise<string> {
-  const entity = await client.getEntity(group);
+  const entity = group instanceof Api.Channel || group instanceof Api.Chat ? group : await client.getEntity(group);
   if (entity instanceof Api.Channel || entity instanceof Api.Chat) {
     return entity.title ?? "Unknown Group";
   }

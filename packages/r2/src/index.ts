@@ -58,7 +58,8 @@ export async function uploadBuffer(
   key: string,
   body: Buffer,
   contentType: string,
-  contentLength?: number
+  contentLength?: number,
+  abortSignal?: AbortSignal
 ) {
   const client = getR2Client();
   const command = new PutObjectCommand({
@@ -68,7 +69,7 @@ export async function uploadBuffer(
     ContentType: contentType,
     ...(contentLength ? { ContentLength: contentLength } : {}),
   });
-  return client.send(command);
+  return client.send(command, { abortSignal });
 }
 
 export function getPublicUrl(key: string) {

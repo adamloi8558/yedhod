@@ -1,5 +1,5 @@
 import { db, clips, telegramSyncMessages } from "@kodhom/db";
-import { eq, and, max, ne } from "drizzle-orm";
+import { eq, and, max, min, ne } from "drizzle-orm";
 import { nanoid } from "./utils.js";
 
 export async function createClipRecord(params: {
@@ -98,5 +98,10 @@ export async function getLastSyncedMessageId(
       )
     );
 
-  return result[0]?.maxId ?? null;
+  const [failure] = await db.select({ minId: min(telegramSyncMessages.telegramMessageId) })
+    .from(telegramSyncMessages).where(and(eq(telegramSyncMessages.telegramGroupId, groupId),
+      eq(telegramSyncMessages.telegramTopicId, topicId), eq(telegramSyncMessages.status, "failed")));
+  const latest = result[0]?.maxId ?? null;
+  if (failure?.minId != null) return Math.min(latest ?? 0, failure.minId - 1);
+  return latest;
 }

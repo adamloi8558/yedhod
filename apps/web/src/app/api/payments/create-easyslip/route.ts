@@ -1,172 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@kodhom/db";
 import { pricingPlans, payments } from "@kodhom/db/schema";
-import { and, eq, gt, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, desc, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getSession } from "@/lib/auth-server";
 import { nanoid } from "@/lib/nanoid";
-import {
-  getPaymentAccounts,
-  getPaymentMode,
-  pickWeightedAccount,
-} from "@/lib/payment-config";
+import { getPaymentAccounts, getPaymentMode, pickWeightedAccount } from "@/lib/payment-config";
 
-const bodySchema = z.object({
-  pricingPlanId: z.string().min(1),
-});
-
-const PAYMENT_TTL_MINUTES = 30;
-
+const bodySchema = z.object({ pricingPlanId: z.string().min(1), newOrder: z.boolean().optional() });
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session?.user) {
-    return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
-  }
-
-  const mode = await getPaymentMode();
-  if (mode !== "easyslip") {
-    return NextResponse.json(
-      { error: "ระบบยังไม่ได้เปิดใช้งานช่องทางตรวจสลิป" },
-      { status: 400 }
-    );
-  }
-
-  let parsed;
-  try {
-    parsed = bodySchema.parse(await req.json());
-  } catch {
-    return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 });
-  }
-
-  const [plan] = await db
-    .select()
-    .from(pricingPlans)
-    .where(eq(pricingPlans.id, parsed.pricingPlanId))
-    .limit(1);
-
-  if (!plan || !plan.isActive) {
-    return NextResponse.json({ error: "ไม่พบแพ็กเกจ" }, { status: 404 });
-  }
-
-  const now = new Date();
-  const userId = session.user.id;
-
-  // ── BLOCK: user already has a slip awaiting review (any plan).
-  // We block creation of any new payment record while an admin is still
-  // looking at a submitted slip — otherwise the customer keeps stacking
-  // duplicates and the admin queue becomes unworkable.
-  const [awaitingReview] = await db
-    .select({
-      id: payments.id,
-      planId: payments.pricingPlanId,
-    })
-    .from(payments)
-    .where(
-      and(
-        eq(payments.userId, userId),
-        eq(payments.status, "pending"),
-        eq(payments.provider, "easyslip"),
-        isNotNull(payments.slipImageR2Key)
-      )
-    )
-    .limit(1);
-  if (awaitingReview) {
-    return NextResponse.json(
-      {
-        error:
-          "คุณมีสลิปรอตรวจสอบอยู่แล้ว กรุณารอแอดมินตรวจสอบก่อนทำรายการใหม่",
-        code: "AWAITING_REVIEW",
-        existingPaymentId: awaitingReview.id,
-      },
-      { status: 409 }
-    );
-  }
-
-  // ── REUSE: a pending payment for this exact plan that hasn't expired and
-  // has no slip yet (user just reopened the page).
-  const [reusable] = await db
-    .select()
-    .from(payments)
-    .where(
-      and(
-        eq(payments.userId, userId),
-        eq(payments.pricingPlanId, parsed.pricingPlanId),
-        eq(payments.status, "pending"),
-        eq(payments.provider, "easyslip"),
-        isNull(payments.slipImageR2Key),
-        gt(payments.expiresAt, now)
-      )
-    )
-    .orderBy(sql`${payments.createdAt} desc`)
-    .limit(1);
-
-  if (reusable) {
-    return NextResponse.json({
-      paymentId: reusable.id,
-      account: reusable.accountSnapshot,
-      amount: reusable.amount,
-      expiresAt: reusable.expiresAt?.toISOString() ?? null,
-      reused: true,
-    });
-  }
-
-  // ── EXPIRE STALE: anything else still marked "pending" for this user on
-  // easyslip without a slip is no longer relevant — flip it to expired so
-  // the admin queue stays clean. We exclude records that have a slip so a
-  // half-finished submission isn't silently discarded.
-  await db
-    .update(payments)
-    .set({ status: "expired" })
-    .where(
-      and(
-        eq(payments.userId, userId),
-        eq(payments.status, "pending"),
-        eq(payments.provider, "easyslip"),
-        isNull(payments.slipImageR2Key)
-      )
-    );
-
-  // ── CREATE NEW
-  const accounts = await getPaymentAccounts();
-  let account;
-  try {
-    account = pickWeightedAccount(accounts);
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "ไม่สามารถเลือกบัญชีได้" },
-      { status: 503 }
-    );
-  }
-
-  const accountSnapshot = {
-    id: account.id,
-    bankCode: account.bankCode,
-    bankName: account.bankName,
-    accountNumber: account.accountNumber,
-    accountName: account.accountName,
-  };
-
-  const paymentId = nanoid();
-  const expiresAt = new Date(Date.now() + PAYMENT_TTL_MINUTES * 60_000);
-
-  await db.insert(payments).values({
-    id: paymentId,
-    userId,
-    pricingPlanId: parsed.pricingPlanId,
-    provider: "easyslip",
-    amount: plan.priceThb,
-    status: "pending",
-    accountSnapshot,
-    expiresAt,
-  });
-
-  return NextResponse.json({
-    paymentId,
-    account: accountSnapshot,
-    amount: plan.priceThb,
-    expiresAt: expiresAt.toISOString(),
+  if (!session?.user) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
+  if (req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ error: "คำขอไม่ถูกต้อง" }, { status: 403 });
+  if (await getPaymentMode() !== "easyslip") return NextResponse.json({ error: "ช่องทางตรวจสลิปยังไม่เปิดใช้งาน" }, { status: 400 });
+  const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 });
+  return db.transaction(async (tx) => {
+    const locks = await tx.execute(sql`select pg_try_advisory_xact_lock(hashtextextended(${"payment:" + session.user.id}, 0)) as locked`);
+    if (!locks[0]?.locked) return NextResponse.json({ error: "กำลังตรวจรายการ กรุณารอสักครู่แล้วลองใหม่" }, { status: 429 });
+    const [plan] = await tx.select().from(pricingPlans).where(eq(pricingPlans.id, parsed.data.pricingPlanId)).limit(1);
+    if (!plan) return NextResponse.json({ error: "ไม่พบแพ็กเกจ" }, { status: 404 });
+    const [existing] = await tx.select().from(payments).where(and(eq(payments.userId, session.user.id),
+      eq(payments.pricingPlanId, plan.id), eq(payments.provider, "easyslip"), eq(payments.status, "pending")))
+      .orderBy(desc(payments.createdAt)).limit(1);
+    const expired = existing?.expiresAt && existing.expiresAt.getTime() < Date.now();
+    // Resume review instead of returning an unrecoverable creation error.
+    // Creating another plan must never discard earlier payments/evidence.
+    if (existing && (existing.slipImageR2Key || !parsed.data.newOrder || !expired)) {
+      return NextResponse.json({ paymentId: existing.id, account: existing.accountSnapshot, amount: existing.amount,
+        expiresAt: existing.expiresAt, hasSlip: !!existing.slipImageR2Key, reused: true });
+    }
+    if (!plan.isActive) return NextResponse.json({ error: "แพ็กเกจนี้ปิดรับรายการใหม่แล้ว" }, { status: 400 });
+    if (existing) await tx.update(payments).set({ status: "expired" }).where(and(eq(payments.id, existing.id), isNull(payments.slipImageR2Key)));
+    const accounts = await getPaymentAccounts();
+    let account;
+    try { account = pickWeightedAccount(accounts); }
+    catch { return NextResponse.json({ error: "บัญชีรับเงินยังไม่พร้อม กรุณาติดต่อแอดมิน" }, { status: 503 }); }
+    const snapshot = { id: account.id, bankCode: account.bankCode, bankName: account.bankName, accountNumber: account.accountNumber, accountName: account.accountName };
+    const id = nanoid();
+    const expiresAt = new Date(Date.now() + 30 * 60_000);
+    await tx.insert(payments).values({ id, userId: session.user.id, pricingPlanId: plan.id, provider: "easyslip",
+      amount: plan.priceThb, accountSnapshot: snapshot, status: "pending", expiresAt });
+    return NextResponse.json({ paymentId: id, account: snapshot, amount: plan.priceThb, expiresAt, hasSlip: false });
   });
 }
-
-// Silence unused-import warning when narrowing the surface above.
-void ne;

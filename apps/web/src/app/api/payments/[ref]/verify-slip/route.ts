@@ -1,350 +1,92 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { db } from "@kodhom/db";
-import { payments, pricingPlans, subscriptions } from "@kodhom/db/schema";
-import { eq } from "drizzle-orm";
+import { payments, pricingPlans, subscriptions, adminAuditLogs } from "@kodhom/db/schema";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { nanoid } from "@/lib/nanoid";
 import { uploadBuffer } from "@kodhom/r2";
-import {
-  verifyBankSlip,
-  tailMatches,
-  type EasySlipSuccessData,
-} from "@kodhom/easyslip";
+import { verifyBankSlip, slipRuleError, slipRuleMessages } from "@kodhom/easyslip";
 import { getEasySlipConfig } from "@/lib/payment-config";
+import { readSlipUpload } from "@/lib/slip-upload";
 
-const MAX_FILE_BYTES = 4 * 1024 * 1024;
-const ALLOWED_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-]);
-const STALE_GRACE_MS = 5 * 60 * 1000;
+const reply = (error: string, code: string, status = 400, manualReview = false) =>
+  NextResponse.json({ error, code, manualReview }, { status });
 
-interface AccountSnapshot {
-  id: string;
-  bankCode: string;
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
-}
-
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ ref: string }> }
-) {
-  const { ref: paymentId } = await params;
-
+export async function POST(req: NextRequest, { params }: { params: Promise<{ ref: string }> }) {
   const session = await getSession();
-  if (!session?.user) {
-    return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
-  }
-
-  // Load payment + check ownership/state
-  const [payment] = await db
-    .select()
-    .from(payments)
-    .where(eq(payments.id, paymentId))
-    .limit(1);
-
-  if (!payment || payment.userId !== session.user.id) {
-    return NextResponse.json({ error: "ไม่พบรายการชำระเงิน" }, { status: 404 });
-  }
-  if (payment.provider !== "easyslip") {
-    return NextResponse.json(
-      { error: "รายการนี้ไม่รองรับการตรวจสลิป" },
-      { status: 400 }
-    );
-  }
-  if (payment.status === "completed") {
-    return NextResponse.json(
-      { error: "ชำระเงินรายการนี้ดำเนินการไปแล้ว" },
-      { status: 409 }
-    );
-  }
-  if (payment.status !== "pending") {
-    return NextResponse.json(
-      { error: "ไม่สามารถตรวจสลิปสำหรับรายการนี้ได้" },
-      { status: 409 }
-    );
-  }
-  if (payment.expiresAt && new Date(payment.expiresAt) < new Date()) {
-    return NextResponse.json({ error: "หมดเวลาชำระเงิน" }, { status: 410 });
-  }
-
-  const snapshot = payment.accountSnapshot as AccountSnapshot | null;
-  if (!snapshot) {
-    return NextResponse.json(
-      { error: "ระบบขัดข้อง (ไม่พบข้อมูลบัญชี)" },
-      { status: 500 }
-    );
-  }
-
-  // Pre-check Content-Length to avoid buffering a huge body just to reject it.
-  // Content-Length isn't guaranteed; the file.size check below is the
-  // definitive gate.
-  const declaredLength = Number(req.headers.get("content-length") ?? 0);
-  if (declaredLength > MAX_FILE_BYTES + 8 * 1024) {
-    return NextResponse.json(
-      { error: "ไฟล์สลิปต้องไม่เกิน 4 MB" },
-      { status: 413 }
-    );
-  }
-
-  // Parse multipart
-  const form = await req.formData();
-  const file = form.get("slip");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "กรุณาอัปโหลดสลิป" }, { status: 400 });
-  }
-  if (file.size > MAX_FILE_BYTES) {
-    return NextResponse.json(
-      { error: "ไฟล์สลิปต้องไม่เกิน 4 MB" },
-      { status: 400 }
-    );
-  }
-  if (!ALLOWED_MIME.has(file.type)) {
-    return NextResponse.json(
-      { error: "รองรับเฉพาะไฟล์ภาพ JPG / PNG / GIF / WEBP" },
-      { status: 400 }
-    );
-  }
-
-  // Load plan for expected amount
-  const [plan] = await db
-    .select()
-    .from(pricingPlans)
-    .where(eq(pricingPlans.id, payment.pricingPlanId))
-    .limit(1);
-  if (!plan) {
-    return NextResponse.json({ error: "ไม่พบแพ็กเกจ" }, { status: 404 });
-  }
-  const expectedAmount = parseFloat(plan.priceThb);
-
-  // Get EasySlip API key
+  if (!session?.user) return reply("กรุณาเข้าสู่ระบบ", "UNAUTHORIZED", 401);
+  if (req.headers.get("sec-fetch-site") === "cross-site") return reply("คำขอไม่ถูกต้อง", "BAD_ORIGIN", 403);
+  const { ref: id } = await params;
+  const [owned] = await db.select().from(payments).where(and(eq(payments.id, id), eq(payments.userId, session.user.id))).limit(1);
+  if (!owned) return reply("ไม่พบรายการชำระเงิน", "NOT_FOUND", 404);
+  if (owned.provider !== "easyslip") return reply("รายการนี้ไม่รองรับการตรวจสลิป", "BAD_PROVIDER");
+  if (owned.status === "completed") return NextResponse.json({ success: true });
+  if (owned.status === "failed") return reply("รายการนี้ถูกปฏิเสธ กรุณาติดต่อแอดมิน", "REJECTED", 409);
+  let upload: Awaited<ReturnType<typeof readSlipUpload>>;
+  try { upload = await readSlipUpload(req); }
+  catch (error) { return reply(error instanceof Error ? error.message : "อ่านไฟล์ไม่ได้ กรุณาเลือกรูปใหม่", "INVALID_FILE"); }
   const cfg = await getEasySlipConfig();
-  if (!cfg?.apiKey) {
-    return NextResponse.json(
-      { error: "ระบบยังไม่ได้ตั้งค่า API Key (กรุณาติดต่อแอดมิน)" },
-      { status: 503 }
-    );
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = file.type.split("/")[1] ?? "bin";
-
-  // Audit-trail: persist slip to R2 BEFORE calling EasySlip
-  const slipKey = `slips/${paymentId}.${ext}`;
+  // Save the evidence even when the provider is unavailable or unconfigured.
   try {
-    await uploadBuffer(slipKey, buffer, file.type, buffer.length);
-    await db
-      .update(payments)
-      .set({ slipImageR2Key: slipKey })
-      .where(eq(payments.id, paymentId));
-  } catch (err) {
-    console.error("[verify-slip] R2 upload failed", err);
-    // Continue anyway — verification is more important than audit trail
-  }
-
-  // Call EasySlip
-  const result = await verifyBankSlip({
-    apiKey: cfg.apiKey,
-    imageBuffer: buffer,
-    imageMime: file.type,
-    imageFilename: file.name,
-    matchAmount: expectedAmount,
-    checkDuplicate: true,
-  });
-
-  if (!result.ok) {
-    // Soft-fail: keep the slip + the payment, surface for admin review.
-    // The previous behavior left the user with a rejected slip + a stale
-    // payment record, so they would re-create a new record and re-upload
-    // — duplicating themselves into the queue.
-    return NextResponse.json(
-      {
-        error: result.message,
-        code: result.code,
-        // Signal to the client: don't create a new payment; ask admin.
-        manualReview: true,
-      },
-      { status: 400 }
-    );
-  }
-
-  // Hard-reject on EasySlip duplicate: the same transfer was already
-  // verified against another payment record (often ours, often a customer
-  // re-uploading after we approved them). Approving twice would grant
-  // double VIP. Mark this payment failed and clear the slip key so the
-  // admin queue isn't polluted.
-  if (result.data.isDuplicate === true) {
-    await db
-      .update(payments)
-      .set({ status: "failed", slipImageR2Key: null })
-      .where(eq(payments.id, paymentId));
-    return NextResponse.json(
-      {
-        error: "สลิปนี้ถูกใช้แล้ว ไม่สามารถใช้ซ้ำได้",
-        code: "DUPLICATE_SLIP",
-      },
-      { status: 409 }
-    );
-  }
-
-  // Run remaining verification rules (amount / bank / account / date)
-  const rule = checkSlipRules(result.data, snapshot, {
-    expectedAmount,
-    paymentCreatedAt: payment.createdAt,
-  });
-  if (!rule.ok) {
-    return NextResponse.json(
-      { error: rule.message, manualReview: true },
-      { status: 400 }
-    );
-  }
-
-  // DB transaction: race-safe completion
-  try {
-    await db.transaction(async (tx) => {
-      // Re-check payment status + expiry under lock
-      const [fresh] = await tx
-        .select()
-        .from(payments)
-        .where(eq(payments.id, paymentId))
-        .limit(1);
-      if (!fresh) throw new Error("NOT_FOUND");
-      if (fresh.status === "completed") throw new Error("ALREADY_COMPLETED");
-      if (fresh.status !== "pending") throw new Error("BAD_STATE");
-      if (fresh.expiresAt && new Date(fresh.expiresAt) < new Date()) {
-        throw new Error("EXPIRED");
+    return await db.transaction(async (tx) => {
+      // One payment operation per user across all server replicas; do not queue API calls.
+      const locks = await tx.execute(sql`select pg_try_advisory_xact_lock(hashtextextended(${"payment:" + session.user.id}, 0)) as locked`);
+      if (!locks[0]?.locked) return reply("กำลังตรวจรายการอยู่ กรุณารอสักครู่", "BUSY", 429);
+      const [payment] = await tx.select().from(payments).where(eq(payments.id, id)).for("update").limit(1);
+      if (payment.status === "completed") return NextResponse.json({ success: true });
+      if (payment.status === "failed") return reply("รายการนี้ถูกปฏิเสธ กรุณาติดต่อแอดมิน", "REJECTED", 409);
+      const [recent] = await tx.select().from(adminAuditLogs).where(and(
+        eq(adminAuditLogs.targetType, "payment"), eq(adminAuditLogs.targetId, id),
+        eq(adminAuditLogs.action, "payment.verify"), gt(adminAuditLogs.createdAt, new Date(Date.now() - 30_000))
+      )).orderBy(desc(adminAuditLogs.createdAt)).limit(1);
+      if (recent) return reply("กรุณารอ 30 วินาทีก่อนตรวจสลิปอีกครั้ง", "RATE_LIMIT", 429);
+      const hash = createHash("sha256").update(upload.buffer).digest("hex");
+      const slipKey = `slips/${id}/${hash}.${upload.ext}`;
+      const record = async (code: string, extra: Record<string, unknown> = {}) => {
+        await tx.insert(adminAuditLogs).values({ id: nanoid(), adminId: null, action: "payment.verify", targetType: "payment", targetId: id,
+          metadata: { code, slipKey, sha256: hash, ...extra } });
+      };
+      try { await uploadBuffer(slipKey, upload.buffer, upload.mime, upload.buffer.length, AbortSignal.timeout(20_000)); }
+      catch { await record("STORAGE_ERROR"); return reply("บันทึกสลิปไม่ได้ กรุณาลองส่งใหม่ ไม่ต้องโอนซ้ำ", "STORAGE_ERROR", 503); }
+      await tx.update(payments).set({ slipImageR2Key: slipKey, status: "pending" }).where(eq(payments.id, id));
+      const review = async (code: string, message: string, extra: Record<string, unknown> = {}) => {
+        await record(code, extra);
+        return reply(message, code, 422, true);
+      };
+      if (!cfg?.apiKey) return review("MISSING_API_KEY", "บันทึกสลิปแล้ว ระบบตรวจสลิปยังไม่พร้อม กรุณาติดต่อแอดมิน ไม่ต้องโอนซ้ำ");
+      const snapshot = payment.accountSnapshot as { bankCode?: string; accountNumber?: string } | null;
+      if (!snapshot?.bankCode || !snapshot.accountNumber) return review("MISSING_ACCOUNT", "บันทึกสลิปแล้ว กรุณารอแอดมินตรวจสอบข้อมูลบัญชี");
+      const result = await verifyBankSlip({ apiKey: cfg.apiKey, imageBuffer: upload.buffer, imageMime: upload.mime,
+        imageFilename: `slip.${upload.ext}`, matchAmount: Number(payment.amount), checkDuplicate: true });
+      if (!result.ok) return review(result.code, result.message);
+      const code = slipRuleError(result.data, { amount: payment.amount, bankCode: snapshot.bankCode,
+        accountNumber: snapshot.accountNumber, createdAt: payment.createdAt, expiresAt: payment.expiresAt });
+      if (code) return review(code, slipRuleMessages[code]);
+      const transRef = result.data.rawSlip.transRef.trim();
+      // Serialize the same bank transaction across different users and orders.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${"slip:" + transRef}, 0))`);
+      const [used] = await tx.select({ id: payments.id }).from(payments).where(eq(payments.easyslipTransRef, transRef)).limit(1);
+      const [granted] = await tx.select({ id: subscriptions.id }).from(subscriptions).where(eq(subscriptions.paymentRef, transRef)).limit(1);
+      if ((used && used.id !== id) || granted) return review("DUPLICATE_SLIP", "ธุรกรรมนี้ผูกกับรายการอื่นแล้ว กรุณาติดต่อแอดมิน ไม่ต้องโอนซ้ำ", { transRef });
+      // A provider duplicate with no local ownership is ambiguous (including legacy manual grants).
+      // Never delete evidence or automatically credit an unclaimed duplicate.
+      if (result.data.isDuplicate && payment.easyslipTransRef !== transRef) {
+        return review("DUPLICATE_REVIEW", "บันทึกสลิปแล้ว พบประวัติการตรวจสลิปนี้ กรุณารอแอดมินตรวจสอบ ไม่ต้องโอนซ้ำ", { transRef });
       }
-
-      const transRef = result.data.rawSlip.transRef;
-      const startDate = new Date();
-      const endDate =
-        plan.durationDays >= 36500
-          ? null
-          : new Date(startDate.getTime() + plan.durationDays * 86_400_000);
-
-      // paidAt = "when we received the money" (now), not slipDate which
-      // can be older due to timezone or older slip uploads. The slip's
-      // own timestamp is preserved on result.data.rawSlip.date if we
-      // ever need to audit it; we don't want subscription windows
-      // starting in the past.
-      await tx
-        .update(payments)
-        .set({
-          status: "completed",
-          paidAt: startDate,
-          easyslipTransRef: transRef,
-        })
-        .where(eq(payments.id, paymentId));
-
-      await tx.insert(subscriptions).values({
-        id: nanoid(),
-        userId: payment.userId,
-        pricingPlanId: payment.pricingPlanId,
-        status: "active",
-        startDate,
-        endDate,
-        amountPaid: payment.amount,
-        paymentRef: transRef,
-      });
+      const [plan] = await tx.select().from(pricingPlans).where(eq(pricingPlans.id, payment.pricingPlanId)).limit(1);
+      if (!plan) return review("MISSING_PLAN", "บันทึกสลิปแล้ว กรุณาติดต่อแอดมินเพื่อตรวจแพ็กเกจ");
+      const now = new Date();
+      await tx.update(payments).set({ status: "completed", paidAt: now, easyslipTransRef: transRef }).where(eq(payments.id, id));
+      await tx.insert(subscriptions).values({ id: nanoid(), userId: payment.userId, pricingPlanId: payment.pricingPlanId,
+        status: "active", startDate: now, endDate: plan.durationDays >= 36500 ? null : new Date(now.getTime() + plan.durationDays * 86400000),
+        amountPaid: payment.amount, paymentRef: transRef });
+      await record("COMPLETED", { transRef });
+      return NextResponse.json({ success: true });
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "";
-    if (message === "ALREADY_COMPLETED" || message === "BAD_STATE") {
-      return NextResponse.json(
-        { error: "รายการนี้ดำเนินการไปแล้ว" },
-        { status: 409 }
-      );
-    }
-    if (message === "EXPIRED") {
-      return NextResponse.json(
-        { error: "หมดเวลาชำระเงิน" },
-        { status: 410 }
-      );
-    }
-    if (message === "NOT_FOUND") {
-      return NextResponse.json(
-        { error: "ไม่พบรายการชำระเงิน" },
-        { status: 404 }
-      );
-    }
-    if (typeof err === "object" && err && "code" in err && err.code === "23505") {
-      return NextResponse.json(
-        { error: "สลิปนี้ถูกใช้แล้ว" },
-        { status: 409 }
-      );
-    }
-    console.error("[verify-slip] tx failed", err);
-    return NextResponse.json(
-      { error: "ระบบขัดข้อง กรุณาลองใหม่" },
-      { status: 500 }
-    );
+  } catch (error) {
+    // Only log identifiers, never provider credentials or raw slip/customer data.
+    console.error("[verify-slip] failed", { paymentId: id, error: error instanceof Error ? error.name : "UnknownError" });
+    return reply("ยังยืนยันผลไม่ได้ กรุณาตรวจสถานะรายการหรือติดต่อแอดมิน ไม่ต้องโอนซ้ำ", "INTERNAL_ERROR", 503);
   }
-
-  return NextResponse.json({ success: true });
-}
-
-interface CheckOpts {
-  expectedAmount: number;
-  paymentCreatedAt: Date | string;
-}
-
-function checkSlipRules(
-  data: EasySlipSuccessData,
-  snapshot: AccountSnapshot,
-  opts: CheckOpts
-): { ok: true } | { ok: false; message: string } {
-  // Rule 2: amount matched (both flag + literal compare).
-  // isAmountMatched is optional in the response (only present when matchAmount
-  // was sent — which we always do); we still treat its absence as a mismatch
-  // for safety.
-  if (data.isAmountMatched !== true) {
-    return { ok: false, message: "ยอดเงินในสลิปไม่ตรงกับแพ็กเกจ" };
-  }
-  if (Math.abs(data.rawSlip.amount.amount - opts.expectedAmount) > 0.01) {
-    return { ok: false, message: "ยอดเงินในสลิปไม่ตรงกับแพ็กเกจ" };
-  }
-  // Rule 3a: receiver bank id
-  if (data.rawSlip.receiver.bank.id !== snapshot.bankCode) {
-    return { ok: false, message: "ธนาคารปลายทางในสลิปไม่ตรงกัน" };
-  }
-  // Rule 3b: receiver account tail.
-  // EasySlip returns either `bank.account` (regular transfer) or `proxy.account`
-  // (PromptPay/MSISDN/etc). Snapshot only stores the bank account number, but
-  // tail-match works on digits regardless: a PromptPay-by-phone slip will have
-  // proxy.account = phone-number, which won't match the bank account tail —
-  // that's the correct behavior because we cannot verify the customer hit the
-  // right account otherwise.
-  const slipAcc =
-    data.rawSlip.receiver.account.bank?.account ??
-    data.rawSlip.receiver.account.proxy?.account ??
-    "";
-  if (!slipAcc) {
-    return {
-      ok: false,
-      message: "ไม่สามารถอ่านบัญชีปลายทางในสลิปได้",
-    };
-  }
-  if (!tailMatches(slipAcc, snapshot.accountNumber)) {
-    return {
-      ok: false,
-      message: "บัญชีปลายทางในสลิปไม่ตรงกับบัญชีที่ระบบกำหนด",
-    };
-  }
-  // Rule 4 (duplicate) is handled by the caller as a hard-reject path
-  // — we drop it here so this function focuses on data-shape checks.
-  // Rule 6: slip date not before payment.createdAt - grace
-  const slipDate = new Date(data.rawSlip.date).getTime();
-  const earliest =
-    new Date(opts.paymentCreatedAt).getTime() - STALE_GRACE_MS;
-  if (slipDate < earliest) {
-    return {
-      ok: false,
-      message: "สลิปนี้โอนก่อนสร้างรายการ ไม่สามารถใช้ได้",
-    };
-  }
-  return { ok: true };
 }

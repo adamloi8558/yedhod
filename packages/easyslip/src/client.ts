@@ -44,13 +44,14 @@ export async function verifyBankSlip(
       return mapToResult({ code: "API_SERVER_ERROR" });
     }
 
+    if (!json || typeof json !== "object") return mapToResult({ code: "API_SERVER_ERROR" });
     const data = json as {
       success?: boolean;
       data?: unknown;
       error?: { code?: string; message?: string };
     };
 
-    if (data.success === true && data.data) {
+    if (res.ok && data.success === true && data.data && typeof data.data === "object") {
       return { ok: true, data: data.data as EasySlipSuccessData };
     }
     return mapToResult({ code: data.error?.code });
