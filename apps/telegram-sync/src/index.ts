@@ -60,7 +60,8 @@ async function main() {
         if (!synced) { state.retryAt = Date.now() + 60_000; continue; }
         state.failures = 0;
         state.lastSuccess = new Date().toISOString();
-        state.retryAt = Date.now() + 60_000;
+        // Yield to the other sources, but do not idle for a minute with ready recovery work.
+        state.retryAt = Date.now() + (await hasReadyRequestedBackfill([state.id]) ? 0 : 60_000);
       } catch (error) {
         state.failures++;
         const wait = retryDelayMs(error, state.failures);
@@ -77,7 +78,7 @@ async function main() {
       await delay(1000);
     }
     console.log("[main] Sync heartbeat", JSON.stringify(states.map(({ id, failures, retryAt, lastSuccess }) => ({ id, failures, retryAt, lastSuccess }))));
-    await delay(30_000);
+    await delay(states.some(state => state.retryAt <= Date.now()) ? 1000 : 30_000);
   }
 }
 

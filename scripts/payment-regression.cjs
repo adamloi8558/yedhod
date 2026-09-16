@@ -285,6 +285,10 @@ test('Requested recovery avoids unrelated history and ignores removed sources',a
     values('only-requested','requested-only',0,500,'failed','Backfill requested from test',now()-interval '20 minutes')`;
   const {hasReadyRequestedBackfill,getLastSyncedMessageId}=load('apps/telegram-sync/src/db-operations.ts');
   assert.equal(await hasReadyRequestedBackfill(['requested-only']),true);
+  await pg`update telegram_sync_messages set created_at=now() where id='only-requested'`;
+  assert.equal(await hasReadyRequestedBackfill(['requested-only']),false,'Recovery pacing must honor the failed-message cooldown');
+  await pg`update telegram_sync_messages set created_at=now()-interval '20 minutes' where id='only-requested'`;
+  assert.equal(await hasReadyRequestedBackfill(['requested-only']),true);
   assert.equal(await hasReadyRequestedBackfill(['other-source']),false);
   assert.equal(await hasReadyRequestedBackfill([]),false);
   mocks.set('./topics.js',{isForumGroup:async()=>false,getGroupTitle:async()=> 'test',getOrCreateCategory:async()=> 'cat'});

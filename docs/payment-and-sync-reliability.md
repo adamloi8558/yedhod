@@ -46,6 +46,9 @@ backfill records run before ordinary discovery and retain their priority after
 transient failures. While eligible recovery work exists on enabled, available
 sources, passes focus on that work; older unrelated history resumes afterward.
 Removed sources and groups waiting on error backoff cannot hold that mode open.
+Successful passes with more eligible recovery work yield to the other sources
+and then run again without the normal one-minute idle period. Failed-message
+cooldowns and account-wide Telegram flood waits still apply.
 Discovery positions are stored separately in the internal
 `telegram_sync_cursors` config value, so an out-of-order replay cannot skip unseen
 history. This internal value is excluded from the editable settings API. Source
