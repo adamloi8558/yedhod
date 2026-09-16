@@ -49,6 +49,10 @@ Removed sources and groups waiting on error backoff cannot hold that mode open.
 Successful passes with more eligible recovery work yield to the other sources
 and then run again without the normal one-minute idle period. Failed-message
 cooldowns and account-wide Telegram flood waits still apply.
+The serial client handles flood waits of up to 60 seconds inside the current
+request, preserving already downloaded chunks. Longer waits propagate to the
+account-wide scheduler. A simulated GramJS download verifies the wait actually
+elapses, only the interrupted chunk is retried, and longer waits propagate.
 Discovery positions are stored separately in the internal
 `telegram_sync_cursors` config value, so an out-of-order replay cannot skip unseen
 history. This internal value is excluded from the editable settings API. Source
@@ -63,7 +67,7 @@ deadline. The worker verifies the downloaded byte count, logs download progress
 every 30 seconds, and removes temporary data on success or handled failure. A live
 32 KiB R2 stream upload/readback passed with matching SHA-256; regression coverage
 also checks truncated downloads and storage failures. The current integration
-suite has 28 cases, including replay cursor safety and fair forum scheduling.
+suite has 29 cases, including replay cursor safety and fair forum scheduling.
 
 GramJS closes file writers without awaiting their final asynchronous write. Passing
 a filename and immediately checking its size could therefore report a truncated

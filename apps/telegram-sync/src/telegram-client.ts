@@ -11,7 +11,9 @@ export async function createClient(): Promise<TelegramClient> {
     apiHash,
     {
       connectionRetries: 5,
-      floodSleepThreshold: 0,
+      // The worker is serial: short waits can resume the same file chunk safely.
+      // Longer waits still propagate to the account-wide scheduler.
+      floodSleepThreshold: 60,
     }
   );
 

@@ -177,6 +177,39 @@ test('approve/reject race never revokes a completed payment',async()=>{
 test('Telegram flood waits are respected with bounded transient backoff',async()=>{
   assert.equal(retryDelayMs({seconds:566},1),571000);assert.equal(retryDelayMs(new Error('FLOOD_WAIT_120'),1),125000);assert.equal(retryDelayMs(new Error('offline'),30),900000);
 });
+test('Short Telegram flood waits resume the same chunk while long waits reach the scheduler',async()=>{
+  const tgRequire=createRequire(path.join(root,'apps/telegram-sync/package.json'));
+  const telegram=tgRequire('telegram');const {TelegramClient,Api,errors}=telegram;
+  const bigInt=createRequire(tgRequire.resolve('telegram'))('big-integer');
+  const payload=Buffer.alloc(131072+17,73),offsets=[];let mode='short',waited=false;
+  const sender={dcId:1,userDisconnected:false,addStateToQueue(state){
+    const offset=Number(state.request.offset);offsets.push(offset);
+    if(mode==='long') {state.reject(new errors.FloodWaitError({capture:'61'}));return;}
+    if(offset===131072&&!waited){waited=true;state.reject(new errors.FloodWaitError({capture:'1'}));return;}
+    state.resolve(new Api.upload.File({type:new Api.storage.FileUnknown(),mtime:0,bytes:payload.subarray(offset,offset+state.request.limit)}));
+  }};
+  class OfflineClient extends TelegramClient {
+    async connect(){this._connectedDeferred.resolve(true);}
+    async checkAuthorization(){return true;}
+    async getSender(){return sender;}
+  }
+  mocks.set('telegram',{...telegram,TelegramClient:OfflineClient});
+  mocks.set('./config.js',{getEnvConfig:()=>({apiId:1,apiHash:'test',session:''})});
+  try {
+    const client=await load('apps/telegram-sync/src/telegram-client.ts').createClient();
+    const message=new Api.Message({id:1,date:0,message:'',peerId:new Api.PeerChat({chatId:bigInt(1)}),media:new Api.MessageMediaDocument({
+      document:new Api.Document({id:bigInt(1),accessHash:bigInt(0),fileReference:Buffer.alloc(0),date:0,mimeType:'video/mp4',size:bigInt(payload.length),dcId:1,attributes:[]}),
+    })});
+    const started=Date.now();assert.deepEqual(await client.downloadMedia(message),payload);
+    assert.ok(Date.now()-started>=950,'The requested flood wait must elapse before retry');
+    assert.deepEqual(offsets,[0,131072,131072],'Already downloaded chunks must not be fetched again');
+    mode='long';offsets.length=0;
+    await assert.rejects(()=>client.downloadMedia(message),error=>error instanceof errors.FloodWaitError&&error.seconds===61);
+    assert.deepEqual(offsets,[0],'Long waits must propagate without immediate retries');
+  } finally {
+    mocks.delete('telegram');mocks.delete('./config.js');cache.delete(path.resolve(root,'apps/telegram-sync/src/telegram-client.ts'));
+  }
+});
 test('Telegram catches up oldest-first across multiple bounded polling cycles',async()=>{
   const tgRequire=createRequire(path.join(root,'apps/telegram-sync/package.json'));
   const {Api}=tgRequire('telegram');
