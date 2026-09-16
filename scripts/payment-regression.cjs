@@ -291,6 +291,25 @@ test('Requested recovery avoids unrelated history and ignores removed sources',a
   assert.equal(await getLastSyncedMessageId('requested-only',0),null);
   assert.equal(await hasReadyRequestedBackfill(['requested-only']),false);
 });
+test('New message discovery advances independently of older download history',async()=>{
+  const {Api}=createRequire(path.join(root,'apps/telegram-sync/package.json'))('telegram');
+  const {saveSyncCursor,getLastSyncedMessageId,hasReadyRequestedBackfill}=load('apps/telegram-sync/src/db-operations.ts');
+  await saveSyncCursor('live-source',-1,1);await saveSyncCursor('live-source',0,1);
+  mocks.set('./topics.js',{isForumGroup:async()=>false});
+  mocks.set('./utils.js',{...load('apps/telegram-sync/src/utils.ts'),delay:async()=>{}});
+  const {discoverNewMessages}=load('apps/telegram-sync/src/discovery.ts');
+  const media=new Api.MessageMediaDocument({document:new Api.Document({id:1n,accessHash:0n,fileReference:Buffer.alloc(0),date:0,mimeType:'video/mp4',size:15n,dcId:1,attributes:[]})});
+  const messages=[new Api.Message({id:2,date:0,message:'',media,peerId:new Api.PeerChat({chatId:1})}),new Api.Message({id:3,date:0,message:'text',peerId:new Api.PeerChat({chatId:1})})];
+  const client={getMessages:async(_group,options)=>messages.filter(message=>message.id>options.minId),downloadMedia:async()=>{throw new Error('Discovery must not download media');}};
+  await discoverNewMessages(client,{},'live-source');
+  assert.equal(await getLastSyncedMessageId('live-source',-1),3);
+  assert.equal(await getLastSyncedMessageId('live-source',0),1);
+  assert.equal(await hasReadyRequestedBackfill(['live-source']),true);
+  const rows=await pg`select telegram_message_id,status from telegram_sync_messages where telegram_group_id='live-source' order by telegram_message_id`;
+  assert.deepEqual([...rows],[{telegram_message_id:2,status:'failed'},{telegram_message_id:3,status:'skipped'}]);
+  await discoverNewMessages(client,{},'live-source');
+  assert.equal((await pg`select count(*)::int as n from telegram_sync_messages where telegram_group_id='live-source'`)[0].n,2);
+});
 (async()=>{
   let passed=0;
   try { for(const [name,fn] of tests){await reset();await fn();passed++;console.log('PASS',name);}console.log(`${passed}/${tests.length} passed`); }

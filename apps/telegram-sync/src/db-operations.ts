@@ -106,7 +106,7 @@ export async function getLastSyncedMessageId(
     .select({ maxId: max(telegramSyncMessages.telegramMessageId) })
     .from(telegramSyncMessages)
     .where(
-      and(
+      topicId === -1 ? eq(telegramSyncMessages.telegramGroupId, groupId) : and(
         eq(telegramSyncMessages.telegramGroupId, groupId),
         eq(telegramSyncMessages.telegramTopicId, topicId),
         ne(telegramSyncMessages.status, "failed")
