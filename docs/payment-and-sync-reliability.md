@@ -135,9 +135,27 @@ read probe; that is an access check, not a full-video integrity test. An inclusi
 audit from September 8, Bangkok time, found 375 videos, of which two were already
 synced and 373 were queued. A second apply queued zero additional records.
 
-After the TCP repair, web and backoffice deployed successfully from `91e527f`.
-Both login pages and the web session endpoint returned HTTP 200; the protected
-backoffice dashboard redirected unauthenticated requests with HTTP 307. The sync
-worker was restarted with the 16-source configuration and resumed successful
-imports. Backfill downloads were still running at handoff; the queue audit is not
-a claim that every video has finished importing.
+Web, backoffice and telegram-sync deployed successfully from `5e1dfa9`. At
+13:11 UTC, all three containers were running with zero restarts. Both login pages
+and the web session endpoint returned HTTP 200. Coolify's root returned its normal
+HTTP 302 in 0.12 seconds. The host had about 2.4 GiB available RAM, 105 GiB free
+disk space and no measured memory pressure over the preceding five minutes.
+These are point-in-time checks; application response times still vary under load.
+
+The final read-only source and R2 audit covered September 8, Bangkok time, through
+2026-09-16 13:06:47 UTC. All 390 videos across the 16 retained sources were synced:
+two pre-existing videos, the 373 originally missing videos, and 15 new posts
+discovered during recovery. Every object passed a signed one-byte range read and
+matched the source file size, totaling 35,057,698,725 bytes. Pending, broken,
+unrouted and source-error counts were all zero. This verifies object availability
+and size, not full playback or a full-file checksum for every video. All 388
+newly imported records had active clips and categories. The protected source
+`-1003892087188` remains configured, and all 16 sources have discovery checkpoints.
+The worker can continue its normal older-history catch-up after this requested
+date range is complete.
+
+After the R2 backpressure fix, the primary Node process used about 160 MiB RSS
+during an actual 1.52 GB upload, versus about 1.6 GiB during an earlier large
+upload. A separate synthetic 32 MiB + 17 byte upload to R2 was read back with a
+matching SHA-256, then deleted. All 30 regression cases and TypeScript checks for
+web, backoffice and telegram-sync passed for the deployed code.
