@@ -19,13 +19,26 @@ async function main() {
   if (!groups.length) throw new Error("No Telegram groups configured");
   // Resolve private numeric groups using the account's dialog/access-hash cache.
   let dialogsLoaded = false;
-  const states = groups.map(id => ({ id, entity: null as Api.TypeEntityLike | null, failures: 0, retryAt: 0, lastSuccess: null as string | null }));
+  const newState = (id: string) => ({ id, entity: null as Api.TypeEntityLike | null, failures: 0, retryAt: 0, lastSuccess: null as string | null });
+  const states = groups.map(newState);
   // Polling is deliberately serial. No backfill/realtime overlap, missed startup
   // listeners, unbounded event downloads, or repeated username resolution.
   while (true) {
+    try {
+      const configured = [...new Set(await getTelegramGroupIds())];
+      for (let i = states.length - 1; i >= 0; i--) {
+        if (!configured.includes(states[i]!.id)) states.splice(i, 1);
+      }
+      for (const id of configured) if (!states.some(state => state.id === id)) states.push(newState(id));
+    } catch (error) {
+      console.error("[main] Could not refresh source configuration", error instanceof Error ? error.message : String(error));
+      await delay(5000);
+      continue;
+    }
     for (const state of states) {
       if (Date.now() < state.retryAt) continue;
       try {
+        if (!(await getTelegramGroupIds()).includes(state.id)) continue;
         if (!state.entity) {
           if (/^-?\d+$/.test(state.id) && !dialogsLoaded) {
             await client.getDialogs({ limit: 500 });

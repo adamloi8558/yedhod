@@ -5,6 +5,7 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "node:stream";
 
 function getR2Client() {
   return new S3Client({
@@ -70,6 +71,22 @@ export async function uploadBuffer(
     ...(contentLength ? { ContentLength: contentLength } : {}),
   });
   return client.send(command, { abortSignal });
+}
+
+export async function uploadStream(
+  key: string,
+  body: Readable,
+  contentType: string,
+  contentLength: number,
+  abortSignal?: AbortSignal
+) {
+  const client = getR2Client();
+  const command = new PutObjectCommand({
+    Bucket: bucket(), Key: key, Body: body,
+    ContentType: contentType, ContentLength: contentLength,
+  });
+  try { return await client.send(command, { abortSignal }); }
+  finally { client.destroy(); }
 }
 
 export function getPublicUrl(key: string) {

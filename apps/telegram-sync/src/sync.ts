@@ -7,6 +7,8 @@ import {
   isMessageSynced,
   getLastSyncedMessageId,
   getFailedMessageIds,
+  getRequestedBackfillMessageIds,
+  saveSyncCursor,
 } from "./db-operations.js";
 import { isForumGroup, getGroupTitle, getForumTopics, getOrCreateCategory } from "./topics.js";
 import { getTopicAccessLevels, getAccessLevelForTopic } from "./config.js";
@@ -106,6 +108,7 @@ async function syncTopic(
   groupId: string
 ): Promise<number> {
   const lastSyncedId = await getLastSyncedMessageId(groupId, topicId);
+  await saveSyncCursor(groupId, topicId, lastSyncedId);
   let synced = 0;
   const startedAt = Date.now();
 
@@ -123,25 +126,48 @@ async function syncTopic(
       reverse: true,
     });
 
+    const requestedIds = await getRequestedBackfillMessageIds(groupId, topicId);
+    const requested = requestedIds.length ? await client.getMessages(group, { ids: requestedIds }) : [];
     const retryIds = await getFailedMessageIds(groupId, topicId);
     const retries = retryIds.length ? await client.getMessages(group, { ids: retryIds }) : [];
-    if (messages.length === 0 && retries.length === 0) return 0;
+    if (messages.length === 0 && retries.length === 0 && requested.length === 0) return 0;
 
-    // Process oldest first
-    const sorted = [...messages].sort((a, b) => a.id - b.id);
-    // New clips have priority. Retry a bounded batch of old failures when time permits.
+    // Explicitly requested dates take priority. The separate discovery cursor
+    // advances only through the original ascending history batch below.
+    const history = [...messages].sort((a, b) => a.id - b.id);
+    const sorted = [...requested].sort((a, b) => a.id - b.id);
+    const requestedSet = new Set(sorted.map(message => message.id));
+    sorted.push(...history.filter(message => !requestedSet.has(message.id)));
     const seen = new Set(sorted.map(message => message.id));
-    for (const retry of retries) if (!seen.has(retry.id)) sorted.push(retry);
+    for (const retry of retries) if (!seen.has(retry.id)) { sorted.push(retry); seen.add(retry.id); }
+    const processed = new Set<number>();
+    let historyIndex = 0;
+    async function advanceDiscovery() {
+      let cursor: number | undefined;
+      while (historyIndex < history.length && processed.has(history[historyIndex]!.id)) {
+        cursor = history[historyIndex++]!.id;
+      }
+      if (cursor !== undefined) await saveSyncCursor(groupId, topicId, cursor);
+    }
 
     for (const message of sorted) {
-      if (!(message instanceof Api.Message)) continue;
+      const messageId = message.id;
+      if (!(message instanceof Api.Message)) {
+        processed.add(messageId);
+        await advanceDiscovery();
+        continue;
+      }
 
       const alreadySynced = await isMessageSynced(
         groupId,
         topicId,
         message.id
       );
-      if (alreadySynced) continue;
+      if (alreadySynced) {
+        processed.add(message.id);
+        await advanceDiscovery();
+        continue;
+      }
 
       try {
         await processMessage(client, message, topicId, categoryId, groupId, group);
@@ -167,6 +193,9 @@ async function syncTopic(
         if (failure.seconds || /FLOOD/i.test(failure.errorMessage ?? "")) throw err;
       }
 
+      processed.add(message.id);
+      await advanceDiscovery();
+
       // Rate limit protection
       await delay(500);
       if (Date.now() - startedAt > 60_000) break;
@@ -177,6 +206,8 @@ async function syncTopic(
 
   return synced;
 }
+
+const nextForumTopic = new Map<string, number>();
 
 async function backfillForum(
   client: TelegramClient,
@@ -189,13 +220,22 @@ async function backfillForum(
 
   let totalSynced = 0;
 
-  for (const [topicId, topicTitle] of topics) {
+  const entries = [...topics];
+  if (!entries.length) return 0;
+  const start = entries.findIndex(([id]) => id === nextForumTopic.get(groupId));
+  const startedAt = Date.now();
+  for (let offset = 0; offset < entries.length; offset++) {
+    const index = (Math.max(0, start) + offset) % entries.length;
+    const [topicId, topicTitle] = entries[index]!;
     const accessLevel = getAccessLevelForTopic(topicId, accessLevels);
     console.log(`[sync] Processing topic: "${topicTitle}" (${topicId}) [${accessLevel}]`);
     const categoryId = await getOrCreateCategory(topicId, topicTitle, groupId, accessLevel);
-    const count = await syncTopic(client, group, topicId, categoryId, groupId);
+    let count: number;
+    try { count = await syncTopic(client, group, topicId, categoryId, groupId); }
+    finally { nextForumTopic.set(groupId, entries[(index + 1) % entries.length]![0]); }
     totalSynced += count;
     console.log(`[sync] Topic "${topicTitle}": synced ${count} messages`);
+    if (Date.now() - startedAt >= 60_000) break;
   }
 
   return totalSynced;
@@ -231,7 +271,7 @@ export async function backfill(
     totalSynced = await backfillNormalGroup(client, group, groupId);
   }
 
-  console.log(`[sync] Backfill complete. Total synced: ${totalSynced}`);
+  console.log(`[sync] Backfill pass complete. Total processed: ${totalSynced}`);
 }
 
 export async function startRealtimeListener(

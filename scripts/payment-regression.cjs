@@ -68,7 +68,7 @@ function call(handler, id, user = 'u1', body = {}) {
   return context.run({ user, admin: user === 'admin' }, () => handler(request(body, handler === verify), { params: Promise.resolve({ id, ref: id }) }));
 }
 async function reset() {
-  await pg`truncate admin_audit_logs, subscriptions, payments, users, pricing_plans cascade`;
+  await pg`truncate admin_audit_logs, subscriptions, payments, users, pricing_plans, telegram_sync_messages, system_config cascade`;
   await pg`insert into users (id,name,email) values ('u1','test1','u1@test.invalid'),('u2','test2','u2@test.invalid'),('admin','admin','admin@test.invalid')`;
   await pg`insert into pricing_plans (id,name,slug,duration_days,price_thb) values ('plan','test','test',30,69),('plan2','test2','test2',30,139)`;
   calls = uploads = 0; storageFail = false; apiKey = 'test-key'; provider = async () => slip();
@@ -197,6 +197,81 @@ test('Telegram catches up oldest-first across multiple bounded polling cycles',a
   assert.deepEqual(await getFailedMessageIds('test-group',0),[10]);
   await backfill(client,{},'test-group');
   assert.equal((await pg`select status from telegram_sync_messages where telegram_message_id=10`)[0].status,'skipped');
+});
+test('Requested Telegram replay cannot skip undiscovered older messages',async()=>{
+  const {Api}=createRequire(path.join(root,'apps/telegram-sync/package.json'))('telegram');
+  await pg`insert into categories(id,name,slug) values('cat','test','test') on conflict do nothing`;
+  await pg`insert into telegram_sync_messages(id,telegram_group_id,telegram_topic_id,telegram_message_id,status,error_message,created_at)
+    values('requested','priority-group',0,1000,'failed','Backfill requested from 2026-09-07T17:00:00.000Z',now()-interval '20 minutes')`;
+  const {recordSyncedMessage,getRequestedBackfillMessageIds}=load('apps/telegram-sync/src/db-operations.ts');
+  await recordSyncedMessage({telegramGroupId:'priority-group',telegramTopicId:0,telegramMessageId:1000,categoryId:'cat',clipId:null,mediaType:'video',status:'failed',errorMessage:'temporary download error'});
+  const [retryRecord]=await pg`select error_message from telegram_sync_messages where id='requested'`;
+  assert.match(retryRecord.error_message,/^Backfill requested from .*temporary download error$/);
+  await pg`update telegram_sync_messages set created_at=now()-interval '20 minutes' where id='requested'`;
+  assert.deepEqual(await getRequestedBackfillMessageIds('priority-group',0),[1000]);
+  mocks.set('./topics.js',{isForumGroup:async()=>false,getGroupTitle:async()=> 'test',getOrCreateCategory:async()=> 'cat'});
+  const utils=load('apps/telegram-sync/src/utils.ts');
+  const realNow=Date.now;let clock=realNow();
+  const mockUtils={...utils,delay:async()=>{clock+=61000;}};mocks.set('./utils.js',mockUtils);
+  cache.delete(path.resolve(root,'apps/telegram-sync/src/sync.ts'));
+  const {backfill}=load('apps/telegram-sync/src/sync.ts');
+  const {getLastSyncedMessageId}=load('apps/telegram-sync/src/db-operations.ts');
+  const messages=[...Array.from({length:150},(_,i)=>i+1),1000].map(id=>new Api.Message({id,date:0,message:'no media',peerId:new Api.PeerChat({chatId:1})}));
+  const client={getMessages:async(_group,options)=>options.ids?messages.filter(m=>options.ids.includes(m.id)):messages.filter(m=>m.id>(options.minId??0)).slice(0,options.limit)};
+  try {Date.now=()=>clock;await backfill(client,{},'priority-group');}finally{Date.now=realNow;}
+  assert.equal((await pg`select status from telegram_sync_messages where id='requested'`)[0].status,'skipped');
+  assert.equal(await getLastSyncedMessageId('priority-group',0),null);
+  mockUtils.delay=async()=>{};
+  await backfill(client,{},'priority-group');
+  assert.equal(await getLastSyncedMessageId('priority-group',0),100);
+  await backfill(client,{},'priority-group');
+  assert.equal((await pg`select count(*)::int as n from telegram_sync_messages where telegram_group_id='priority-group' and telegram_message_id<=150`)[0].n,150);
+  assert.equal(await getLastSyncedMessageId('priority-group',0),1000);
+});
+test('Large forum yields between topics and resumes the next topic',async()=>{
+  const {Api}=createRequire(path.join(root,'apps/telegram-sync/package.json'))('telegram');
+  await pg`insert into categories(id,name,slug) values('cat','test','test') on conflict do nothing`;
+  mocks.set('./topics.js',{isForumGroup:async()=>true,getForumTopics:async()=>new Map([[10,'one'],[20,'two'],[30,'three']]),getOrCreateCategory:async()=> 'cat'});
+  const realNow=Date.now;let clock=realNow();
+  mocks.set('./utils.js',{...load('apps/telegram-sync/src/utils.ts'),delay:async()=>{clock+=61000;}});
+  cache.delete(path.resolve(root,'apps/telegram-sync/src/sync.ts'));
+  const {backfill}=load('apps/telegram-sync/src/sync.ts');const visited=[];
+  const client={getMessages:async(_group,options)=>{if(options.ids)return[];visited.push(options.replyTo);return [new Api.Message({id:options.replyTo+1,date:0,message:'no media',peerId:new Api.PeerChat({chatId:1})})];}};
+  try {Date.now=()=>clock;await backfill(client,{},'fair-group');await backfill(client,{},'fair-group');}finally{Date.now=realNow;}
+  assert.deepEqual(visited,[10,20]);
+});
+test('Telegram streams complete files and cleans temporary data on success and failures',async()=>{
+  const {Api}=createRequire(path.join(root,'apps/telegram-sync/package.json'))('telegram');
+  const payload=Buffer.from('test-media-data');let outputFile;let truncated=false;let storageError=false;let sent=0;
+  mocks.set('@kodhom/r2',{
+    uploadBuffer:async()=>{throw new Error('Full video must not use uploadBuffer');},
+    uploadStream:async(_key,stream,_mime,length)=>{
+      sent++;assert.equal(length,payload.length);const chunks=[];
+      for await(const chunk of stream)chunks.push(chunk);
+      assert.deepEqual(Buffer.concat(chunks),payload);
+      if(storageError)throw new Error('test storage outage');
+    },
+  });
+  cache.delete(path.resolve(root,'apps/telegram-sync/src/media.ts'));
+  const {downloadAndUploadMedia}=load('apps/telegram-sync/src/media.ts');
+  const message=new Api.Message({id:1,date:0,message:'',peerId:new Api.PeerChat({chatId:1}),media:new Api.MessageMediaDocument({
+    document:new Api.Document({id:1n,accessHash:0n,fileReference:Buffer.alloc(0),date:0,mimeType:'video/mp4',size:BigInt(payload.length),dcId:1,attributes:[]}),
+  })});
+  const client={downloadMedia:async(_message,options)=>{outputFile=options.outputFile;assert.equal(typeof outputFile,'string');await fs.promises.writeFile(outputFile,truncated?payload.subarray(0,2):payload);return outputFile;}};
+  try {
+    const result=await downloadAndUploadMedia(client,message);assert.equal(result.fileSize,payload.length);assert.equal(sent,1);assert.equal(fs.existsSync(path.dirname(outputFile)),false);
+    truncated=true;await assert.rejects(()=>downloadAndUploadMedia(client,message),/Incomplete media download/);assert.equal(sent,1);assert.equal(fs.existsSync(path.dirname(outputFile)),false);
+    truncated=false;storageError=true;await assert.rejects(()=>downloadAndUploadMedia(client,message),/test storage outage/);assert.equal(fs.existsSync(path.dirname(outputFile)),false);
+  } finally {mocks.delete('@kodhom/r2');}
+});
+test('Concurrent Telegram cursors retain both sources and cannot be edited as public settings',async()=>{
+  const {saveSyncCursor,getLastSyncedMessageId}=load('apps/telegram-sync/src/db-operations.ts');
+  await Promise.all([saveSyncCursor('first-source',1,50),saveSyncCursor('second-source',2,80)]);
+  assert.equal(await getLastSyncedMessageId('first-source',1),50);assert.equal(await getLastSyncedMessageId('second-source',2),80);
+  const config=load('apps/backoffice/src/app/api/config/route.ts');
+  const list=await context.run({admin:true},()=>config.GET());assert.deepEqual(await list.json(),[]);
+  const edit=await context.run({admin:true},()=>config.POST(request({key:'telegram_sync_cursors',value:{}})));
+  assert.equal(edit.status,400);assert.equal(await getLastSyncedMessageId('first-source',1),50);
 });
 (async()=>{
   let passed=0;

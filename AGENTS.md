@@ -13,3 +13,9 @@ token to another project or global memory. If that file is absent on another
 machine, request project credentials instead of searching other projects.
 
 Credential availability does not authorize unrelated deployments or account changes.
+
+## Protected Telegram source
+
+The user explicitly requires keeping Telegram group `-1003892087188` in the sync
+configuration. Never remove it during source cleanup, even when access or media
+downloads fail; diagnose and recover that source instead.
