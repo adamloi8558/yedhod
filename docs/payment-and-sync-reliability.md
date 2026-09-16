@@ -62,6 +62,13 @@ every 30 seconds, and removes temporary data on success or handled failure. A li
 also checks truncated downloads and storage failures. The current integration
 suite has 28 cases, including replay cursor safety and fair forum scheduling.
 
+GramJS closes file writers without awaiting their final asynchronous write. Passing
+a filename and immediately checking its size could therefore report a truncated
+last chunk. The worker now owns the write stream and waits for its completion
+before checking or uploading the file. The regression fixture delays disk writes
+to reproduce this race. After deployment, three previously affected messages in
+the protected source (39320, 39334 and 39366) synced successfully.
+
 To audit missing videos from a specific source date (including that date), run
 `pnpm --filter @kodhom/telegram-sync exec tsx src/scripts/backfill-since.ts --since=2026-09-08T00:00:00+07:00`
 in the service environment. The default only compares Telegram metadata with the
