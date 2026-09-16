@@ -1,5 +1,5 @@
 import { db, clips, telegramSyncMessages, systemConfig } from "@kodhom/db";
-import { eq, and, max, ne, lt, asc, like, sql } from "drizzle-orm";
+import { eq, and, max, ne, lt, asc, like, sql, inArray } from "drizzle-orm";
 import { nanoid } from "./utils.js";
 
 export async function createClipRecord(params: {
@@ -134,6 +134,17 @@ export async function getRequestedBackfillMessageIds(groupId: string, topicId: n
       lt(telegramSyncMessages.createdAt, new Date(Date.now() - 15 * 60_000))))
     .orderBy(asc(telegramSyncMessages.telegramMessageId)).limit(100);
   return rows.map(row => row.id);
+}
+
+export async function hasReadyRequestedBackfill(groupIds: string[]): Promise<boolean> {
+  if (!groupIds.length) return false;
+  const rows = await db.select({ id: telegramSyncMessages.id }).from(telegramSyncMessages)
+    .where(and(eq(telegramSyncMessages.status, "failed"),
+      inArray(telegramSyncMessages.telegramGroupId, groupIds),
+      like(telegramSyncMessages.errorMessage, "Backfill requested from %"),
+      lt(telegramSyncMessages.createdAt, new Date(Date.now() - 15 * 60_000))))
+    .limit(1);
+  return rows.length > 0;
 }
 
 export async function getFailedMessageIds(groupId: string, topicId: number): Promise<number[]> {

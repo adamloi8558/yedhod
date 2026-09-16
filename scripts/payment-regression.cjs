@@ -273,6 +273,24 @@ test('Concurrent Telegram cursors retain both sources and cannot be edited as pu
   const edit=await context.run({admin:true},()=>config.POST(request({key:'telegram_sync_cursors',value:{}})));
   assert.equal(edit.status,400);assert.equal(await getLastSyncedMessageId('first-source',1),50);
 });
+test('Requested recovery avoids unrelated history and ignores removed sources',async()=>{
+  const {Api}=createRequire(path.join(root,'apps/telegram-sync/package.json'))('telegram');
+  await pg`insert into categories(id,name,slug) values('cat','test','test') on conflict do nothing`;
+  await pg`insert into telegram_sync_messages(id,telegram_group_id,telegram_topic_id,telegram_message_id,status,error_message,created_at)
+    values('only-requested','requested-only',0,500,'failed','Backfill requested from test',now()-interval '20 minutes')`;
+  const {hasReadyRequestedBackfill,getLastSyncedMessageId}=load('apps/telegram-sync/src/db-operations.ts');
+  assert.equal(await hasReadyRequestedBackfill(['requested-only']),true);
+  assert.equal(await hasReadyRequestedBackfill(['other-source']),false);
+  assert.equal(await hasReadyRequestedBackfill([]),false);
+  mocks.set('./topics.js',{isForumGroup:async()=>false,getGroupTitle:async()=> 'test',getOrCreateCategory:async()=> 'cat'});
+  mocks.set('./utils.js',{...load('apps/telegram-sync/src/utils.ts'),delay:async()=>{}});
+  cache.delete(path.resolve(root,'apps/telegram-sync/src/sync.ts'));
+  const {backfill}=load('apps/telegram-sync/src/sync.ts');
+  const client={getMessages:async(_group,options)=>{assert.ok(options.ids,'Recovery must not request unrelated history');return [new Api.Message({id:500,date:0,message:'no media',peerId:new Api.PeerChat({chatId:1})})];}};
+  await backfill(client,{},'requested-only',{requestedOnly:true});
+  assert.equal(await getLastSyncedMessageId('requested-only',0),null);
+  assert.equal(await hasReadyRequestedBackfill(['requested-only']),false);
+});
 (async()=>{
   let passed=0;
   try { for(const [name,fn] of tests){await reset();await fn();passed++;console.log('PASS',name);}console.log(`${passed}/${tests.length} passed`); }

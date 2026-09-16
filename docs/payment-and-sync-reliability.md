@@ -43,7 +43,10 @@ operator action; logs now expose these instead of silently abandoning a group.
 Forum passes now also yield between topics after approximately 60 seconds and
 resume at the next topic, allowing other sources to run. Explicitly requested
 backfill records run before ordinary discovery and retain their priority after
-transient failures. Discovery positions are stored separately in the internal
+transient failures. While eligible recovery work exists on enabled, available
+sources, passes focus on that work; older unrelated history resumes afterward.
+Removed sources and groups waiting on error backoff cannot hold that mode open.
+Discovery positions are stored separately in the internal
 `telegram_sync_cursors` config value, so an out-of-order replay cannot skip unseen
 history. This internal value is excluded from the editable settings API. Source
 configuration is refreshed between cycles and checked before processing a group.
@@ -53,7 +56,7 @@ deadline. The worker verifies the downloaded byte count, logs download progress
 every 30 seconds, and removes temporary data on success or handled failure. A live
 32 KiB R2 stream upload/readback passed with matching SHA-256; regression coverage
 also checks truncated downloads and storage failures. The current integration
-suite has 26 cases, including replay cursor safety and fair forum scheduling.
+suite has 27 cases, including replay cursor safety and fair forum scheduling.
 
 To audit missing videos from a specific source date (including that date), run
 `pnpm --filter @kodhom/telegram-sync exec tsx src/scripts/backfill-since.ts --since=2026-09-08T00:00:00+07:00`

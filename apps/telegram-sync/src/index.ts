@@ -6,6 +6,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 import { createClient } from "./telegram-client.js";
 import { getTelegramGroupIds } from "./config.js";
 import { backfill } from "./sync.js";
+import { hasReadyRequestedBackfill } from "./db-operations.js";
 import { retryDelayMs } from "./retry.js";
 import { delay } from "./utils.js";
 import type { Api } from "telegram";
@@ -49,7 +50,9 @@ async function main() {
         const synced = await db.transaction(async tx => {
           const lock = await tx.execute(sql`select pg_try_advisory_xact_lock(hashtextextended(${"telegram-sync:" + state.id}, 0)) as locked`);
           if (!lock[0]?.locked) return false;
-          await backfill(client, state.entity!, state.id);
+          const availableGroups = (await getTelegramGroupIds()).filter(id =>
+            !states.some(other => other.id === id && other.failures > 0 && other.retryAt > Date.now()));
+          await backfill(client, state.entity!, state.id, { requestedOnly: await hasReadyRequestedBackfill(availableGroups) });
           return true;
         });
         if (!synced) { state.retryAt = Date.now() + 60_000; continue; }

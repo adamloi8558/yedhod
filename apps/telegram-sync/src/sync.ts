@@ -105,7 +105,8 @@ async function syncTopic(
   group: Api.TypeEntityLike,
   topicId: number,
   categoryId: string,
-  groupId: string
+  groupId: string,
+  requestedOnly = false
 ): Promise<number> {
   const lastSyncedId = await getLastSyncedMessageId(groupId, topicId);
   await saveSyncCursor(groupId, topicId, lastSyncedId);
@@ -118,7 +119,7 @@ async function syncTopic(
 
   // Bounded work per group prevents a large historical import starving others.
   {
-    const messages = await client.getMessages(group, {
+    const messages = requestedOnly ? [] : await client.getMessages(group, {
       limit: 100,
       offsetId: 0,
       ...(topicId > 0 ? { replyTo: topicId } : {}),
@@ -128,7 +129,7 @@ async function syncTopic(
 
     const requestedIds = await getRequestedBackfillMessageIds(groupId, topicId);
     const requested = requestedIds.length ? await client.getMessages(group, { ids: requestedIds }) : [];
-    const retryIds = await getFailedMessageIds(groupId, topicId);
+    const retryIds = requestedOnly ? [] : await getFailedMessageIds(groupId, topicId);
     const retries = retryIds.length ? await client.getMessages(group, { ids: retryIds }) : [];
     if (messages.length === 0 && retries.length === 0 && requested.length === 0) return 0;
 
@@ -212,7 +213,8 @@ const nextForumTopic = new Map<string, number>();
 async function backfillForum(
   client: TelegramClient,
   group: Api.TypeEntityLike,
-  groupId: string
+  groupId: string,
+  requestedOnly: boolean
 ): Promise<number> {
   const topics = await getForumTopics(client, group);
   const accessLevels = await getTopicAccessLevels();
@@ -231,7 +233,7 @@ async function backfillForum(
     console.log(`[sync] Processing topic: "${topicTitle}" (${topicId}) [${accessLevel}]`);
     const categoryId = await getOrCreateCategory(topicId, topicTitle, groupId, accessLevel);
     let count: number;
-    try { count = await syncTopic(client, group, topicId, categoryId, groupId); }
+    try { count = await syncTopic(client, group, topicId, categoryId, groupId, requestedOnly); }
     finally { nextForumTopic.set(groupId, entries[(index + 1) % entries.length]![0]); }
     totalSynced += count;
     console.log(`[sync] Topic "${topicTitle}": synced ${count} messages`);
@@ -244,19 +246,21 @@ async function backfillForum(
 async function backfillNormalGroup(
   client: TelegramClient,
   group: Api.TypeEntityLike,
-  groupId: string
+  groupId: string,
+  requestedOnly: boolean
 ): Promise<number> {
   const groupTitle = await getGroupTitle(client, group);
   // Use topicId = 0 for normal groups (no topics)
   const categoryId = await getOrCreateCategory(0, groupTitle, groupId, "vip");
   console.log(`[sync] Syncing normal group as category: "${groupTitle}"`);
-  return await syncTopic(client, group, 0, categoryId, groupId);
+  return await syncTopic(client, group, 0, categoryId, groupId, requestedOnly);
 }
 
 export async function backfill(
   client: TelegramClient,
   group: Api.TypeEntityLike,
-  groupId: string
+  groupId: string,
+  options: { requestedOnly?: boolean } = {}
 ): Promise<void> {
   console.log("[sync] Starting backfill...");
 
@@ -265,10 +269,10 @@ export async function backfill(
 
   if (isForum) {
     console.log("[sync] Detected forum group");
-    totalSynced = await backfillForum(client, group, groupId);
+    totalSynced = await backfillForum(client, group, groupId, options.requestedOnly ?? false);
   } else {
     console.log("[sync] Detected normal group");
-    totalSynced = await backfillNormalGroup(client, group, groupId);
+    totalSynced = await backfillNormalGroup(client, group, groupId, options.requestedOnly ?? false);
   }
 
   console.log(`[sync] Backfill pass complete. Total processed: ${totalSynced}`);
