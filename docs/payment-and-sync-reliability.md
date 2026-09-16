@@ -53,6 +53,11 @@ The serial client handles flood waits of up to 60 seconds inside the current
 request, preserving already downloaded chunks. Longer waits propagate to the
 account-wide scheduler. A simulated GramJS download verifies the wait actually
 elapses, only the interrupted chunk is retried, and longer waits propagate.
+Telegram's `-503: Timeout` response is retried at the same file offset, with
+two retries after two and four seconds. This wrapper applies only to read-only
+`upload.GetFile` requests; permanent errors and other RPC methods propagate.
+The real GramJS request path is tested with a simulated sender for transient and
+persistent timeouts, permanent errors and non-file requests.
 Discovery positions are stored separately in the internal
 `telegram_sync_cursors` config value, so an out-of-order replay cannot skip unseen
 history. This internal value is excluded from the editable settings API. Source

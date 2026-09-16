@@ -177,7 +177,7 @@ test('approve/reject race never revokes a completed payment',async()=>{
 test('Telegram flood waits are respected with bounded transient backoff',async()=>{
   assert.equal(retryDelayMs({seconds:566},1),571000);assert.equal(retryDelayMs(new Error('FLOOD_WAIT_120'),1),125000);assert.equal(retryDelayMs(new Error('offline'),30),900000);
 });
-test('Short Telegram flood waits resume the same chunk while long waits reach the scheduler',async()=>{
+test('Telegram file requests resume short waits and bounded timeouts; other errors propagate',async()=>{
   const tgRequire=createRequire(path.join(root,'apps/telegram-sync/package.json'));
   const telegram=tgRequire('telegram');const {TelegramClient,Api,errors}=telegram;
   const bigInt=createRequire(tgRequire.resolve('telegram'))('big-integer');
@@ -185,6 +185,9 @@ test('Short Telegram flood waits resume the same chunk while long waits reach th
   const sender={dcId:1,userDisconnected:false,addStateToQueue(state){
     const offset=Number(state.request.offset);offsets.push(offset);
     if(mode==='long') {state.reject(new errors.FloodWaitError({capture:'61'}));return;}
+    if(mode==='timeout-always'){state.reject(new errors.RPCError('Timeout',state.request,-503));return;}
+    if(mode==='denied'){state.reject(new errors.RPCError('FILE_ID_INVALID',state.request,400));return;}
+    if(mode==='timeout'&&offset===131072&&!waited){waited=true;state.reject(new errors.RPCError('Timeout',state.request,-503));return;}
     if(offset===131072&&!waited){waited=true;state.reject(new errors.FloodWaitError({capture:'1'}));return;}
     state.resolve(new Api.upload.File({type:new Api.storage.FileUnknown(),mtime:0,bytes:payload.subarray(offset,offset+state.request.limit)}));
   }};
@@ -203,6 +206,18 @@ test('Short Telegram flood waits resume the same chunk while long waits reach th
     const started=Date.now();assert.deepEqual(await client.downloadMedia(message),payload);
     assert.ok(Date.now()-started>=950,'The requested flood wait must elapse before retry');
     assert.deepEqual(offsets,[0,131072,131072],'Already downloaded chunks must not be fetched again');
+    mode='timeout';waited=false;offsets.length=0;
+    assert.deepEqual(await client.downloadMedia(message),payload);
+    assert.deepEqual(offsets,[0,131072,131072],'A transient Timeout must resume at the same file offset');
+    mode='timeout-always';offsets.length=0;
+    await assert.rejects(()=>client.downloadMedia(message),error=>error.code===-503);
+    assert.deepEqual(offsets,[0,0,0],'Persistent file timeouts must stop after two retries');
+    offsets.length=0;
+    await assert.rejects(()=>client.invokeWithSender(new Api.updates.GetState(),sender),error=>error.code===-503);
+    assert.equal(offsets.length,1,'The wrapper must not retry other RPC methods');
+    mode='denied';offsets.length=0;
+    await assert.rejects(()=>client.downloadMedia(message),error=>error.code===400);
+    assert.deepEqual(offsets,[0],'Permanent file errors must not be retried immediately');
     mode='long';offsets.length=0;
     await assert.rejects(()=>client.downloadMedia(message),error=>error instanceof errors.FloodWaitError&&error.seconds===61);
     assert.deepEqual(offsets,[0],'Long waits must propagate without immediate retries');
