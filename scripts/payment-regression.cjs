@@ -185,14 +185,18 @@ test('Telegram catches up oldest-first across multiple bounded polling cycles',a
   const utils=load('apps/telegram-sync/src/utils.ts');mocks.set('./utils.js',{...utils,delay:async()=>{}});
   const {backfill}=load('apps/telegram-sync/src/sync.ts');
   const messages=Array.from({length:150},(_,i)=>new Api.Message({id:i+1,date:0,message:'no media',peerId:new Api.PeerChat({chatId:1})}));
-  const client={getMessages:async(_group,options)=>{assert.equal(options.reverse,true);return messages.filter(m=>m.id>(options.minId??0)).slice(0,options.limit);}};
+  const client={getMessages:async(_group,options)=>{if(options.ids)return messages.filter(m=>options.ids.includes(m.id));assert.equal(options.reverse,true);return messages.filter(m=>m.id>(options.minId??0)).slice(0,options.limit);}};
   await backfill(client,{},'test-group');
   assert.equal((await pg`select count(*)::int as n from telegram_sync_messages`)[0].n,100);
   await backfill(client,{},'test-group');
   assert.equal((await pg`select count(*)::int as n from telegram_sync_messages`)[0].n,150);
   await pg`update telegram_sync_messages set status='failed' where telegram_message_id=10`;
-  const {getLastSyncedMessageId}=load('apps/telegram-sync/src/db-operations.ts');
-  assert.equal(await getLastSyncedMessageId('test-group',0),9);
+  const {getLastSyncedMessageId,getFailedMessageIds}=load('apps/telegram-sync/src/db-operations.ts');
+  assert.equal(await getLastSyncedMessageId('test-group',0),150);
+  await pg`update telegram_sync_messages set created_at=now()-interval '20 minutes' where status='failed'`;
+  assert.deepEqual(await getFailedMessageIds('test-group',0),[10]);
+  await backfill(client,{},'test-group');
+  assert.equal((await pg`select status from telegram_sync_messages where telegram_message_id=10`)[0].status,'skipped');
 });
 (async()=>{
   let passed=0;

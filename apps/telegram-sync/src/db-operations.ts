@@ -1,5 +1,5 @@
 import { db, clips, telegramSyncMessages } from "@kodhom/db";
-import { eq, and, max, min, ne } from "drizzle-orm";
+import { eq, and, max, ne, lt, asc } from "drizzle-orm";
 import { nanoid } from "./utils.js";
 
 export async function createClipRecord(params: {
@@ -64,6 +64,8 @@ export async function recordSyncedMessage(params: {
         mediaType: params.mediaType,
         status: params.status,
         errorMessage: params.errorMessage,
+        // Failed records use the last attempt time to rotate the retry queue.
+        createdAt: new Date(),
       },
     });
 }
@@ -98,10 +100,13 @@ export async function getLastSyncedMessageId(
       )
     );
 
-  const [failure] = await db.select({ minId: min(telegramSyncMessages.telegramMessageId) })
-    .from(telegramSyncMessages).where(and(eq(telegramSyncMessages.telegramGroupId, groupId),
-      eq(telegramSyncMessages.telegramTopicId, topicId), eq(telegramSyncMessages.status, "failed")));
-  const latest = result[0]?.maxId ?? null;
-  if (failure?.minId != null) return Math.min(latest ?? 0, failure.minId - 1);
-  return latest;
+  return result[0]?.maxId ?? null;
+}
+
+export async function getFailedMessageIds(groupId: string, topicId: number): Promise<number[]> {
+  const rows = await db.select({ id: telegramSyncMessages.telegramMessageId }).from(telegramSyncMessages)
+    .where(and(eq(telegramSyncMessages.telegramGroupId, groupId), eq(telegramSyncMessages.telegramTopicId, topicId),
+      eq(telegramSyncMessages.status, "failed"), lt(telegramSyncMessages.createdAt, new Date(Date.now() - 15 * 60_000))))
+    .orderBy(asc(telegramSyncMessages.createdAt)).limit(5);
+  return rows.map(row => row.id);
 }

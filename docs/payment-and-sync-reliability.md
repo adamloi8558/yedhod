@@ -33,7 +33,9 @@ only after a one-time backfill. It caches resolved groups, warms dialog entities
 for private IDs, honors account-wide flood waits and retries failed groups with
 backoff. Every cycle logs each group's last successful sync and next retry.
 Each topic processes at most 100 messages or approximately 60 seconds per pass,
-oldest first; a failed message is retried without advancing past it. A per-group
+oldest first. Failed messages are retried in a separate bounded queue with a
+15-minute cooldown so they do not block new clips. File references are refreshed
+before download and once more if Telegram reports an expired reference. A per-group
 database lock prevents two new-version workers syncing that group simultaneously.
 Telegram access removal, expired sessions, and permanent media failures still need
 operator action; logs now expose these instead of silently abandoning a group.

@@ -6,6 +6,7 @@ import {
   recordSyncedMessage,
   isMessageSynced,
   getLastSyncedMessageId,
+  getFailedMessageIds,
 } from "./db-operations.js";
 import { isForumGroup, getGroupTitle, getForumTopics, getOrCreateCategory } from "./topics.js";
 import { getTopicAccessLevels, getAccessLevelForTopic } from "./config.js";
@@ -21,7 +22,8 @@ async function processMessage(
   message: Api.Message,
   topicId: number,
   categoryId: string,
-  groupId: string
+  groupId: string,
+  group: Api.TypeEntityLike
 ): Promise<void> {
   const mediaInfo = getMediaInfo(message);
 
@@ -40,7 +42,18 @@ async function processMessage(
   }
 
   // Download and upload media
-  const result = await downloadAndUploadMedia(client, message);
+  // References fetched at the start of a large batch can expire while earlier
+  // videos download. Refresh immediately before each media download.
+  const [fresh] = await client.getMessages(group, { ids: [message.id] });
+  if (!(fresh instanceof Api.Message)) throw new Error("Source message unavailable");
+  let result;
+  try { result = await downloadAndUploadMedia(client, fresh); }
+  catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("FILE_REFERENCE_EXPIRED")) throw error;
+    const [renewed] = await client.getMessages(group, { ids: [message.id] });
+    if (!(renewed instanceof Api.Message)) throw error;
+    result = await downloadAndUploadMedia(client, renewed);
+  }
   if (!result) {
     await recordSyncedMessage({
       telegramMessageId: message.id,
@@ -110,10 +123,15 @@ async function syncTopic(
       reverse: true,
     });
 
-    if (messages.length === 0) return 0;
+    const retryIds = await getFailedMessageIds(groupId, topicId);
+    const retries = retryIds.length ? await client.getMessages(group, { ids: retryIds }) : [];
+    if (messages.length === 0 && retries.length === 0) return 0;
 
     // Process oldest first
     const sorted = [...messages].sort((a, b) => a.id - b.id);
+    // New clips have priority. Retry a bounded batch of old failures when time permits.
+    const seen = new Set(sorted.map(message => message.id));
+    for (const retry of retries) if (!seen.has(retry.id)) sorted.push(retry);
 
     for (const message of sorted) {
       if (!(message instanceof Api.Message)) continue;
@@ -126,7 +144,7 @@ async function syncTopic(
       if (alreadySynced) continue;
 
       try {
-        await processMessage(client, message, topicId, categoryId, groupId);
+        await processMessage(client, message, topicId, categoryId, groupId, group);
         synced++;
       } catch (err) {
         console.error(
@@ -143,8 +161,10 @@ async function syncTopic(
           status: "failed",
           errorMessage: err instanceof Error ? err.message : String(err),
         });
-        // Retry from the failed message next cycle; don't jump the cursor over it.
-        throw err;
+        // Respect account-wide rate limits; other failed media stays in the retry
+        // ledger without preventing later messages from being processed.
+        const failure = err as { seconds?: number; errorMessage?: string };
+        if (failure.seconds || /FLOOD/i.test(failure.errorMessage ?? "")) throw err;
       }
 
       // Rate limit protection
@@ -258,7 +278,7 @@ export async function startRealtimeListener(
     }
 
     try {
-      await processMessage(client, message, topicId, categoryId, groupId);
+      await processMessage(client, message, topicId, categoryId, groupId, group);
     } catch (err) {
       console.error(
         `[realtime] Error processing message ${message.id}:`,
