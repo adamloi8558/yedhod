@@ -1,6 +1,6 @@
 import { TelegramClient, Api } from "telegram";
 import { uploadBuffer, uploadStream } from "@kodhom/r2";
-import { createReadStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
 import { mkdtemp, stat, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -80,15 +80,28 @@ export async function downloadAndUploadMedia(
   let fileSize: number;
   let lastProgress = Date.now();
   try {
-    await client.downloadMedia(message, {
-      outputFile: file,
-      progressCallback: async (received, total) => {
-        if (Date.now() - lastProgress >= 30_000) {
-          console.log(`[media] Message ${message.id}: ${Number(received)}/${Number(total)} bytes downloaded`);
-          lastProgress = Date.now();
-        }
-      },
-    });
+    const output = createWriteStream(file);
+    const written = finished(output);
+    // Attach rejection handling immediately; the download may fail separately.
+    void written.catch(() => {});
+    try {
+      await client.downloadMedia(message, {
+        outputFile: output,
+        progressCallback: async (received, total) => {
+          if (Date.now() - lastProgress >= 30_000) {
+            console.log(`[media] Message ${message.id}: ${Number(received)}/${Number(total)} bytes downloaded`);
+            lastProgress = Date.now();
+          }
+        },
+      });
+      // GramJS closes the writer without awaiting its asynchronous final write.
+      output.end();
+      await written;
+    } catch (error) {
+      output.destroy();
+      await written.catch(() => {});
+      throw error;
+    }
     const downloaded = await stat(file);
     if (!downloaded.isFile() || !downloaded.size || (info.fileSize !== null && downloaded.size !== info.fileSize)) {
       throw new Error(`Incomplete media download: expected ${info.fileSize}, received ${downloaded.size}`);

@@ -257,7 +257,12 @@ test('Telegram streams complete files and cleans temporary data on success and f
   const message=new Api.Message({id:1,date:0,message:'',peerId:new Api.PeerChat({chatId:1}),media:new Api.MessageMediaDocument({
     document:new Api.Document({id:1n,accessHash:0n,fileReference:Buffer.alloc(0),date:0,mimeType:'video/mp4',size:BigInt(payload.length),dcId:1,attributes:[]}),
   })});
-  const client={downloadMedia:async(_message,options)=>{outputFile=options.outputFile;assert.equal(typeof outputFile,'string');await fs.promises.writeFile(outputFile,truncated?payload.subarray(0,2):payload);return outputFile;}};
+  const client={downloadMedia:async(_message,options)=>{
+    const stream=options.outputFile;outputFile=stream.path;assert.equal(typeof stream.write,'function');
+    const write=stream._write.bind(stream);
+    stream._write=(chunk,encoding,callback)=>setTimeout(()=>write(chunk,encoding,callback),25);
+    stream.write(truncated?payload.subarray(0,2):payload);stream.end();return outputFile;
+  }};
   try {
     const result=await downloadAndUploadMedia(client,message);assert.equal(result.fileSize,payload.length);assert.equal(sent,1);assert.equal(fs.existsSync(path.dirname(outputFile)),false);
     truncated=true;await assert.rejects(()=>downloadAndUploadMedia(client,message),/Incomplete media download/);assert.equal(sent,1);assert.equal(fs.existsSync(path.dirname(outputFile)),false);
