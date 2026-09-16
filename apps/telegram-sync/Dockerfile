@@ -30,4 +30,4 @@ COPY apps/telegram-sync/ ./apps/telegram-sync/
 COPY tsconfig.json ./
 COPY package.json ./
 
-CMD ["npx", "tsx", "apps/telegram-sync/src/index.ts"]
+CMD ["/app/apps/telegram-sync/node_modules/.bin/tsx", "apps/telegram-sync/src/index.ts"]
