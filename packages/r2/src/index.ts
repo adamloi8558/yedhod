@@ -7,10 +7,13 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { Readable } from "node:stream";
 
-function getR2Client() {
+function getR2Client(streaming = false) {
   return new S3Client({
     region: "auto",
     endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    // The optional checksum chunk encoder eagerly drains Node streams, ignoring
+    // backpressure. Plain PutObject streaming keeps buffering bounded.
+    ...(streaming ? { requestChecksumCalculation: "WHEN_REQUIRED" as const } : {}),
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY_ID!,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
@@ -80,7 +83,7 @@ export async function uploadStream(
   contentLength: number,
   abortSignal?: AbortSignal
 ) {
-  const client = getR2Client();
+  const client = getR2Client(true);
   const command = new PutObjectCommand({
     Bucket: bucket(), Key: key, Body: body,
     ContentType: contentType, ContentLength: contentLength,

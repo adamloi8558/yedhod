@@ -70,9 +70,16 @@ while older videos are still waiting to download.
 Large videos download to temporary files and stream to R2 with a ten-minute upload
 deadline. The worker verifies the downloaded byte count, logs download progress
 every 30 seconds, and removes temporary data on success or handled failure. A live
-32 KiB R2 stream upload/readback passed with matching SHA-256; regression coverage
+32 MiB R2 stream upload/readback passed with matching SHA-256; regression coverage
 also checks truncated downloads and storage failures. The current integration
-suite has 29 cases, including replay cursor safety and fair forum scheduling.
+suite has 30 cases, including replay cursor safety and fair forum scheduling.
+
+For streamed R2 uploads only, optional request checksum calculation is disabled
+using the SDK's `WHEN_REQUIRED` setting. Its optional chunk encoder otherwise
+drains the source without respecting backpressure and can retain an entire large
+video in RAM. The actual SDK request pipeline is tested against a slow consumer,
+checking bounded buffering, exact bytes and matching SHA-256. Buffer uploads and
+presigned URLs retain their existing client settings.
 
 GramJS closes file writers without awaiting their final asynchronous write. Passing
 a filename and immediately checking its size could therefore report a truncated

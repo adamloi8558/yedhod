@@ -326,6 +326,37 @@ test('Concurrent Telegram cursors retain both sources and cannot be edited as pu
   const edit=await context.run({admin:true},()=>config.POST(request({key:'telegram_sync_cursors',value:{}})));
   assert.equal(edit.status,400);assert.equal(await getLastSyncedMessageId('first-source',1),50);
 });
+test('R2 uploads respect a slow consumer without buffering the complete file',async()=>{
+  const r2Require=createRequire(path.join(root,'packages/r2/package.json'));
+  const sdk=r2Require('@aws-sdk/client-s3');const {Readable}=require('node:stream');const {createHash}=require('node:crypto');
+  const total=8*1024*1024+17;let produced=0,received=0,destroyed=false;
+  const sourceHash=createHash('sha256'),receivedHash=createHash('sha256');
+  const body=new Readable({highWaterMark:64*1024,read(){
+    if(produced===total){this.push(null);return;}
+    const chunk=Buffer.alloc(Math.min(64*1024,total-produced),Math.floor(produced/65536)%256);
+    produced+=chunk.length;sourceHash.update(chunk);this.push(chunk);
+  }});
+  const handler={metadata:{handlerProtocol:'http/1.1'},destroy(){destroyed=true;},async handle(request){
+    await new Promise(resolve=>setTimeout(resolve,25));
+    assert.ok(produced<=256*1024,'The SDK must not drain the file while the destination is waiting');
+    for await(const chunk of request.body){
+      received+=chunk.length;receivedHash.update(chunk);
+      assert.ok(produced-received<=256*1024,'Buffering must remain bounded for a slow destination');
+      await new Promise(resolve=>setTimeout(resolve,2));
+    }
+    return {response:{statusCode:200,headers:{etag:'"test"'},body:Readable.from([])}};
+  }};
+  class SlowS3Client extends sdk.S3Client {constructor(config){super({...config,requestHandler:handler,credentials:{accessKeyId:'test',secretAccessKey:'test'}});}}
+  const previousBucket=process.env.R2_BUCKET_NAME;process.env.R2_BUCKET_NAME='test';
+  mocks.set('@aws-sdk/client-s3',{...sdk,S3Client:SlowS3Client});cache.delete(path.resolve(root,'packages/r2/src/index.ts'));
+  try {
+    await load('packages/r2/src/index.ts').uploadStream('test.bin',body,'application/octet-stream',total);
+    assert.equal(received,total);assert.equal(receivedHash.digest('hex'),sourceHash.digest('hex'));assert.equal(destroyed,true);
+  } finally {
+    body.destroy();mocks.delete('@aws-sdk/client-s3');cache.delete(path.resolve(root,'packages/r2/src/index.ts'));
+    if(previousBucket===undefined)delete process.env.R2_BUCKET_NAME;else process.env.R2_BUCKET_NAME=previousBucket;
+  }
+});
 test('Requested recovery avoids unrelated history and ignores removed sources',async()=>{
   const {Api}=createRequire(path.join(root,'apps/telegram-sync/package.json'))('telegram');
   await pg`insert into categories(id,name,slug) values('cat','test','test') on conflict do nothing`;
