@@ -20,6 +20,7 @@ export async function GET(
   const ifModifiedSince = req.headers.get("if-modified-since") ?? undefined;
 
   const upstream = await fetchObject(clip.thumbnailR2Key, {
+    signal: req.signal,
     ifNoneMatch,
     ifModifiedSince,
   });

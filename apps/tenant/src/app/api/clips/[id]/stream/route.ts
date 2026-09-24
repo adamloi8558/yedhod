@@ -25,6 +25,7 @@ export async function GET(
   const ifModifiedSince = req.headers.get("if-modified-since") ?? undefined;
 
   const upstream = await fetchObject(clip.r2Key, {
+    signal: req.signal,
     range,
     ifNoneMatch,
     ifModifiedSince,

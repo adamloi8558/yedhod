@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(null, { status: 404 });
 
   const upstream = await fetchObject(tenant.faviconR2Key, {
+    signal: req.signal,
     ifNoneMatch: req.headers.get("if-none-match") ?? undefined,
     ifModifiedSince: req.headers.get("if-modified-since") ?? undefined,
   });

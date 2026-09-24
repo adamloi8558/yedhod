@@ -5,6 +5,7 @@ import {
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { streamResponse } from "./stream-response";
 
 function getR2Client() {
   return new S3Client({
@@ -85,14 +86,13 @@ export function getPublicUrl(key: string) {
  */
 export async function fetchObject(
   key: string,
-  init?: { range?: string; ifNoneMatch?: string; ifModifiedSince?: string }
+  init?: { range?: string; ifNoneMatch?: string; ifModifiedSince?: string; signal?: AbortSignal }
 ): Promise<Response> {
-  // Presign a short-lived GET, then fetch it — Node's undici streams the
-  // body without buffering, so proxying to the client is O(1) memory.
+  init?.signal?.throwIfAborted();
   const url = await getPresignedDownloadUrl(key, 300);
   const headers: Record<string, string> = {};
   if (init?.range) headers["range"] = init.range;
   if (init?.ifNoneMatch) headers["if-none-match"] = init.ifNoneMatch;
   if (init?.ifModifiedSince) headers["if-modified-since"] = init.ifModifiedSince;
-  return fetch(url, { headers, cache: "no-store" });
+  return streamResponse(url, headers, init?.signal);
 }
