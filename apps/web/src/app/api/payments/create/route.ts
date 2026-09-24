@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { pricingPlanId, bankNumber, bankCode } = parsed.data;
+  const { pricingPlanId, bankNumber } = parsed.data;
 
   // Fetch pricing plan
   const [plan] = await db

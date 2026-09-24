@@ -6,11 +6,15 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { streamResponse } from "./stream-response";
+import type { Readable } from "node:stream";
 
-function getR2Client() {
+function getR2Client(streaming = false) {
   return new S3Client({
     region: "auto",
     endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    // The optional checksum chunk encoder eagerly drains Node streams, ignoring
+    // backpressure. Plain PutObject streaming keeps buffering bounded.
+    ...(streaming ? { requestChecksumCalculation: "WHEN_REQUIRED" as const } : {}),
     credentials: {
       accessKeyId: process.env.R2_ACCESS_KEY_ID!,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
@@ -59,7 +63,8 @@ export async function uploadBuffer(
   key: string,
   body: Buffer,
   contentType: string,
-  contentLength?: number
+  contentLength?: number,
+  abortSignal?: AbortSignal
 ) {
   const client = getR2Client();
   const command = new PutObjectCommand({
@@ -69,7 +74,23 @@ export async function uploadBuffer(
     ContentType: contentType,
     ...(contentLength ? { ContentLength: contentLength } : {}),
   });
-  return client.send(command);
+  return client.send(command, { abortSignal });
+}
+
+export async function uploadStream(
+  key: string,
+  body: Readable,
+  contentType: string,
+  contentLength: number,
+  abortSignal?: AbortSignal
+) {
+  const client = getR2Client(true);
+  const command = new PutObjectCommand({
+    Bucket: bucket(), Key: key, Body: body,
+    ContentType: contentType, ContentLength: contentLength,
+  });
+  try { return await client.send(command, { abortSignal }); }
+  finally { client.destroy(); }
 }
 
 export function getPublicUrl(key: string) {

@@ -46,6 +46,7 @@ export default async function PaymentsPage({
     const like = `%${q}%`;
     conds.push(
       or(
+        ilike(payments.id, like),
         ilike(users.name, like),
         ilike(users.email, like),
         ilike(payments.anypayRef, like),
@@ -65,6 +66,8 @@ export default async function PaymentsPage({
     db
       .select({
         id: payments.id,
+        provider: payments.provider,
+        lastVerification: sql<string | null>`(select a.metadata->>'code' from admin_audit_logs a where a.target_type = 'payment' and a.target_id = ${payments.id} and a.action = 'payment.verify' order by a.created_at desc limit 1)`,
         amount: payments.amount,
         status: payments.status,
         anypayRef: payments.anypayRef,
@@ -187,8 +190,10 @@ export default async function PaymentsPage({
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={statusColor(p.status)} className={statusBadgeClass(p.status)}>
-                      {statusLabel(p.status)}
+                      {p.status === "pending" && p.slipKey ? "รอตรวจสลิป" : statusLabel(p.status)}
                     </Badge>
+                    {p.lastVerification && p.lastVerification !== "COMPLETED" && <p className="mt-1 text-xs text-muted-foreground">ผลตรวจ: {p.lastVerification}</p>}
+                    <p className="mt-1 text-xs text-muted-foreground">{p.id}</p>
                   </td>
                   <td className="hidden px-4 py-3 text-sm tabular-nums text-muted-foreground sm:table-cell">
                     {formatThaiDate(new Date(p.createdAt))}
@@ -196,6 +201,7 @@ export default async function PaymentsPage({
                   <td className="px-4 py-3">
                     <PaymentActions
                       paymentId={p.id}
+                      provider={p.provider}
                       status={p.status}
                       hasSlip={!!p.slipKey}
                       slipUrl={p.slipKey ? `/api/payments/${p.id}/slip` : null}

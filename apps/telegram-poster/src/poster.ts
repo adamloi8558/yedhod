@@ -1,6 +1,6 @@
 import { Bot, InputFile } from "grammy";
 import { db, clips, categories, telegramPostedClips } from "@kodhom/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, or } from "drizzle-orm";
 import { getPresignedDownloadUrl } from "@kodhom/r2";
 import { nanoid, delay } from "./utils.js";
 import { spawn } from "node:child_process";
@@ -47,13 +47,36 @@ export async function getUnpostedClips(targetGroupId: string) {
         eq(categories.accessLevel, "member"),
         eq(categories.isActive, true),
         eq(clips.isActive, true),
-        isNull(telegramPostedClips.id)
+        or(
+          isNull(telegramPostedClips.id),
+          eq(telegramPostedClips.status, "failed")
+        )
       )
     )
     .orderBy(clips.createdAt)
     .limit(5);
 
   return result;
+}
+
+async function recordPostResult(params: {
+  clipId: string;
+  targetGroupId: string;
+  status: "posted" | "failed" | "skipped";
+  telegramMessageId?: number | null;
+  errorMessage?: string | null;
+}): Promise<void> {
+  await db
+    .insert(telegramPostedClips)
+    .values({ id: nanoid(), ...params })
+    .onConflictDoUpdate({
+      target: [telegramPostedClips.clipId, telegramPostedClips.targetGroupId],
+      set: {
+        status: params.status,
+        telegramMessageId: params.telegramMessageId ?? null,
+        errorMessage: params.errorMessage ?? null,
+      },
+    });
 }
 
 /**
@@ -173,8 +196,7 @@ export async function postClip(
             supports_streaming: true,
           }
         );
-        await db.insert(telegramPostedClips).values({
-          id: nanoid(),
+        await recordPostResult({
           clipId: clip.id,
           telegramMessageId: msg.message_id,
           targetGroupId,
@@ -184,12 +206,10 @@ export async function postClip(
         console.log(`[poster] Posted preview for clip ${clip.id} -> message ${msg.message_id}`);
       } catch (prevErr) {
         // Preview build can fail (codec quirks, byte-range short read).
-        // Record as skipped with the reason — the next deploy can
-        // requeue these for retry by deleting the row.
+        // Keep codec failures terminal until they are explicitly requeued.
         const reason = prevErr instanceof Error ? prevErr.message : String(prevErr);
         console.warn(`[poster] Preview build failed for ${clip.id}: ${reason}`);
-        await db.insert(telegramPostedClips).values({
-          id: nanoid(),
+        await recordPostResult({
           clipId: clip.id,
           targetGroupId,
           status: "skipped",
@@ -226,8 +246,7 @@ export async function postClip(
             supports_streaming: true,
           }
         );
-        await db.insert(telegramPostedClips).values({
-          id: nanoid(),
+        await recordPostResult({
           clipId: clip.id,
           telegramMessageId: msg.message_id,
           targetGroupId,
@@ -237,8 +256,7 @@ export async function postClip(
       } catch (prevErr) {
         const reason = prevErr instanceof Error ? prevErr.message : String(prevErr);
         console.warn(`[poster] Preview build failed for ${clip.id}: ${reason}`);
-        await db.insert(telegramPostedClips).values({
-          id: nanoid(),
+        await recordPostResult({
           clipId: clip.id,
           targetGroupId,
           status: "skipped",
@@ -261,8 +279,7 @@ export async function postClip(
     );
 
     // Record success
-    await db.insert(telegramPostedClips).values({
-      id: nanoid(),
+    await recordPostResult({
       clipId: clip.id,
       telegramMessageId: msg.message_id,
       targetGroupId,
@@ -272,8 +289,7 @@ export async function postClip(
     console.log(`[poster] Posted clip ${clip.id} -> message ${msg.message_id}`);
   } catch (err) {
     // Record failure
-    await db.insert(telegramPostedClips).values({
-      id: nanoid(),
+    await recordPostResult({
       clipId: clip.id,
       targetGroupId,
       status: "failed",

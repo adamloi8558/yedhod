@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@kodhom/db";
 import { payments, adminAuditLogs } from "@kodhom/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth-server";
 import { nanoid } from "@/lib/nanoid";
 
@@ -15,6 +15,7 @@ export async function POST(
     return NextResponse.json({ error: "ไม่มีสิทธิ์" }, { status: 403 });
   }
   const { id } = await params;
+  if (req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ error: "คำขอไม่ถูกต้อง" }, { status: 403 });
 
   let reason: string | null = null;
   try {
@@ -24,35 +25,16 @@ export async function POST(
     // optional body
   }
 
-  const [payment] = await db
-    .select()
-    .from(payments)
-    .where(eq(payments.id, id))
-    .limit(1);
-  if (!payment)
-    return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
-  if (payment.status === "completed")
-    return NextResponse.json(
-      { error: "รายการนี้สำเร็จแล้ว" },
-      { status: 409 }
-    );
-
-  await db
-    .update(payments)
-    .set({ status: "failed" })
-    .where(eq(payments.id, id));
-
-  await db.insert(adminAuditLogs).values({
-    id: nanoid(),
-    adminId: session.user.id,
-    action: "payment.reject",
-    targetType: "payment",
-    targetId: id,
-    metadata: {
-      reason,
-      previousStatus: payment.status,
-    },
+  const [owner] = await db.select({ userId: payments.userId }).from(payments).where(eq(payments.id, id)).limit(1);
+  if (!owner) return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
+  return db.transaction(async (tx) => {
+    const locks = await tx.execute(sql`select pg_try_advisory_xact_lock(hashtextextended(${"payment:" + owner.userId}, 0)) as locked`);
+    if (!locks[0]?.locked) return NextResponse.json({ error: "กำลังตรวจรายการ กรุณารอสักครู่" }, { status: 409 });
+    const [payment] = await tx.select().from(payments).where(eq(payments.id, id)).for("update").limit(1);
+    if (payment.status !== "pending") return NextResponse.json({ error: "รายการนี้ดำเนินการแล้ว" }, { status: 409 });
+    await tx.update(payments).set({ status: "failed" }).where(eq(payments.id, id));
+    await tx.insert(adminAuditLogs).values({ id: nanoid(), adminId: session.user.id, action: "payment.reject",
+      targetType: "payment", targetId: id, metadata: { reason, previousStatus: payment.status } });
+    return NextResponse.json({ success: true });
   });
-
-  return NextResponse.json({ success: true });
 }

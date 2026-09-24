@@ -1,5 +1,10 @@
 import { TelegramClient, Api } from "telegram";
-import { uploadBuffer } from "@kodhom/r2";
+import { uploadBuffer, uploadStream } from "@kodhom/r2";
+import { createReadStream, createWriteStream } from "node:fs";
+import { mkdtemp, stat, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { finished } from "node:stream/promises";
 import { nanoid, getExtensionFromMime } from "./utils.js";
 
 export interface MediaResult {
@@ -69,16 +74,46 @@ export async function downloadAndUploadMedia(
   const id = nanoid();
   const r2Key = `clips/${id}.${ext}`;
 
-  console.log(`[media] Downloading ${info.mediaType} (${info.mimeType})...`);
-
-  const buffer = await client.downloadMedia(message, {});
-  if (!buffer || !(buffer instanceof Buffer)) {
-    console.error("[media] Failed to download media");
-    return null;
+  console.log(`[media] Downloading message ${message.id} (${info.fileSize ?? "unknown"} bytes)...`);
+  const directory = await mkdtemp(join(tmpdir(), "yedhod-sync-download-"));
+  const file = join(directory, "media");
+  let fileSize: number;
+  let lastProgress = Date.now();
+  try {
+    const output = createWriteStream(file);
+    const written = finished(output);
+    // Attach rejection handling immediately; the download may fail separately.
+    void written.catch(() => {});
+    try {
+      await client.downloadMedia(message, {
+        outputFile: output,
+        progressCallback: async (received, total) => {
+          if (Date.now() - lastProgress >= 30_000) {
+            console.log(`[media] Message ${message.id}: ${Number(received)}/${Number(total)} bytes downloaded`);
+            lastProgress = Date.now();
+          }
+        },
+      });
+      // GramJS closes the writer without awaiting its asynchronous final write.
+      output.end();
+      await written;
+    } catch (error) {
+      output.destroy();
+      await written.catch(() => {});
+      throw error;
+    }
+    const downloaded = await stat(file);
+    if (!downloaded.isFile() || !downloaded.size || (info.fileSize !== null && downloaded.size !== info.fileSize)) {
+      throw new Error(`Incomplete media download: expected ${info.fileSize}, received ${downloaded.size}`);
+    }
+    fileSize = downloaded.size;
+    console.log(`[media] Uploading to R2: ${r2Key} (${fileSize} bytes)`);
+    const stream = createReadStream(file);
+    try { await uploadStream(r2Key, stream, info.mimeType, fileSize, AbortSignal.timeout(10 * 60_000)); }
+    finally { stream.destroy(); await finished(stream).catch(() => {}); }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
-
-  console.log(`[media] Uploading to R2: ${r2Key} (${buffer.length} bytes)`);
-  await uploadBuffer(r2Key, buffer, info.mimeType, buffer.length);
 
   // Try to download video thumbnail.
   // Telegram returns thumbs sorted small→large. thumb[0] is a stripped
@@ -137,7 +172,7 @@ export async function downloadAndUploadMedia(
     r2Key,
     thumbnailR2Key,
     mimeType: info.mimeType,
-    fileSize: buffer.length,
+    fileSize,
     duration: info.duration,
     mediaType: info.mediaType,
   };

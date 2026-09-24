@@ -36,7 +36,9 @@ export async function getTenantCategories(tenantId: string) {
       and(
         eq(tenantCategories.tenantId, tenantId),
         eq(leaves.isActive, true),
-        eq(parents.isActive, true)
+        eq(leaves.accessLevel, "member"),
+        eq(parents.isActive, true),
+        eq(parents.accessLevel, "member")
       )
     );
 
@@ -56,6 +58,7 @@ export async function getTenantCategories(tenantId: string) {
       and(
         eq(tenantCategories.tenantId, tenantId),
         eq(categories.isActive, true),
+        eq(categories.accessLevel, "member"),
         sql`${categories.parentId} IS NULL`
       )
     );
@@ -75,15 +78,9 @@ async function tenantCategoryIds(tenantId: string) {
 }
 
 /**
- * The complete set of category ids a tenant can show clips from. This is
- * the union of:
- *   - every tenant-picked category (leaf or parent)
- *   - every active descendant of each tenant-picked parent
- *   - every leaf sibling of a tenant-picked leaf (i.e. same parent)
- *
- * Rule intent: the tenant nav shows top-level parents, so any clip in ANY
- * descendant of those parents should be reachable. Picking a single leaf
- * still surfaces the whole parent bucket (matches user expectation).
+ * The authorization scope contains active member-level categories explicitly
+ * picked for the tenant. An explicitly picked parent also grants its active
+ * member-level children; picking one leaf never grants sibling categories.
  */
 async function tenantEffectiveCategoryIds(tenantId: string): Promise<string[]> {
   const picked = await tenantCategoryIds(tenantId);
@@ -92,15 +89,21 @@ async function tenantEffectiveCategoryIds(tenantId: string): Promise<string[]> {
   const pickedRows = await db
     .select({ id: categories.id, parentId: categories.parentId })
     .from(categories)
-    .where(inArray(categories.id, picked));
+    .where(
+      and(
+        inArray(categories.id, picked),
+        eq(categories.isActive, true),
+        eq(categories.accessLevel, "member")
+      )
+    );
 
   const parentIds = new Set<string>();
   for (const r of pickedRows) {
-    if (r.parentId) parentIds.add(r.parentId);
-    else parentIds.add(r.id); // itself is a top-level parent
+    if (!r.parentId) parentIds.add(r.id);
   }
 
-  if (parentIds.size === 0) return picked;
+  const set = new Set<string>(pickedRows.map((row) => row.id));
+  if (parentIds.size === 0) return Array.from(set);
 
   const descendants = await db
     .select({ id: categories.id })
@@ -108,52 +111,42 @@ async function tenantEffectiveCategoryIds(tenantId: string): Promise<string[]> {
     .where(
       and(
         inArray(categories.parentId, Array.from(parentIds)),
-        eq(categories.isActive, true)
+        eq(categories.isActive, true),
+        eq(categories.accessLevel, "member")
       )
     );
 
-  const set = new Set<string>(picked);
-  for (const p of parentIds) set.add(p);
   for (const d of descendants) set.add(d.id);
   return Array.from(set);
 }
 
 /**
- * Given a category id from the nav (which is a parent), return every clip's
- * bucket to look in.
- *
- * When the tenant has picked ANY descendant leaf under this parent, we
- * expand to ALL active member-level descendants — the tenant intent is
- * "show the whole parent bucket". This makes the nav dead-simple (parents
- * only) while surfacing content from every child the parent contains.
- *
- * If the parent is directly picked (rare, since leaves are what the admin
- * usually selects), we still fall back to all its descendants.
+ * Resolve a nav category to the subset of buckets already authorized by the
+ * tenant's effective scope. This must never broaden access to siblings.
  */
 async function resolveCategoryFilter(
   tenantId: string,
   categoryId: string
 ): Promise<string[]> {
-  const tenantIds = await tenantCategoryIds(tenantId);
+  const tenantIds = await tenantEffectiveCategoryIds(tenantId);
   if (tenantIds.length === 0) return [];
 
   // Fetch all active descendants of this categoryId
   const kids = await db
     .select({ id: categories.id, parentId: categories.parentId })
     .from(categories)
-    .where(and(eq(categories.parentId, categoryId), eq(categories.isActive, true)));
+    .where(
+      and(
+        eq(categories.parentId, categoryId),
+        eq(categories.isActive, true),
+        eq(categories.accessLevel, "member")
+      )
+    );
 
   const tenantSet = new Set(tenantIds);
-  const anyDescendantPicked = kids.some((k) => tenantSet.has(k.id));
-  const parentDirectlyPicked = tenantSet.has(categoryId);
-
-  if (!anyDescendantPicked && !parentDirectlyPicked) return [];
-
   const scope = new Set<string>();
-  if (parentDirectlyPicked) scope.add(categoryId);
-  // Broaden: include ALL descendants (not just picked leaves) so parent
-  // pages show the full bucket the parent represents.
-  for (const k of kids) scope.add(k.id);
+  if (tenantSet.has(categoryId)) scope.add(categoryId);
+  for (const k of kids) if (tenantSet.has(k.id)) scope.add(k.id);
   return Array.from(scope);
 }
 
@@ -188,6 +181,8 @@ export async function getTenantClips(
       and(
         eq(clips.isActive, true),
         eq(clips.accessLevel, "member"),
+        eq(categories.isActive, true),
+        eq(categories.accessLevel, "member"),
         idFilter
       )
     )
@@ -214,10 +209,13 @@ export async function countTenantClips(
   const [{ n }] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(clips)
+    .innerJoin(categories, eq(categories.id, clips.categoryId))
     .where(
       and(
         eq(clips.isActive, true),
         eq(clips.accessLevel, "member"),
+        eq(categories.isActive, true),
+        eq(categories.accessLevel, "member"),
         idFilter
       )
     );
