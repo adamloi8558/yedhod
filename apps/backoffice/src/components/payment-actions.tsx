@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X, Image as ImageIcon } from "lucide-react";
 
@@ -12,17 +12,56 @@ interface Props {
   provider?: string;
 }
 
+interface ExistingSubscription {
+  id: string;
+  status: string;
+  startDate: string;
+  endDate: string | null;
+  amountPaid: string | null;
+}
+
 export function PaymentActions({ paymentId, status, hasSlip, slipUrl, provider }: Props) {
   const router = useRouter();
+  const formId = useId();
+  const transRefInput = useRef<HTMLInputElement>(null);
+  const confirmationInput = useRef<HTMLInputElement>(null);
   const [transRef, setTransRef] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [linkId, setLinkId] = useState("");
-  const [suggestedLink, setSuggestedLink] = useState<string | null>(null);
+  const [existingSubscriptions, setExistingSubscriptions] = useState<ExistingSubscription[]>([]);
+  const [loadingSubscriptions, setLoadingSubscriptions] = useState(false);
+  const [subscriptionsError, setSubscriptionsError] = useState(false);
+  const [retrySubscriptions, setRetrySubscriptions] = useState(0);
   const [approveOpen, setApproveOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmingReject, setConfirmingReject] = useState(false);
   const [slipOpen, setSlipOpen] = useState(false);
+
+  useEffect(() => {
+    if (!approveOpen || status !== "pending") return;
+    const controller = new AbortController();
+    setLoadingSubscriptions(true);
+    setSubscriptionsError(false);
+    async function loadSubscriptions() {
+      try {
+        const res = await fetch(`/api/payments/${paymentId}/approve`, {
+          cache: "no-store",
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+        });
+        if (!res.ok) throw new Error("Unable to load subscriptions");
+        const data = await res.json();
+        if (!Array.isArray(data.existingSubscriptions)) throw new Error("Invalid subscriptions response");
+        if (!controller.signal.aborted) setExistingSubscriptions(data.existingSubscriptions);
+      } catch {
+        if (!controller.signal.aborted) setSubscriptionsError(true);
+      } finally {
+        if (!controller.signal.aborted) setLoadingSubscriptions(false);
+      }
+    }
+    void loadSubscriptions();
+    return () => controller.abort();
+  }, [approveOpen, paymentId, status, retrySubscriptions]);
 
   // Close on Escape and lock body scroll while the modal is open.
   useEffect(() => {
@@ -60,24 +99,42 @@ export function PaymentActions({ paymentId, status, hasSlip, slipUrl, provider }
   }
 
   async function approve() {
-    if (!approveOpen) { setApproveOpen(true); return; }
+    if (!approveOpen) { setError(null); setConfirmingReject(false); setApproveOpen(true); return; }
     setError(null);
+    if (provider === "easyslip") {
+      if (!hasSlip) { setError("ยังไม่มีสลิป กรุณาให้ลูกค้าส่งสลิปก่อนอนุมัติ"); return; }
+      if (!/^[a-zA-Z0-9._:/-]{6,200}$/.test(transRef.trim())) {
+        setError("กรุณากรอกเลขธุรกรรมจากสลิป 6–200 ตัว ใช้ตัวอักษรอังกฤษ ตัวเลข หรือ . _ : / -");
+        transRefInput.current?.focus();
+        return;
+      }
+      if (!confirmed) {
+        setError("กรุณาติ๊กยืนยันหลังตรวจยอดเงิน บัญชีรับ และเงินเข้าจริงแล้ว");
+        confirmationInput.current?.focus();
+        return;
+      }
+    }
+    if (loadingSubscriptions || subscriptionsError) {
+      setError("กรุณารอโหลดสิทธิ์เดิมให้สำเร็จก่อนยืนยัน เพื่อป้องกันการเพิ่ม VIP ซ้ำ");
+      return;
+    }
     startTransition(async () => {
       try {
         const res = await fetch(`/api/payments/${paymentId}/approve`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transRef, confirmed, existingSubscriptionId: linkId || undefined }),
+          body: JSON.stringify({ transRef: transRef.trim(), confirmed, existingSubscriptionId: linkId || undefined }),
+          signal: AbortSignal.timeout(30_000),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           setError(j.error ?? "อนุมัติไม่สำเร็จ");
-          setSuggestedLink(j.existingSubscriptionId ?? null);
+          if (j.existingSubscriptionId) setRetrySubscriptions((n) => n + 1);
           return;
         }
         router.refresh();
       } catch {
-        setError("เชื่อมต่อไม่ได้");
+        setError("ยังยืนยันผลไม่ได้ กรุณารีเฟรชรายการเพื่อตรวจสถานะก่อนลองอีกครั้ง");
       }
     });
   }
@@ -113,24 +170,46 @@ export function PaymentActions({ paymentId, status, hasSlip, slipUrl, provider }
           ดูสลิป
         </button>
       )}
-      {approveOpen && <div className="w-full space-y-2 rounded border border-border p-3 text-xs">
+      {approveOpen && <div className="w-full min-w-64 space-y-3 rounded border border-border p-3 text-xs">
         {provider === "easyslip" && <>
-          <input aria-label="เลขธุรกรรมธนาคาร" placeholder="เลขธุรกรรมจากสลิป/ธนาคาร" value={transRef} onChange={(e) => setTransRef(e.target.value)} className="w-full rounded border bg-background p-2" />
-          <label className="flex gap-2"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />ตรวจยอดเงิน บัญชีรับ และยืนยันเงินเข้าแล้ว</label>
+          <div className="space-y-1">
+            <label htmlFor={`${formId}-reference`} className="block font-medium">เลขธุรกรรมธนาคาร (จำเป็น)</label>
+            <input id={`${formId}-reference`} ref={transRefInput} aria-label="เลขธุรกรรมธนาคาร" aria-describedby={`${formId}-reference-help`} placeholder="เลขอ้างอิงการโอนจากสลิป" value={transRef} onChange={(e) => setTransRef(e.target.value)} disabled={pending} maxLength={200} className="w-full rounded border bg-background p-2" />
+            <p id={`${formId}-reference-help`} className="text-muted-foreground">เปิดดูสลิป แล้วกรอกเลขธุรกรรมหรือเลขอ้างอิงการโอนที่ธนาคารออกให้</p>
+          </div>
+          <label className="flex cursor-pointer items-start gap-2"><input ref={confirmationInput} type="checkbox" checked={confirmed} disabled={pending} onChange={(e) => setConfirmed(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0" />ตรวจยอดเงิน บัญชีรับ และยืนยันเงินเข้าแล้ว</label>
+          {!hasSlip && <p className="text-red-400">ยังไม่มีสลิป กรุณาให้ลูกค้าส่งสลิปก่อนอนุมัติ</p>}
         </>}
-        <input aria-label="รหัสสิทธิ์เดิม" placeholder="รหัสสิทธิ์ที่เคยเพิ่มให้ยอดนี้ (ถ้ามี)" value={linkId} onChange={(e) => setLinkId(e.target.value)} className="w-full rounded border bg-background p-2" />
-        <p>หากเคยเพิ่ม VIP สำหรับยอดนี้ ให้ผูกสิทธิ์เดิมเพื่อปิดรายการโดยไม่เพิ่มวันซ้ำ</p>
-        {suggestedLink && <button type="button" className="underline" onClick={() => setLinkId(suggestedLink)}>ใช้สิทธิ์เดิม {suggestedLink}</button>}
+        {loadingSubscriptions ? <p role="status" className="text-muted-foreground">กำลังตรวจสิทธิ์ VIP เดิม…</p> : subscriptionsError ? (
+          <div role="alert" className="space-y-1 text-red-400">
+            <p>โหลดสิทธิ์เดิมไม่สำเร็จ กรุณาลองอีกครั้ง</p>
+            <button type="button" onClick={() => setRetrySubscriptions((n) => n + 1)} className="underline">โหลดสิทธิ์เดิมอีกครั้ง</button>
+          </div>
+        ) : existingSubscriptions.length > 0 ? (
+          <div className="space-y-1">
+            <label htmlFor={`${formId}-subscription`} className="block font-medium">เคยเพิ่ม VIP สำหรับยอดนี้แล้วหรือไม่?</label>
+            <select id={`${formId}-subscription`} value={linkId} onChange={(e) => setLinkId(e.target.value)} disabled={pending} className="w-full rounded border bg-background p-2">
+              <option value="">ยังไม่ได้เพิ่ม — สร้างสิทธิ์ใหม่</option>
+              {existingSubscriptions.map((subscription) => (
+                <option key={subscription.id} value={subscription.id}>
+                  ใช้สิทธิ์เดิม: {new Date(subscription.startDate).toLocaleString("th-TH")} · {subscription.amountPaid ? `฿${subscription.amountPaid}` : "ไม่ระบุยอด"} · {subscription.endDate ? `ถึง ${new Date(subscription.endDate).toLocaleDateString("th-TH")}` : "ตลอดชีพ"}
+                </option>
+              ))}
+            </select>
+            <p className="text-muted-foreground">เลือกสิทธิ์ที่เคยเพิ่มให้ยอดนี้เพื่อปิดรายการ โดยไม่เพิ่มวัน VIP ซ้ำ</p>
+          </div>
+        ) : <p className="text-muted-foreground">ไม่พบสิทธิ์ที่แอดมินเพิ่มไว้สำหรับแพ็กเกจนี้หลังสร้างรายการ อนุมัติแล้วจะสร้างสิทธิ์ใหม่</p>}
       </div>}
       <button
         type="button"
         onClick={approve}
-        disabled={pending || (approveOpen && provider === "easyslip" && (!hasSlip || !confirmed || !transRef.trim()))}
+        disabled={pending}
         className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[11px] font-semibold text-emerald-400 transition-colors hover:bg-emerald-500/25 disabled:opacity-60"
       >
         <Check className="h-3 w-3" />
-        {approveOpen ? "ยืนยันอนุมัติ" : "อนุมัติ"}
+        {pending ? "กำลังบันทึก…" : approveOpen ? (linkId ? "ยืนยันผูกสิทธิ์เดิม" : "ยืนยันอนุมัติ") : "อนุมัติ"}
       </button>
+      {approveOpen && <button type="button" disabled={pending} onClick={() => { setApproveOpen(false); setError(null); }} className="text-[11px] text-muted-foreground hover:text-foreground">ยกเลิกอนุมัติ</button>}
       {confirmingReject ? (
         <>
           <button
@@ -161,7 +240,7 @@ export function PaymentActions({ paymentId, status, hasSlip, slipUrl, provider }
           ปฏิเสธ
         </button>
       )}
-      {error && <span className="text-[11px] text-red-400">{error}</span>}
+      {error && <p role="alert" className="w-full text-xs text-red-400">{error}</p>}
       {slipOpen && slipUrl && (
         <SlipModal url={slipUrl} onClose={() => setSlipOpen(false)} />
       )}

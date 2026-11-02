@@ -49,6 +49,7 @@ const pg = dbRequire('postgres')(url, { max: 4, onnotice: () => {} });
 const verify = load('apps/web/src/app/api/payments/[ref]/verify-slip/route.ts').POST;
 const create = load('apps/web/src/app/api/payments/create-easyslip/route.ts').POST;
 const approve = load('apps/backoffice/src/app/api/payments/[id]/approve/route.ts').POST;
+const approvalOptions = load('apps/backoffice/src/app/api/payments/[id]/approve/route.ts').GET;
 const reject = load('apps/backoffice/src/app/api/payments/[id]/reject/route.ts').POST;
 const { tailMatches } = load('packages/easyslip/src/match.ts');
 const { slipRuleError } = load('packages/easyslip/src/rules.ts');
@@ -157,6 +158,37 @@ test('parallel order creation produces one pending order',async()=>{
 });
 test('manual approval needs evidence, confirmation and bank reference',async()=>{
   await order();assert.equal((await call(approve,'p1','admin')).status,400);assert.equal((await counts()).subs,0);
+  await pg`update payments set slip_image_r2_key='saved.jpg'`;
+  for (const body of [{transRef:'BANK-TRANSFER-1'}, {transRef:'short',confirmed:true}, {transRef:'BANK TRANSFER 1',confirmed:true}]) {
+    assert.equal((await call(approve,'p1','admin',body)).status,400);
+  }
+  assert.equal((await counts()).subs,0);
+});
+test('approval options require admin and include only reconcilable manual grants',async()=>{
+  await order('p1','u1',{slip:'saved.jpg'});
+  const rows = [
+    ['eligible','u1','plan','admin-grant-eligible',new Date(now),'active'],
+    ['expired','u1','plan','admin-grant-expired',new Date(now),'expired'],
+    ['other-user','u2','plan','admin-grant-other-user',new Date(now),'active'],
+    ['other-plan','u1','plan2','admin-grant-other-plan',new Date(now),'active'],
+    ['already-linked','u1','plan','BANK-OLD',new Date(now),'active'],
+    ['before-order','u1','plan','admin-grant-before',new Date(now-120_000),'active'],
+  ];
+  for (const [id,user,plan,reference,date,status] of rows) {
+    await pg`insert into subscriptions(id,user_id,pricing_plan_id,payment_ref,created_at,status,end_date)
+      values(${id},${user},${plan},${reference},${date},${status},${new Date(now-1000)})`;
+  }
+  for (const user of [null,'u1','u2']) assert.equal((await call(approvalOptions,'p1',user)).status,403);
+  assert.equal((await call(approvalOptions,'missing','admin')).status,404);
+  const response=await call(approvalOptions,'p1','admin');
+  assert.equal(response.headers.get('cache-control'),'no-store');
+  const {existingSubscriptions}=await response.json();
+  assert.deepEqual(existingSubscriptions.map(s=>s.id).sort(),['eligible','expired']);
+  assert.equal((await counts()).paid,0);
+  for (const id of ['other-user','other-plan','already-linked','before-order']) {
+    assert.equal((await call(approve,'p1','admin',{transRef:'BANK-TRANSFER-1',confirmed:true,existingSubscriptionId:id})).status,409);
+  }
+  assert.equal((await counts()).paid,0);
 });
 test('manual approve stores reference; later automatic replay cannot grant',async()=>{
   await order('p1','u1',{slip:'saved.jpg'});assert.equal((await call(approve,'p1','admin',{transRef:'BANK-TRANSFER-1',confirmed:true})).status,200);
@@ -167,7 +199,9 @@ test('reconcile a prior manual grant without extending or creating a second subs
   const end=new Date(now+86400_000);
   await pg`insert into subscriptions(id,user_id,pricing_plan_id,status,end_date,payment_ref) values('sub1','u1','plan','active',${end},'admin-grant-sub1')`;
   const body={transRef:'BANK-TRANSFER-1',confirmed:true};assert.equal((await call(approve,'p1','admin',body)).status,409);
-  assert.equal((await call(approve,'p1','admin',{...body,existingSubscriptionId:'sub1'})).status,200);
+  const options=await (await call(approvalOptions,'p1','admin')).json();
+  assert.equal(options.existingSubscriptions[0].id,'sub1');
+  assert.equal((await call(approve,'p1','admin',{...body,existingSubscriptionId:' sub1 '})).status,200);
   assert.deepEqual({...await counts()},{subs:1,paid:1});assert.equal((await pg`select end_date from subscriptions`)[0].end_date.getTime(),end.getTime());
 });
 test('approve/reject race never revokes a completed payment',async()=>{

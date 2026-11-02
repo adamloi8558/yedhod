@@ -1,9 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@kodhom/db";
 import { payments, pricingPlans, subscriptions, adminAuditLogs } from "@kodhom/db/schema";
-import { and, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, isNull, like, or, sql } from "drizzle-orm";
 import { getAdminSession } from "@/lib/auth-server";
 import { nanoid } from "@/lib/nanoid";
+
+// Offer only manual grants that this payment can reconcile. Selection remains
+// explicit, and POST revalidates it under the payment lock before changing data.
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getAdminSession();
+  if (!session) return NextResponse.json({ error: "ไม่มีสิทธิ์" }, { status: 403 });
+  const { id } = await params;
+  const [payment] = await db.select().from(payments).where(eq(payments.id, id)).limit(1);
+  if (!payment) return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
+  const existingSubscriptions = await db.select({
+    id: subscriptions.id,
+    status: subscriptions.status,
+    startDate: subscriptions.startDate,
+    endDate: subscriptions.endDate,
+    amountPaid: subscriptions.amountPaid,
+  }).from(subscriptions).where(and(
+    eq(subscriptions.userId, payment.userId),
+    eq(subscriptions.pricingPlanId, payment.pricingPlanId),
+    like(subscriptions.paymentRef, "admin-%"),
+    gte(subscriptions.createdAt, payment.createdAt),
+  )).orderBy(desc(subscriptions.createdAt));
+  return NextResponse.json({ existingSubscriptions }, { headers: { "Cache-Control": "no-store" } });
+}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminSession();
@@ -12,7 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const transRef = typeof body.transRef === "string" ? body.transRef.trim() : "";
-  const linkId = typeof body.existingSubscriptionId === "string" ? body.existingSubscriptionId : null;
+  const linkId = typeof body.existingSubscriptionId === "string" ? body.existingSubscriptionId.trim() || null : null;
   const [owner] = await db.select({ userId: payments.userId }).from(payments).where(eq(payments.id, id)).limit(1);
   if (!owner) return NextResponse.json({ error: "ไม่พบรายการ" }, { status: 404 });
   try {

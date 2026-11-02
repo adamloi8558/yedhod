@@ -21,6 +21,16 @@ instead of granting another. Linking does not extend or revive its dates. The
 subscription must belong to this user/plan, be a manual grant, and have been
 created after the payment. Closing a support ticket alone does not settle a payment.
 
+The approval form now shows required-field errors when confirmation is clicked
+instead of silently disabling the button. Opening the form loads eligible manual
+grants into a selector with their dates and amounts; admins explicitly select the
+grant for this transfer instead of copying a subscription ID. Failed lookups can
+be retried and block submission until loaded. The approval transaction still
+revalidates the selected grant, bank reference and confirmation before settling.
+Browser fixture checks run with `node scripts/payment-actions-regression.cjs`;
+the database regression also checks admin-only lookup, candidate filtering and
+reconciliation without extending membership.
+
 Historical rejected records with missing images/references need individual review;
 this release does not guess whether money was received or grant them in bulk.
 `reverify-pending-slips.ts` is now a read-only pending-review report; `--apply`
